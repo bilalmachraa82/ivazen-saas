@@ -2,7 +2,7 @@
  * Modelo 10 Excel Generator
  *
  * Generates comprehensive Excel files for Modelo 10 declarations
- * Following the exact format requested by Adélia (Accounting Advantage)
+ * Following the exact format requested by Portuguese tax authorities
  *
  * Structure:
  * - ABA 1: Resumo Recibos Verdes (Cat. B, 25%)

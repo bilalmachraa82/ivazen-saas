@@ -168,7 +168,7 @@ const Contact = () => {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Building className="h-5 w-5 text-primary" />
-                    Accounting Advantage
+                    IVAzen - Suporte
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -245,7 +245,7 @@ const Contact = () => {
                       allowFullScreen
                       loading="lazy"
                       referrerPolicy="no-referrer-when-downgrade"
-                      title="Localização Accounting Advantage - Alverca do Ribatejo"
+                      title="Localização IVAzen - Alverca do Ribatejo"
                       className="rounded-b-lg"
                     />
                   </div>

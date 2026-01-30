@@ -212,7 +212,7 @@ export function EmitterDataForm({ onSave, compact = false }: EmitterDataFormProp
                 id="companyName"
                 value={formData.companyName}
                 onChange={(e) => handleChange('companyName', e.target.value)}
-                placeholder="Ex: Accounting Advantage"
+                placeholder="Ex: A Sua Empresa, Lda"
               />
             </div>
             <div className="space-y-2">

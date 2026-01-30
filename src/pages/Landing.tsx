@@ -184,13 +184,13 @@ const Landing = () => {
     },
     {
       question: "Como posso obter acesso?",
-      answer: "O IVAzen é uma ferramenta exclusiva para clientes da Accounting Advantage. Contacte-nos para saber mais sobre como podemos ajudar na gestão do seu IVA."
+      answer: "Registe-se gratuitamente para experimentar. Para funcionalidades premium, consulte os nossos planos de subscrição."
     }
   ];
 
   const trustBadges = [
     { icon: ShieldCheck, label: "Conformidade RGPD" },
-    { icon: Users, label: "Accounting Advantage" },
+    { icon: Users, label: "Suporte Dedicado" },
     { icon: Globe, label: "Made in Portugal 🇵🇹" }
   ];
 
@@ -220,7 +220,7 @@ const Landing = () => {
                 <span className="bg-gradient-to-r from-primary via-pink-400 to-accent bg-clip-text text-2xl font-display font-bold tracking-tight text-transparent">
                   IVAzen
                 </span>
-                <span className="text-[10px] text-muted-foreground">by Accounting Advantage</span>
+                <span className="text-[10px] text-muted-foreground">Gestão de IVA Simplificada</span>
               </div>
             </div>
             
@@ -316,12 +316,12 @@ const Landing = () => {
               <div className="text-center lg:text-left">
                 <div className="mb-6 inline-flex items-center gap-2 rounded-full glass-card glow-ring border-primary/30 px-4 py-2 text-sm text-primary">
                   <Heart className="h-4 w-4 animate-premium-pulse" />
-                  Powered by Accounting Advantage
+                  Plataforma SaaS Portuguesa
                 </div>
                 <h1 className="mb-6 text-4xl font-display font-bold tracking-tight md:text-5xl lg:text-6xl">
                   Gestão de IVA inteligente{" "}
                   <span className="bg-gradient-to-r from-primary via-pink-400 to-accent bg-clip-text text-transparent animate-gradient bg-[length:200%_auto]">
-                    para clientes Accounting Advantage
+                    para trabalhadores independentes
                   </span>
                 </h1>
                 <p className="mx-auto mb-8 max-w-xl text-lg text-muted-foreground lg:mx-0">
@@ -702,7 +702,7 @@ const Landing = () => {
           <AnimateOnScroll animation="fade-up" className="mx-auto max-w-3xl text-center">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full glass-card border-white/30 px-4 py-2 text-sm text-white">
               <Sparkles className="h-4 w-4 animate-shimmer" />
-              Exclusivo para clientes Accounting Advantage
+              Para Trabalhadores Independentes Portugueses
             </div>
             <h2 className="mb-6 text-3xl font-display font-bold text-white md:text-4xl lg:text-5xl">
               Pronto para simplificar{" "}
@@ -743,7 +743,7 @@ const Landing = () => {
                 </div>
                 <div className="flex flex-col">
                   <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-lg font-display font-bold text-transparent">IVAzen</span>
-                  <span className="text-[10px] text-muted-foreground">by Accounting Advantage</span>
+                  <span className="text-[10px] text-muted-foreground">Gestão de IVA Simplificada</span>
                 </div>
               </div>
               <p className="text-sm text-muted-foreground">
@@ -771,9 +771,9 @@ const Landing = () => {
               </ul>
             </div>
 
-            {/* Contact - Accounting Advantage */}
+            {/* Contact - IVAzen */}
             <div>
-              <h4 className="mb-4 font-semibold">Accounting Advantage</h4>
+              <h4 className="mb-4 font-semibold">Contacto</h4>
               <ul className="space-y-3 text-sm text-muted-foreground">
                 <li className="flex items-center gap-2 group">
                   <Phone className="h-4 w-4 text-primary group-hover:animate-premium-pulse" />
@@ -799,7 +799,7 @@ const Landing = () => {
           
           <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-primary/10 pt-8 md:flex-row">
             <p className="text-sm text-muted-foreground">
-              © 2025 IVAzen by Accounting Advantage. Todos os direitos reservados.
+              © 2025 IVAzen. Todos os direitos reservados.
             </p>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <Link to="/privacy" className="story-link transition-colors hover:text-primary"><span>Privacidade</span></Link>

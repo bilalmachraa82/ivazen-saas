@@ -1,3 +1,15 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# User data files (may contain PII)
+*.pdf
+*.xlsx
+*.xls
+/uploads/
+/data/
+
 # Logs
 logs
 *.log

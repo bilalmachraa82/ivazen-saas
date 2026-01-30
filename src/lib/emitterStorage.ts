@@ -13,7 +13,7 @@ const EMITTER_STORAGE_KEY = 'ivazen_emitter_data';
 
 export interface EmitterData {
   // Company Information
-  companyName: string;        // Nome da empresa (ex: "Accounting Advantage")
+  companyName: string;        // Nome da empresa (ex: "A Sua Empresa, Lda")
   companyNIF: string;         // NIF da empresa
   companyAddress: string;     // Morada
   companyPostalCode: string;  // Código postal
