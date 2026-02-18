@@ -97,7 +97,7 @@ export function useValidationHistory({
           invoice_type: invoiceType,
           user_id: user.id,
           action,
-          changes: JSON.stringify(changes),
+          changes: changes as unknown as import('@/integrations/supabase/types').Json,
         }]);
 
       if (insertError) {
@@ -209,11 +209,12 @@ export function formatValueForDisplay(field: string, value: unknown): string {
   // Handle DP field
   if (field === 'final_dp_field' || field === 'ai_dp_field') {
     const dpFieldLabels: Record<number, string> = {
+      10: 'Campo 10 - Aquisições intracomunitárias (Base)',
       20: 'Campo 20 - Imobilizado',
-      21: 'Campo 21 - Existencias',
-      22: 'Campo 22 - Outros bens',
-      23: 'Campo 23 - Nao dedutivel',
-      24: 'Campo 24 - Gasoleo (50%)',
+      21: 'Campo 21 - Existências (6%)',
+      22: 'Campo 22 - Existências (23%)',
+      23: 'Campo 23 - Existências (13%)',
+      24: 'Campo 24 - Outros bens e serviços',
     };
     return dpFieldLabels[value as number] || `Campo ${value}`;
   }

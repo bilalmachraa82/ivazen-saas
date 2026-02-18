@@ -1,9 +1,8 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from "npm:@supabase/supabase-js@2.94.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 interface PushRequest {
@@ -15,13 +14,37 @@ interface PushRequest {
   data?: Record<string, unknown>;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Verify JWT authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Autenticação obrigatória' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const authSupabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user }, error: authError } = await authSupabase.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Token inválido ou expirado' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Use service role for DB operations (reading other users' subscriptions)
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
@@ -29,11 +52,11 @@ serve(async (req) => {
 
     const { userId, userIds, title, body, type, data }: PushRequest = await req.json();
 
-    console.log(`Sending push notification: ${type} - ${title}`);
+    console.log(`Sending push notification: ${type} - ${title} (by user ${user.id})`);
 
     // Get target user IDs
     const targetUserIds = userIds || (userId ? [userId] : []);
-    
+
     if (targetUserIds.length === 0) {
       throw new Error("No target users specified");
     }
@@ -88,7 +111,7 @@ serve(async (req) => {
 
     // Web Push requires VAPID keys - for now, we'll log and store notification
     // In production, you would use web-push library with proper VAPID keys
-    
+
     // Store sent notifications for tracking
     const notifications = filteredSubs.map(sub => ({
       user_id: sub.user_id,
@@ -108,19 +131,17 @@ serve(async (req) => {
       }
     }
 
-    // For demonstration, we'll simulate sending
-    // In production, implement actual Web Push API calls here
     console.log(`Notifications logged for ${notifications.length} users`);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         sent: filteredSubs.length,
         message: `Notification queued for ${filteredSubs.length} users`
       }),
-      { 
+      {
         status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
       }
     );
   } catch (error: unknown) {
@@ -128,9 +149,9 @@ serve(async (req) => {
     console.error("Push notification error:", error);
     return new Response(
       JSON.stringify({ error: errorMessage }),
-      { 
+      {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
       }
     );
   }

@@ -1,5 +1,6 @@
--- Create upload queue table for background processing
--- This allows users to upload large batches of documents that are processed asynchronously
+-- DUPLICATE OF 20260116155600 - made idempotent with IF NOT EXISTS guards
+-- This migration was a duplicate. The original tables were already created
+-- in migration 20260116155600_580a6176-a857-4bc0-b1a9-b1644e9301f3.sql
 
 CREATE TABLE IF NOT EXISTS upload_queue (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -21,106 +22,52 @@ CREATE TABLE IF NOT EXISTS upload_queue (
   completed_at TIMESTAMPTZ
 );
 
--- Indexes for efficient querying
-CREATE INDEX idx_upload_queue_client_status ON upload_queue(client_id, status);
-CREATE INDEX idx_upload_queue_status_created ON upload_queue(status, created_at) WHERE status = 'pending';
-CREATE INDEX idx_upload_queue_processing ON upload_queue(status) WHERE status = 'processing';
+CREATE INDEX IF NOT EXISTS idx_upload_queue_client_status ON upload_queue(client_id, status);
+CREATE INDEX IF NOT EXISTS idx_upload_queue_status_created ON upload_queue(status, created_at) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_upload_queue_processing ON upload_queue(status) WHERE status = 'processing';
 
--- Enable RLS
 ALTER TABLE upload_queue ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies
+DROP POLICY IF EXISTS "Users can view own queue items" ON upload_queue;
 CREATE POLICY "Users can view own queue items"
-  ON upload_queue FOR SELECT
-  USING (auth.uid() = client_id);
+  ON upload_queue FOR SELECT USING (auth.uid() = client_id);
 
+DROP POLICY IF EXISTS "Users can insert own queue items" ON upload_queue;
 CREATE POLICY "Users can insert own queue items"
-  ON upload_queue FOR INSERT
-  WITH CHECK (auth.uid() = client_id);
+  ON upload_queue FOR INSERT WITH CHECK (auth.uid() = client_id);
 
+DROP POLICY IF EXISTS "Users can delete own queue items" ON upload_queue;
 CREATE POLICY "Users can delete own queue items"
-  ON upload_queue FOR DELETE
-  USING (auth.uid() = client_id);
+  ON upload_queue FOR DELETE USING (auth.uid() = client_id);
 
--- Service role can update (for background worker)
+DROP POLICY IF EXISTS "Service role can update queue items" ON upload_queue;
 CREATE POLICY "Service role can update queue items"
-  ON upload_queue FOR UPDATE
-  USING (true)
-  WITH CHECK (true);
+  ON upload_queue FOR UPDATE USING (true) WITH CHECK (true);
 
--- Create storage bucket for temporary upload files
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES (
-  'upload-queue',
-  'upload-queue',
-  false,
-  5242880, -- 5MB limit
+VALUES ('upload-queue', 'upload-queue', false, 5242880,
   ARRAY['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp']
 ) ON CONFLICT (id) DO NOTHING;
 
--- Storage policies for upload-queue bucket
-CREATE POLICY "Users can upload to own folder"
-  ON storage.objects FOR INSERT
-  WITH CHECK (
-    bucket_id = 'upload-queue' AND
-    auth.uid()::text = (storage.foldername(name))[1]
-  );
-
-CREATE POLICY "Users can read own files"
-  ON storage.objects FOR SELECT
-  USING (
-    bucket_id = 'upload-queue' AND
-    auth.uid()::text = (storage.foldername(name))[1]
-  );
-
-CREATE POLICY "Users can delete own files"
-  ON storage.objects FOR DELETE
-  USING (
-    bucket_id = 'upload-queue' AND
-    auth.uid()::text = (storage.foldername(name))[1]
-  );
-
--- Function to get queue statistics for a user
 CREATE OR REPLACE FUNCTION get_queue_stats(user_id UUID)
-RETURNS TABLE (
-  total_count BIGINT,
-  pending_count BIGINT,
-  processing_count BIGINT,
-  completed_count BIGINT,
-  failed_count BIGINT
-) AS $$
+RETURNS TABLE (total_count BIGINT, pending_count BIGINT, processing_count BIGINT, completed_count BIGINT, failed_count BIGINT)
+AS $$
 BEGIN
-  RETURN QUERY
-  SELECT
-    COUNT(*)::BIGINT as total_count,
-    COUNT(*) FILTER (WHERE status = 'pending')::BIGINT as pending_count,
-    COUNT(*) FILTER (WHERE status = 'processing')::BIGINT as processing_count,
-    COUNT(*) FILTER (WHERE status = 'completed')::BIGINT as completed_count,
-    COUNT(*) FILTER (WHERE status = 'failed')::BIGINT as failed_count
-  FROM upload_queue
-  WHERE client_id = user_id;
+  RETURN QUERY SELECT
+    COUNT(*)::BIGINT, COUNT(*) FILTER (WHERE status = 'pending')::BIGINT,
+    COUNT(*) FILTER (WHERE status = 'processing')::BIGINT, COUNT(*) FILTER (WHERE status = 'completed')::BIGINT,
+    COUNT(*) FILTER (WHERE status = 'failed')::BIGINT
+  FROM upload_queue WHERE client_id = user_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Function to clean up old completed/failed items (run periodically)
 CREATE OR REPLACE FUNCTION cleanup_old_queue_items()
 RETURNS INTEGER AS $$
-DECLARE
-  deleted_count INTEGER;
+DECLARE deleted_count INTEGER;
 BEGIN
-  -- Delete completed items older than 7 days
   WITH deleted AS (
-    DELETE FROM upload_queue
-    WHERE status IN ('completed', 'failed')
-    AND completed_at < now() - INTERVAL '7 days'
-    RETURNING id
-  )
-  SELECT COUNT(*) INTO deleted_count FROM deleted;
-
+    DELETE FROM upload_queue WHERE status IN ('completed', 'failed') AND completed_at < now() - INTERVAL '7 days' RETURNING id
+  ) SELECT COUNT(*) INTO deleted_count FROM deleted;
   RETURN deleted_count;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
-COMMENT ON TABLE upload_queue IS 'Queue for background processing of bulk document uploads';
-COMMENT ON COLUMN upload_queue.file_path IS 'Path in storage bucket: {client_id}/{filename}';
-COMMENT ON COLUMN upload_queue.extracted_data IS 'JSON with extracted withholding data after OCR processing';

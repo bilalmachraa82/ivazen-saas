@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { CheckCircle, AlertTriangle, Keyboard, HelpCircle } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Keyboard, HelpCircle, Pencil } from 'lucide-react';
 
 const CLASSIFICATIONS = [
   'Mercadorias',
@@ -18,11 +18,11 @@ const CLASSIFICATIONS = [
 ];
 
 const DP_FIELDS = [
-  { value: 20, label: 'Campo 20 - Imobilizado (activo fixo tangível)' },
-  { value: 21, label: 'Campo 21 - Existências (mercadorias, matérias-primas)' },
-  { value: 22, label: 'Campo 22 - Outros bens e serviços' },
-  { value: 23, label: 'Campo 23 - Não dedutível (Art.21º CIVA)' },
-  { value: 24, label: 'Campo 24 - Gasóleo, GPL, GNV (50% dedutível)' },
+  { value: 20, label: 'Campo 20 - Imobilizado' },
+  { value: 21, label: 'Campo 21 - Existências (taxa reduzida 6%)' },
+  { value: 22, label: 'Campo 22 - Existências (taxa normal 23%)' },
+  { value: 23, label: 'Campo 23 - Existências (taxa intermédia 13%)' },
+  { value: 24, label: 'Campo 24 - Outros bens e serviços' },
 ];
 
 interface ClassificationEditorProps {
@@ -46,6 +46,7 @@ interface ClassificationEditorProps {
 }
 
 export function ClassificationEditor({ invoice, onValidate, isValidating }: ClassificationEditorProps) {
+  const [isReopened, setIsReopened] = useState(false);
   const [classification, setClassification] = useState(
     invoice.final_classification || invoice.ai_classification || ''
   );
@@ -60,6 +61,7 @@ export function ClassificationEditor({ invoice, onValidate, isValidating }: Clas
     setClassification(invoice.final_classification || invoice.ai_classification || '');
     setDpField(invoice.final_dp_field || invoice.ai_dp_field || 22);
     setDeductibility(invoice.final_deductibility || invoice.ai_deductibility || 100);
+    setIsReopened(false);
   }, [invoice]);
 
   const handleValidate = useCallback(async () => {
@@ -89,7 +91,7 @@ export function ClassificationEditor({ invoice, onValidate, isValidating }: Clas
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleValidate]);
 
-  const isValidated = invoice.status === 'validated';
+  const isValidated = invoice.status === 'validated' && !isReopened;
   const hasAIClassification = invoice.ai_classification !== null;
 
   return (
@@ -219,11 +221,21 @@ export function ClassificationEditor({ invoice, onValidate, isValidating }: Clas
       )}
 
       {isValidated && (
-        <div className="p-4 rounded-lg bg-success/10 border border-success/20">
-          <div className="flex items-center gap-2 text-success">
-            <CheckCircle className="h-5 w-5" />
-            <span className="font-medium">Factura validada</span>
+        <div className="space-y-3">
+          <div className="p-4 rounded-lg bg-success/10 border border-success/20">
+            <div className="flex items-center gap-2 text-success">
+              <CheckCircle className="h-5 w-5" />
+              <span className="font-medium">Factura validada</span>
+            </div>
           </div>
+          <Button
+            variant="outline"
+            onClick={() => setIsReopened(true)}
+            className="w-full gap-2"
+          >
+            <Pencil className="h-4 w-4" />
+            Reabrir / Editar Classificação
+          </Button>
         </div>
       )}
     </div>

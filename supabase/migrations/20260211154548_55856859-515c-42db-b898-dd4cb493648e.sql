@@ -1,0 +1,1 @@
+ALTER TABLE public.accountant_at_config ADD COLUMN IF NOT EXISTS ca_chain_pem text;

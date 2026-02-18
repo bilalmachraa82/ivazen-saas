@@ -16,7 +16,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Save, Loader2, Building2, User, Shield, Settings as SettingsIcon, Mail, Smartphone, Download, CheckCircle, AlertTriangle, RotateCcw, HelpCircle, Briefcase, Calculator, Wand2, Bell, Users, Palette, Moon, Sun } from 'lucide-react';
+import { Save, Loader2, Building2, User, Shield, Settings as SettingsIcon, Mail, Smartphone, Download, CheckCircle, AlertTriangle, RotateCcw, HelpCircle, Briefcase, Calculator, Wand2, Bell, Users, Palette, Moon, Sun, Database } from 'lucide-react';
 import { ZenCard, ZenHeader, ZenDecorations } from '@/components/zen';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { Link } from 'react-router-dom';
@@ -28,6 +28,7 @@ import { WORKER_TYPES, ACCOUNTING_REGIMES, SS_RATES } from '@/hooks/useSocialSec
 import { ClientManagementPanel } from '@/components/settings/ClientManagementPanel';
 import { MyAccountantsPanel } from '@/components/settings/MyAccountantsPanel';
 import { NotificationPreferences } from '@/components/settings/NotificationPreferences';
+import { DatabaseImporter } from '@/components/settings/DatabaseImporter';
 import { InfoIcon } from '@/components/ui/info-tooltip';
 import { useTheme } from 'next-themes';
 
@@ -182,6 +183,7 @@ export default function Settings() {
     { value: 'fiscal', label: 'Fiscal', icon: Calculator },
     { value: 'notificacoes', label: 'Notificacoes', icon: Bell },
     { value: 'contabilistas', label: isAccountant ? 'Clientes' : 'Contabilistas', icon: Users },
+    { value: 'importar', label: 'Importar', icon: Database },
     { value: 'aplicacao', label: 'Aplicacao', icon: Palette },
   ];
 
@@ -770,6 +772,11 @@ export default function Settings() {
                   )}
                 </CardContent>
               </ZenCard>
+            </TabsContent>
+
+            {/* Tab: Importar */}
+            <TabsContent value="importar" className="mt-6 space-y-6">
+              <DatabaseImporter />
             </TabsContent>
           </Tabs>
         )}

@@ -1,0 +1,9 @@
+.env
+*.pfx
+*.p12
+*.cer
+*.p7b
+*.pem
+*.key
+*.crt
+logs

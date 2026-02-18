@@ -44,7 +44,7 @@ npx vitest --watch
 - **Styling**: Tailwind CSS + shadcn/ui (Radix primitives)
 - **State**: React Query (server state) + React Context (auth/accountant)
 - **Backend**: Supabase (PostgreSQL + Edge Functions + Auth + Storage)
-- **AI**: Claude/Gemini via Lovable AI Gateway for invoice OCR and classification
+- **AI**: Gemini via OpenRouter for invoice OCR and classification
 
 ### Key Directories
 - `src/pages/` - Page components (25 pages including Dashboard, Upload, Validation, Modelo10)
@@ -113,7 +113,7 @@ Required in `.env`:
 - `VITE_SUPABASE_PUBLISHABLE_KEY` - Supabase anon key
 
 Edge functions require:
-- `LOVABLE_API_KEY` - For AI gateway access
+- `AI_API_KEY` - For OpenRouter AI gateway access
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY` - Auto-injected by Supabase
 
 ## Portuguese Tax Context
@@ -128,7 +128,7 @@ Edge functions require:
 ## Common Issues
 
 ### Supabase Types Out of Sync
-After database migrations, types in `src/integrations/supabase/types.ts` may need regeneration via Lovable or `supabase gen types typescript`.
+After database migrations, types in `src/integrations/supabase/types.ts` may need regeneration via `supabase gen types typescript`.
 
 ### PWA Caching
 Development uses service worker; clear cache or use incognito for fresh testing.

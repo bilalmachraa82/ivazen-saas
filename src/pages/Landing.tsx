@@ -34,7 +34,14 @@ import {
   Laptop,
   Quote,
   Lock,
-  MessageCircle
+   MessageCircle,
+   Wifi,
+   WifiOff,
+   Copy,
+   History,
+   CloudUpload,
+   Receipt,
+   Map
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -59,38 +66,110 @@ const Landing = () => {
     }
   }, [user, navigate]);
 
-  const features = [
+   // Organize features in 4 pillars: Captura, Classificação, Declarações, Gestão Pro
+   const featurePillars = [
     {
-      icon: QrCode,
-      title: "QR Code Português",
-      description: "Leitura instantânea do QR code de facturas PT. Extracção automática de NIF, data, valores e IVA."
+       pillar: "Captura",
+       description: "Digitalize documentos de múltiplas formas",
+       color: "from-blue-500 to-cyan-500",
+       items: [
+         {
+           icon: QrCode,
+           title: "QR Code Português",
+           description: "Leitura instantânea do QR code de facturas PT com extracção automática."
+         },
+         {
+           icon: FileCode,
+           title: "SAFT-PT & CSV",
+           description: "Importa ficheiros SAFT-PT (XML) ou CSV do Portal das Finanças."
+         },
+         {
+           icon: CloudUpload,
+           title: "Bulk Import (100+)",
+           description: "Processamento em lote de até 500 documentos com fila inteligente."
+         },
+         {
+           icon: Wifi,
+           title: "PWA Offline",
+           description: "Funciona offline com sincronização automática quando voltar online."
+         }
+       ]
     },
     {
-      icon: Brain,
-      title: "IA com Few-Shot Learning",
-      description: "Classificação que aprende com cada correcção. Guarda as suas preferências para importações futuras."
+       pillar: "Classificação",
+       description: "IA que aprende e se adapta ao seu negócio",
+       color: "from-violet-500 to-purple-500",
+       items: [
+         {
+           icon: Brain,
+           title: "IA Few-Shot Learning",
+           description: "Classificação que aprende com cada correcção e guarda preferências."
+         },
+         {
+           icon: Copy,
+           title: "Compras vs Vendas",
+           description: "Detecção automática do tipo de documento com validação cruzada."
+         },
+         {
+           icon: ShieldCheck,
+           title: "Detecção Duplicados",
+           description: "Verificação automática de documentos duplicados antes de guardar."
+         },
+         {
+           icon: Map,
+           title: "Taxas Regionais",
+           description: "Açores 16%, Madeira 22%, Continente 23% — aplicação automática."
+         }
+       ]
     },
     {
-      icon: FileCode,
-      title: "Importação SAFT-PT",
-      description: "Importa ficheiros SAFT-PT (XML) ou CSV do Portal das Finanças. Classificação automática por CAE."
+       pillar: "Declarações",
+       description: "Cumpra todas as obrigações fiscais",
+       color: "from-emerald-500 to-green-500",
+       items: [
+         {
+           icon: Calculator,
+           title: "Calculadora IVA",
+           description: "Isenção Art.53º, adicionar/retirar IVA, e cálculo de IVA a entregar."
+         },
+         {
+           icon: Receipt,
+           title: "Modelo 10",
+           description: "Declaração de retenções na fonte com export PDF/CSV oficial AT."
+         },
+         {
+           icon: BarChart3,
+           title: "Segurança Social",
+           description: "Cálculo de contribuições trimestrais com gráficos de evolução."
+         }
+       ]
     },
     {
-      icon: Calculator,
-      title: "Segurança Social",
-      description: "Calcula contribuições trimestrais automaticamente. Gráficos de evolução e guia de submissão."
-    },
-    {
-      icon: Users,
-      title: "Dashboard Contabilista",
-      description: "Vista multi-cliente para contabilistas. Validação rápida de classificações da IA."
-    },
-    {
-      icon: BarChart3,
-      title: "Analytics & Métricas",
-      description: "Acompanhe a precisão da IA, taxa de correcções e evolução ao longo do tempo."
+       pillar: "Gestão Pro",
+       description: "Para contabilistas e equipas",
+       color: "from-orange-500 to-amber-500",
+       items: [
+         {
+           icon: Users,
+           title: "Multi-Cliente",
+           description: "Gerir múltiplos clientes numa única interface com troca rápida."
+         },
+         {
+           icon: History,
+           title: "Histórico Auditável",
+           description: "Audit trail completo de todas as alterações com timestamps."
+         },
+         {
+           icon: BarChart3,
+           title: "Analytics & Métricas",
+           description: "Precisão da IA, taxa de correcções e evolução ao longo do tempo."
+         }
+       ]
     }
   ];
+   
+   // Flat features for backward compatibility with existing UI
+   const features = featurePillars.flatMap(p => p.items);
 
   const stats = [
     { value: "70%", label: "Menos tempo por factura" },
@@ -398,21 +477,42 @@ const Landing = () => {
               Ferramentas poderosas, interface zen. Feito a pensar no trabalhador independente português.
             </p>
           </AnimateOnScroll>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {features.map((feature, index) => (
-              <AnimateOnScroll key={index} animation="fade-up" delay={index * 100}>
-                <Card className="glass-card-hover glow-ring shimmer-hover group h-full border-primary/10 transition-all duration-500 hover:-translate-y-3 hover:shadow-glow-lg click-bounce">
-                  <CardContent className="p-6">
-                    <div className="icon-container-premium mb-4 flex h-12 w-12 items-center justify-center rounded-xl gradient-rose text-white shadow-glow transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 group-hover:shadow-glow-lg">
-                      <feature.icon className="h-6 w-6 icon-rotate-hover" />
-                    </div>
-                    <h3 className="mb-2 text-lg font-semibold group-hover:text-primary transition-all duration-300 float-label">{feature.title}</h3>
-                    <p className="text-sm text-muted-foreground transition-colors duration-300 group-hover:text-foreground/80">{feature.description}</p>
-                  </CardContent>
-                </Card>
-              </AnimateOnScroll>
-            ))}
-          </div>
+           
+           {/* 4 Pillar Grid */}
+           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+             {featurePillars.map((pillar, pillarIndex) => (
+               <AnimateOnScroll key={pillar.pillar} animation="fade-up" delay={pillarIndex * 100}>
+                 <div className="space-y-4">
+                   {/* Pillar Header */}
+                   <div className="text-center">
+                     <div className={`inline-flex items-center gap-2 rounded-full bg-gradient-to-r ${pillar.color} px-4 py-1.5 text-sm font-semibold text-white shadow-lg`}>
+                       {pillar.pillar}
+                     </div>
+                     <p className="mt-2 text-xs text-muted-foreground">{pillar.description}</p>
+                   </div>
+                   
+                   {/* Pillar Features */}
+                   <div className="space-y-3">
+                     {pillar.items.map((feature, index) => (
+                       <Card key={index} className="glass-card-hover group border-primary/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-glow">
+                         <CardContent className="p-4">
+                           <div className="flex items-start gap-3">
+                             <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${pillar.color} text-white shadow-sm transition-transform duration-300 group-hover:scale-110`}>
+                               <feature.icon className="h-4 w-4" />
+                             </div>
+                             <div className="min-w-0">
+                               <h3 className="text-sm font-semibold group-hover:text-primary transition-colors">{feature.title}</h3>
+                               <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">{feature.description}</p>
+                             </div>
+                           </div>
+                         </CardContent>
+                       </Card>
+                     ))}
+                   </div>
+                 </div>
+               </AnimateOnScroll>
+             ))}
+           </div>
         </div>
       </section>
 

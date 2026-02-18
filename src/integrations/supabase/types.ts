@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      accountant_at_config: {
+        Row: {
+          accountant_id: string
+          at_public_key_base64: string | null
+          ca_chain_pem: string | null
+          certificate_cn: string | null
+          certificate_password_encrypted: string | null
+          certificate_pfx_base64: string | null
+          certificate_valid_from: string | null
+          certificate_valid_to: string | null
+          created_at: string | null
+          environment: string | null
+          id: string
+          is_active: boolean | null
+          subuser_id: string | null
+          subuser_password_encrypted: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          accountant_id: string
+          at_public_key_base64?: string | null
+          ca_chain_pem?: string | null
+          certificate_cn?: string | null
+          certificate_password_encrypted?: string | null
+          certificate_pfx_base64?: string | null
+          certificate_valid_from?: string | null
+          certificate_valid_to?: string | null
+          created_at?: string | null
+          environment?: string | null
+          id?: string
+          is_active?: boolean | null
+          subuser_id?: string | null
+          subuser_password_encrypted?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          accountant_id?: string
+          at_public_key_base64?: string | null
+          ca_chain_pem?: string | null
+          certificate_cn?: string | null
+          certificate_password_encrypted?: string | null
+          certificate_pfx_base64?: string | null
+          certificate_valid_from?: string | null
+          certificate_valid_to?: string | null
+          created_at?: string | null
+          environment?: string | null
+          id?: string
+          is_active?: boolean | null
+          subuser_id?: string | null
+          subuser_password_encrypted?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       accountant_requests: {
         Row: {
           admin_notes: string | null
@@ -104,6 +158,207 @@ export type Database = {
         }
         Relationships: []
       }
+      at_credentials: {
+        Row: {
+          accountant_id: string
+          at_public_key_base64: string | null
+          certificate_password_encrypted: string | null
+          certificate_pfx_base64: string | null
+          certificate_valid_from: string | null
+          certificate_valid_to: string | null
+          client_id: string
+          created_at: string | null
+          encrypted_password: string
+          encrypted_username: string
+          environment: string | null
+          id: string
+          last_sync_at: string | null
+          last_sync_error: string | null
+          last_sync_status: string | null
+          portal_nif: string | null
+          portal_password_encrypted: string | null
+          subuser_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          accountant_id: string
+          at_public_key_base64?: string | null
+          certificate_password_encrypted?: string | null
+          certificate_pfx_base64?: string | null
+          certificate_valid_from?: string | null
+          certificate_valid_to?: string | null
+          client_id: string
+          created_at?: string | null
+          encrypted_password: string
+          encrypted_username: string
+          environment?: string | null
+          id?: string
+          last_sync_at?: string | null
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          portal_nif?: string | null
+          portal_password_encrypted?: string | null
+          subuser_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          accountant_id?: string
+          at_public_key_base64?: string | null
+          certificate_password_encrypted?: string | null
+          certificate_pfx_base64?: string | null
+          certificate_valid_from?: string | null
+          certificate_valid_to?: string | null
+          client_id?: string
+          created_at?: string | null
+          encrypted_password?: string
+          encrypted_username?: string
+          environment?: string | null
+          id?: string
+          last_sync_at?: string | null
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          portal_nif?: string | null
+          portal_password_encrypted?: string | null
+          subuser_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "at_credentials_accountant_id_fkey"
+            columns: ["accountant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "at_credentials_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      at_sync_history: {
+        Row: {
+          accountant_id: string | null
+          client_id: string
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          end_date: string
+          error_details: Json | null
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          records_errors: number | null
+          records_imported: number | null
+          records_skipped: number | null
+          records_updated: number | null
+          start_date: string
+          status: string | null
+          sync_method: string
+          sync_type: string
+        }
+        Insert: {
+          accountant_id?: string | null
+          client_id: string
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          end_date: string
+          error_details?: Json | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          records_errors?: number | null
+          records_imported?: number | null
+          records_skipped?: number | null
+          records_updated?: number | null
+          start_date: string
+          status?: string | null
+          sync_method: string
+          sync_type: string
+        }
+        Update: {
+          accountant_id?: string | null
+          client_id?: string
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          end_date?: string
+          error_details?: Json | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          records_errors?: number | null
+          records_imported?: number | null
+          records_skipped?: number | null
+          records_updated?: number | null
+          start_date?: string
+          status?: string | null
+          sync_method?: string
+          sync_type?: string
+        }
+        Relationships: []
+      }
+      at_sync_jobs: {
+        Row: {
+          accountant_id: string
+          client_id: string
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          fiscal_year: number
+          id: string
+          invoices_synced: number | null
+          job_batch_id: string | null
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          accountant_id: string
+          client_id: string
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          fiscal_year?: number
+          id?: string
+          invoices_synced?: number | null
+          job_batch_id?: string | null
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          accountant_id?: string
+          client_id?: string
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          fiscal_year?: number
+          id?: string
+          invoices_synced?: number | null
+          job_batch_id?: string | null
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "at_sync_jobs_accountant_id_fkey"
+            columns: ["accountant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "at_sync_jobs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       category_preferences: {
         Row: {
           cae_prefix: string | null
@@ -172,6 +427,81 @@ export type Database = {
           supplier_nif?: string
         }
         Relationships: []
+      }
+      classification_rules: {
+        Row: {
+          classification: string
+          client_cae: string | null
+          client_id: string | null
+          confidence: number | null
+          created_at: string | null
+          created_by: string | null
+          deductibility: number | null
+          dp_field: number | null
+          id: string
+          is_global: boolean | null
+          last_used_at: string | null
+          notes: string | null
+          requires_review: boolean | null
+          supplier_name_pattern: string | null
+          supplier_nif: string
+          updated_at: string | null
+          usage_count: number | null
+        }
+        Insert: {
+          classification: string
+          client_cae?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          deductibility?: number | null
+          dp_field?: number | null
+          id?: string
+          is_global?: boolean | null
+          last_used_at?: string | null
+          notes?: string | null
+          requires_review?: boolean | null
+          supplier_name_pattern?: string | null
+          supplier_nif: string
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Update: {
+          classification?: string
+          client_cae?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          deductibility?: number | null
+          dp_field?: number | null
+          id?: string
+          is_global?: boolean | null
+          last_used_at?: string | null
+          notes?: string | null
+          requires_review?: boolean | null
+          supplier_name_pattern?: string | null
+          supplier_nif?: string
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classification_rules_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classification_rules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       client_accountants: {
         Row: {
@@ -309,6 +639,56 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_vat_lines: {
+        Row: {
+          created_at: string | null
+          deductibility_percent: number | null
+          dp_field: number | null
+          id: string
+          invoice_id: string | null
+          is_deductible: boolean | null
+          source: string | null
+          tax_amount: number
+          tax_base: number
+          tax_code: string
+          tax_rate: number
+        }
+        Insert: {
+          created_at?: string | null
+          deductibility_percent?: number | null
+          dp_field?: number | null
+          id?: string
+          invoice_id?: string | null
+          is_deductible?: boolean | null
+          source?: string | null
+          tax_amount: number
+          tax_base: number
+          tax_code: string
+          tax_rate: number
+        }
+        Update: {
+          created_at?: string | null
+          deductibility_percent?: number | null
+          dp_field?: number | null
+          id?: string
+          invoice_id?: string | null
+          is_deductible?: boolean | null
+          source?: string | null
+          tax_amount?: number
+          tax_base?: number
+          tax_code?: string
+          tax_rate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_vat_lines_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           ai_classification: string | null
@@ -324,9 +704,12 @@ export type Database = {
           client_id: string
           created_at: string | null
           customer_nif: string | null
+          data_authority: string | null
           document_date: string
           document_number: string | null
           document_type: string | null
+          efatura_source: string | null
+          exclusion_reason: string | null
           final_classification: string | null
           final_deductibility: number | null
           final_dp_field: number | null
@@ -334,10 +717,13 @@ export type Database = {
           fiscal_region: string | null
           id: string
           image_path: string
+          is_activity_related: boolean | null
           qr_raw: string | null
+          requires_accountant_validation: boolean | null
           status: string | null
           supplier_name: string | null
           supplier_nif: string
+          supplier_vat_id: string | null
           total_amount: number
           total_vat: number | null
           validated_at: string | null
@@ -360,9 +746,12 @@ export type Database = {
           client_id: string
           created_at?: string | null
           customer_nif?: string | null
+          data_authority?: string | null
           document_date: string
           document_number?: string | null
           document_type?: string | null
+          efatura_source?: string | null
+          exclusion_reason?: string | null
           final_classification?: string | null
           final_deductibility?: number | null
           final_dp_field?: number | null
@@ -370,10 +759,13 @@ export type Database = {
           fiscal_region?: string | null
           id?: string
           image_path: string
+          is_activity_related?: boolean | null
           qr_raw?: string | null
+          requires_accountant_validation?: boolean | null
           status?: string | null
           supplier_name?: string | null
           supplier_nif: string
+          supplier_vat_id?: string | null
           total_amount: number
           total_vat?: number | null
           validated_at?: string | null
@@ -396,9 +788,12 @@ export type Database = {
           client_id?: string
           created_at?: string | null
           customer_nif?: string | null
+          data_authority?: string | null
           document_date?: string
           document_number?: string | null
           document_type?: string | null
+          efatura_source?: string | null
+          exclusion_reason?: string | null
           final_classification?: string | null
           final_deductibility?: number | null
           final_dp_field?: number | null
@@ -406,10 +801,13 @@ export type Database = {
           fiscal_region?: string | null
           id?: string
           image_path?: string
+          is_activity_related?: boolean | null
           qr_raw?: string | null
+          requires_accountant_validation?: boolean | null
           status?: string | null
           supplier_name?: string | null
           supplier_nif?: string
+          supplier_vat_id?: string | null
           total_amount?: number
           total_vat?: number | null
           validated_at?: string | null
@@ -509,6 +907,8 @@ export type Database = {
           accountant_id: string | null
           accounting_regime: string | null
           activity_description: string | null
+          address: string | null
+          at_contact_email: string | null
           cae: string | null
           company_name: string | null
           created_at: string | null
@@ -522,6 +922,7 @@ export type Database = {
           nif: string | null
           niss: string | null
           other_employment_salary: number | null
+          phone: string | null
           ss_contribution_rate: number | null
           taxable_profit: number | null
           vat_regime: string | null
@@ -531,6 +932,8 @@ export type Database = {
           accountant_id?: string | null
           accounting_regime?: string | null
           activity_description?: string | null
+          address?: string | null
+          at_contact_email?: string | null
           cae?: string | null
           company_name?: string | null
           created_at?: string | null
@@ -544,6 +947,7 @@ export type Database = {
           nif?: string | null
           niss?: string | null
           other_employment_salary?: number | null
+          phone?: string | null
           ss_contribution_rate?: number | null
           taxable_profit?: number | null
           vat_regime?: string | null
@@ -553,6 +957,8 @@ export type Database = {
           accountant_id?: string | null
           accounting_regime?: string | null
           activity_description?: string | null
+          address?: string | null
+          at_contact_email?: string | null
           cae?: string | null
           company_name?: string | null
           created_at?: string | null
@@ -566,6 +972,7 @@ export type Database = {
           nif?: string | null
           niss?: string | null
           other_employment_salary?: number | null
+          phone?: string | null
           ss_contribution_rate?: number | null
           taxable_profit?: number | null
           vat_regime?: string | null
@@ -857,6 +1264,7 @@ export type Database = {
           notes: string | null
           payment_date: string
           source_invoice_id: string | null
+          source_sales_invoice_id: string | null
           status: string | null
           updated_at: string | null
           withholding_amount: number
@@ -882,6 +1290,7 @@ export type Database = {
           notes?: string | null
           payment_date: string
           source_invoice_id?: string | null
+          source_sales_invoice_id?: string | null
           status?: string | null
           updated_at?: string | null
           withholding_amount?: number
@@ -907,6 +1316,7 @@ export type Database = {
           notes?: string | null
           payment_date?: string
           source_invoice_id?: string | null
+          source_sales_invoice_id?: string | null
           status?: string | null
           updated_at?: string | null
           withholding_amount?: number
@@ -920,10 +1330,18 @@ export type Database = {
             referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tax_withholdings_source_sales_invoice_id_fkey"
+            columns: ["source_sales_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
         ]
       }
       upload_queue: {
         Row: {
+          client_id: string
           confidence: number | null
           created_at: string
           error_message: string | null
@@ -942,6 +1360,7 @@ export type Database = {
           warnings: string[] | null
         }
         Insert: {
+          client_id: string
           confidence?: number | null
           created_at?: string
           error_message?: string | null
@@ -960,6 +1379,7 @@ export type Database = {
           warnings?: string[] | null
         }
         Update: {
+          client_id?: string
           confidence?: number | null
           created_at?: string
           error_message?: string | null
@@ -1080,6 +1500,7 @@ export type Database = {
         Args: { accountant_uuid: string }
         Returns: {
           access_level: string
+          address: string
           company_name: string
           email: string
           full_name: string
@@ -1087,6 +1508,7 @@ export type Database = {
           is_primary: boolean
           nif: string
           pending_invoices: number
+          phone: string
           validated_invoices: number
         }[]
       }
@@ -1133,6 +1555,17 @@ export type Database = {
           years_experience: number
         }[]
       }
+      get_sync_batch_progress: {
+        Args: { p_batch_id: string }
+        Returns: {
+          completed: number
+          errors: number
+          pending: number
+          processing: number
+          total: number
+          total_invoices: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1161,11 +1594,14 @@ export type Database = {
       search_available_clients: {
         Args: { search_term: string }
         Returns: {
+          address: string
+          already_associated: boolean
           company_name: string
           email: string
           full_name: string
           id: string
           nif: string
+          phone: string
         }[]
       }
       sync_profile_emails: { Args: never; Returns: undefined }

@@ -10,6 +10,8 @@ export interface AvailableClient {
   company_name: string | null;
   nif: string | null;
   email: string | null;
+  phone: string | null;
+  address: string | null;
 }
 
 export interface AccountantClient extends AvailableClient {

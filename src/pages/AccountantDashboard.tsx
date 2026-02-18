@@ -45,16 +45,20 @@ export default function AccountantDashboard() {
     allInvoices,
     allSalesInvoices,
     pendingInvoices,
-    selectedClientInvoices,
     isLoadingInvoices,
     metrics,
-    selectedClientId,
-    setSelectedClientId,
     batchValidate,
     isBatchValidating,
     validateInvoice,
     isValidating,
   } = useAccountant();
+
+  // Local expand/collapse state for client list (not global context)
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const selectedClientInvoices = useMemo(() => {
+    if (!allInvoices || !selectedClientId) return [];
+    return allInvoices.filter(inv => inv.client_id === selectedClientId);
+  }, [allInvoices, selectedClientId]);
 
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
   const [filterClientId, setFilterClientId] = useState<string | null>(null);
@@ -199,35 +203,43 @@ export default function AccountantDashboard() {
             </p>
           </div>
           
-          {/* Client Filter */}
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <Select
-              value={filterClientId || 'all'}
-              onValueChange={(value) => setFilterClientId(value === 'all' ? null : value)}
-            >
-              <SelectTrigger className="w-[220px]">
-                <SelectValue placeholder="Todos os clientes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os clientes</SelectItem>
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.company_name || client.full_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {filterClientId && (
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => setFilterClientId(null)}
-                className="h-8 w-8"
+          {/* Quick Actions */}
+          <div className="flex items-center gap-3">
+            <Button variant="outline" onClick={() => navigate('/bulk-sync')}>
+              <Upload className="h-4 w-4 mr-2" />
+              Sincronização em Massa
+            </Button>
+            
+            {/* Client Filter */}
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select
+                value={filterClientId || 'all'}
+                onValueChange={(value) => setFilterClientId(value === 'all' ? null : value)}
               >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue placeholder="Todos os clientes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os clientes</SelectItem>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.company_name || client.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {filterClientId && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setFilterClientId(null)}
+                  className="h-8 w-8"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 

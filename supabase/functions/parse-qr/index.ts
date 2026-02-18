@@ -107,25 +107,24 @@ function determineFiscalRegion(data: QRCodeData): string {
   // Check if intermediate rate exists to determine region
   if (data.I4) {
     const intermediateRate = parseFloat(data.I4) / parseFloat(data.I3 || '1') * 100;
-    if (intermediateRate <= 10) return 'Açores';
-    if (intermediateRate <= 13) return 'Madeira';
+    if (intermediateRate <= 10) return 'PT-AC';
+    if (intermediateRate <= 13) return 'PT-MA';
   }
   
   if (data.I6) {
     const standardRate = parseFloat(data.I6) / parseFloat(data.I5 || '1') * 100;
-    if (standardRate <= 19) return 'Açores';
-    if (standardRate <= 22.5) return 'Madeira';
+    if (standardRate <= 19) return 'PT-AC';
+    if (standardRate <= 22.5) return 'PT-MA';
   }
   
-  return 'Continente';
+  return 'PT';
 }
 
 // Get fiscal period from date
 function getFiscalPeriod(dateStr: string): string {
   const year = dateStr.substring(0, 4);
   const month = dateStr.substring(4, 6);
-  const quarter = Math.ceil(parseInt(month) / 3);
-  return `${year}T${quarter}`;
+  return `${year}${month}`;
 }
 
 serve(async (req) => {

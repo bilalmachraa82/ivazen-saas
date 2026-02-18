@@ -72,9 +72,9 @@ export interface WithholdingLog {
 export function useWithholdings(forClientId?: string | null) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  // Default to 2025 since most imported documents are from 2025
-  // User can still change to current year if needed
-  const [selectedYear, setSelectedYear] = useState<number>(2025);
+  // Default to 2024 since imported documents are from 2024
+  // User can change to current year (2025/2026) if needed
+  const [selectedYear, setSelectedYear] = useState<number>(2024);
 
   // Determine which client ID to use: explicit client ID for accountants, or logged-in user
   const effectiveClientId = forClientId || user?.id;
@@ -275,17 +275,6 @@ export function useWithholdings(forClientId?: string | null) {
   // Delete withholding mutation
   const deleteMutation = useMutation({
     mutationFn: async ({ id, previousData }: { id: string; previousData?: TaxWithholding }) => {
-      // Log the deletion BEFORE deleting (since we'll lose the foreign key)
-      // Actually, we need to log BEFORE because of cascade delete
-      // So we'll just record the beneficiary info
-      const deleteInfo = previousData ? {
-        beneficiary_nif: { old: previousData.beneficiary_nif, new: null },
-        gross_amount: { old: previousData.gross_amount, new: null },
-      } : {};
-      
-      // Note: We can't log after delete due to cascade, so we log basic info
-      // The log will be deleted anyway due to cascade, so this is just for record
-      
       const { error } = await supabase
         .from('tax_withholdings')
         .delete()
@@ -301,6 +290,37 @@ export function useWithholdings(forClientId?: string | null) {
     onError: (error) => {
       console.error('Error deleting withholding:', error);
       toast.error('Erro ao eliminar retenção');
+    },
+  });
+
+  // Delete ALL withholdings for a specific year (passed as parameter to avoid stale closure)
+  const deleteAllForYearMutation = useMutation({
+    mutationFn: async (yearToDelete: number) => {
+      if (!effectiveClientId) throw new Error('Cliente não seleccionado');
+      if (!yearToDelete || yearToDelete < 2000 || yearToDelete > 2100) {
+        throw new Error('Ano fiscal inválido');
+      }
+
+      const { error } = await supabase
+        .from('tax_withholdings')
+        .delete()
+        .eq('client_id', effectiveClientId)
+        .eq('fiscal_year', yearToDelete);
+
+      if (error) throw error;
+      
+      return yearToDelete;
+    },
+    onSuccess: (deletedYear) => {
+      // Force immediate refresh of all related queries
+      queryClient.invalidateQueries({ queryKey: ['withholdings'] });
+      queryClient.invalidateQueries({ queryKey: ['withholding-logs'] });
+      queryClient.refetchQueries({ queryKey: ['withholdings', effectiveClientId, deletedYear] });
+      toast.success(`Todos os registos de ${deletedYear} foram eliminados`);
+    },
+    onError: (error) => {
+      console.error('Error deleting all withholdings:', error);
+      toast.error('Erro ao eliminar registos');
     },
   });
 
@@ -339,9 +359,11 @@ export function useWithholdings(forClientId?: string | null) {
     addWithholding: addMutation.mutateAsync,
     updateWithholding: updateMutation.mutateAsync,
     deleteWithholding: deleteMutation.mutateAsync,
+    deleteAllForYear: deleteAllForYearMutation.mutateAsync,
     extractFromImage,
     isAdding: addMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
+    isDeletingAll: deleteAllForYearMutation.isPending,
   };
 }

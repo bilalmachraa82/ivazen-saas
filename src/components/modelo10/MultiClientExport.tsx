@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
 import { ZenCard } from '@/components/zen';
 import { CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Download, FileSpreadsheet, Loader2, Users, Check } from 'lucide-react';
+import { Download, FileSpreadsheet, Loader2, Users, Check, Mail } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -14,6 +14,7 @@ import { AccountantClient } from '@/hooks/useClientManagement';
 import { TaxWithholding } from '@/hooks/useWithholdings';
 import { toast } from 'sonner';
 import { getCountryName } from '@/lib/countries';
+import { EmailExportButton } from '@/components/ui/email-export-button';
 
 interface MultiClientExportProps {
   clients: AccountantClient[];
@@ -162,7 +163,77 @@ export function MultiClientExport({ clients, selectedYear }: MultiClientExportPr
       summarySheet['!cols'] = [{ wch: 35 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 20 }];
       XLSX.utils.book_append_sheet(workbook, summarySheet, 'Resumo Clientes');
 
-      // Sheet 2: All withholdings detail
+      // Sheet 2: Summary by beneficiary (NIF + Category)
+      const beneficiaryMap = new Map<string, {
+        nif: string;
+        name: string;
+        category: string;
+        clientIds: Set<string>;
+        docCount: number;
+        totalGross: number;
+        totalWithholding: number;
+      }>();
+
+      // Aggregate by beneficiary_nif + income_category
+      allWithholdings.forEach(w => {
+        const key = `${w.beneficiary_nif}_${w.income_category}`;
+        
+        if (!beneficiaryMap.has(key)) {
+          beneficiaryMap.set(key, {
+            nif: w.beneficiary_nif,
+            name: w.beneficiary_name || '',
+            category: w.income_category,
+            clientIds: new Set(),
+            docCount: 0,
+            totalGross: 0,
+            totalWithholding: 0,
+          });
+        }
+        
+        const entry = beneficiaryMap.get(key)!;
+        entry.clientIds.add(w.client_id);
+        entry.docCount += 1;
+        entry.totalGross += Number(w.gross_amount);
+        entry.totalWithholding += Number(w.withholding_amount);
+      });
+
+      // Convert to array and sort by NIF
+      const beneficiarySummary = Array.from(beneficiaryMap.values())
+        .sort((a, b) => a.nif.localeCompare(b.nif))
+        .map(b => ({
+          'NIF Beneficiário': b.nif,
+          'Nome': b.name,
+          'Categoria': b.category,
+          'Descrição': getCategoryLabel(b.category),
+          'Nº Documentos': b.docCount,
+          'Nº Clientes': b.clientIds.size,
+          'NIFs Clientes': Array.from(b.clientIds)
+            .map(id => getClientNif(id))
+            .filter(Boolean)
+            .join(', '),
+          'Rendimento Bruto (€)': b.totalGross.toFixed(2),
+          'Retenção (€)': b.totalWithholding.toFixed(2),
+        }));
+
+      const beneficiarySheet = XLSX.utils.json_to_sheet(beneficiarySummary);
+
+      // Add totals row
+      const totalBeneficiaryDocs = beneficiarySummary.reduce((s, b) => s + b['Nº Documentos'], 0);
+      const uniqueBeneficiaryClients = new Set(allWithholdings.map(w => w.client_id)).size;
+      XLSX.utils.sheet_add_aoa(beneficiarySheet, [[
+        'TOTAL', '', '', '', totalBeneficiaryDocs, uniqueBeneficiaryClients, '',
+        totalGrossAll.toFixed(2), totalWithholdingAll.toFixed(2)
+      ]], { origin: -1 });
+
+      beneficiarySheet['!cols'] = [
+        { wch: 15 }, { wch: 30 }, { wch: 8 }, { wch: 35 }, 
+        { wch: 12 }, { wch: 12 }, { wch: 40 }, 
+        { wch: 18 }, { wch: 15 }
+      ];
+
+      XLSX.utils.book_append_sheet(workbook, beneficiarySheet, 'Resumo Beneficiários');
+
+      // Sheet 3: All withholdings detail
       const detailData = allWithholdings.map(w => ({
         'Cliente': getClientName(w.client_id),
         'NIF Cliente': getClientNif(w.client_id),
@@ -311,22 +382,39 @@ export function MultiClientExport({ clients, selectedYear }: MultiClientExportPr
           )}
         </div>
 
-        {/* Export Button */}
-        <Button
-          onClick={exportMultiClientExcel}
-          disabled={isExporting || selectedClientIds.length === 0 || isLoadingWithholdings || !allWithholdings?.length}
-          className="w-full"
-        >
-          {isExporting ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <FileSpreadsheet className="h-4 w-4 mr-2" />
-          )}
-          {isLoadingWithholdings 
-            ? 'A carregar dados...' 
-            : `Exportar Excel (${selectedClientIds.length} cliente${selectedClientIds.length !== 1 ? 's' : ''})`
-          }
-        </Button>
+        {/* Export Buttons */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button
+            onClick={exportMultiClientExcel}
+            disabled={isExporting || selectedClientIds.length === 0 || isLoadingWithholdings || !allWithholdings?.length}
+            className="flex-1"
+          >
+            {isExporting ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+            )}
+            {isLoadingWithholdings 
+              ? 'A carregar dados...' 
+              : `Exportar Excel`
+            }
+          </Button>
+          
+          <EmailExportButton
+            recipientEmail=""
+            recipientName={`${selectedClientIds.length} clientes`}
+            declarationType="modelo10"
+            year={selectedYear}
+            onGenerateFile={exportMultiClientExcel}
+            fileName={`Modelo10_MultiCliente_${selectedYear}.xlsx`}
+            senderName={profile?.full_name || profile?.company_name || undefined}
+            variant="outline"
+            disabled={selectedClientIds.length === 0 || isLoadingWithholdings || !allWithholdings?.length}
+            className="flex-1"
+          >
+            Enviar por Email
+          </EmailExportButton>
+        </div>
 
         {/* Info */}
         <div className="mt-4 p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground">

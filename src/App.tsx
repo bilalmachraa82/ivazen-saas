@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/hooks/useAuth";
+import { SelectedClientProvider } from "@/hooks/useSelectedClient";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Landing from "./pages/Landing";
@@ -31,8 +32,14 @@ import BecomeAccountant from "./pages/BecomeAccountant";
 import AdminAccountants from "./pages/AdminAccountants";
 import VATCalculator from "./pages/VATCalculator";
 import Glossary from "./pages/Glossary";
+import Documents from "./pages/Documents";
+import SuperAdminDashboard from "./pages/SuperAdminDashboard";
+import ReconciliationAudit from "./pages/ReconciliationAudit";
+import EFaturaSync from "./pages/EFaturaSync";
+import AdminCertificates from "./pages/AdminCertificates";
+import BulkClientSync from "./pages/BulkClientSync";
 import NotFound from "./pages/NotFound";
-import ChatWidget from "./components/support/ChatWidget";
+
 
 const queryClient = new QueryClient();
 
@@ -42,6 +49,7 @@ const App = () => (
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <AuthProvider>
+            <SelectedClientProvider>
             <Toaster />
             <Sonner />
             <BrowserRouter>
@@ -59,26 +67,33 @@ const App = () => (
                 <Route path="/iva-calculator" element={<ProtectedRoute><VATCalculator /></ProtectedRoute>} />
                 <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
                 <Route path="/validation" element={<ProtectedRoute><Validation /></ProtectedRoute>} />
+                <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
                 <Route path="/sales" element={<ProtectedRoute><SalesValidation /></ProtectedRoute>} />
                 <Route path="/export" element={<ProtectedRoute><Export /></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-                <Route path="/accountant" element={<ProtectedRoute><AccountantDashboard /></ProtectedRoute>} />
-                <Route path="/accountant/onboarding" element={<ProtectedRoute><AccountantOnboarding /></ProtectedRoute>} />
+                <Route path="/accountant" element={<ProtectedRoute requireRole="accountant"><AccountantDashboard /></ProtectedRoute>} />
+                <Route path="/accountant/onboarding" element={<ProtectedRoute requireRole="accountant"><AccountantOnboarding /></ProtectedRoute>} />
                 <Route path="/seguranca-social" element={<ProtectedRoute><SocialSecurity /></ProtectedRoute>} />
                 <Route path="/social-security" element={<Navigate to="/seguranca-social" replace />} />
                 <Route path="/modelo-10" element={<ProtectedRoute><Modelo10 /></ProtectedRoute>} />
                 <Route path="/ai-metrics" element={<ProtectedRoute><AIMetrics /></ProtectedRoute>} />
                 <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-                <Route path="/admin/partners" element={<ProtectedRoute><AdminPartners /></ProtectedRoute>} />
-                <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
-                <Route path="/admin/accountants" element={<ProtectedRoute><AdminAccountants /></ProtectedRoute>} />
+                <Route path="/admin/partners" element={<ProtectedRoute requireRole="admin"><AdminPartners /></ProtectedRoute>} />
+                <Route path="/admin/users" element={<ProtectedRoute requireRole="admin"><AdminUsers /></ProtectedRoute>} />
+                <Route path="/admin/accountants" element={<ProtectedRoute requireRole="admin"><AdminAccountants /></ProtectedRoute>} />
+                <Route path="/admin/super" element={<ProtectedRoute requireRole="admin"><SuperAdminDashboard /></ProtectedRoute>} />
                 <Route path="/become-accountant" element={<ProtectedRoute><BecomeAccountant /></ProtectedRoute>} />
                 <Route path="/glossario" element={<ProtectedRoute><Glossary /></ProtectedRoute>} />
+                <Route path="/efatura" element={<ProtectedRoute requireRole="accountant"><EFaturaSync /></ProtectedRoute>} />
+                <Route path="/bulk-sync" element={<ProtectedRoute requireRole="accountant"><BulkClientSync /></ProtectedRoute>} />
+                <Route path="/reconciliation" element={<ProtectedRoute><ReconciliationAudit /></ProtectedRoute>} />
+                <Route path="/admin/certificates" element={<ProtectedRoute requireRole="accountant"><AdminCertificates /></ProtectedRoute>} />
 
                 <Route path="*" element={<NotFound />} />
               </Routes>
-              <ChatWidget />
+              
             </BrowserRouter>
+            </SelectedClientProvider>
           </AuthProvider>
         </TooltipProvider>
       </QueryClientProvider>

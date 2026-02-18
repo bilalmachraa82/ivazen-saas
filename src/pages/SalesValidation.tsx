@@ -3,14 +3,20 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useSalesInvoices } from '@/hooks/useSalesInvoices';
+import { useAccountant } from '@/hooks/useAccountant';
 import { useClientManagement } from '@/hooks/useClientManagement';
+import { useSelectedClient } from '@/hooks/useSelectedClient';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { ZenHeader, ZenCard, ZenStatsCard, ZenDecorations, ZenLoader } from '@/components/zen';
 import { FiscalSetupWizard } from '@/components/onboarding/FiscalSetupWizard';
 import { SalesInvoiceFilters } from '@/components/sales/SalesInvoiceFilters';
 import { SalesInvoiceTable } from '@/components/sales/SalesInvoiceTable';
 import { SalesInvoiceDetailDialog } from '@/components/sales/SalesInvoiceDetailDialog';
-import { Clock, CheckCircle, TrendingUp } from 'lucide-react';
+import { ClientSearchSelector } from '@/components/ui/client-search-selector';
+import { CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Clock, CheckCircle, TrendingUp, AlertTriangle } from 'lucide-react';
+import { StepNavigator } from '@/components/dashboard/StepNavigator';
 import type { Tables } from '@/integrations/supabase/types';
 
 type SalesInvoice = Tables<'sales_invoices'>;
@@ -18,10 +24,16 @@ type SalesInvoice = Tables<'sales_invoices'>;
 export default function SalesValidation() {
   const { user, loading: authLoading } = useAuth();
   const { needsFiscalSetup, isLoading: profileLoading } = useProfile();
-  const { isAccountant, clients } = useClientManagement();
+  const { isAccountant, isCheckingRole } = useAccountant();
+  const { clients } = useClientManagement();
+  const { selectedClientId, setSelectedClientId } = useSelectedClient();
   const [selectedInvoice, setSelectedInvoice] = useState<SalesInvoice | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
+  // Wait for role check; null prevents fetch for accountants without selection
+  const effectiveClientId = isCheckingRole
+    ? undefined
+    : (isAccountant ? (selectedClientId || null) : undefined);
   const {
     invoices,
     loading,
@@ -31,7 +43,7 @@ export default function SalesValidation() {
     getSignedUrl,
     getFiscalPeriods,
     refetch,
-  } = useSalesInvoices();
+  } = useSalesInvoices(effectiveClientId);
 
   // Navigation between invoices
   const handleNavigate = (direction: 'prev' | 'next') => {
@@ -85,6 +97,7 @@ export default function SalesValidation() {
         icon={TrendingUp}
       />
 
+
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <ZenStatsCard
@@ -114,8 +127,6 @@ export default function SalesValidation() {
             filters={filters}
             onFiltersChange={setFilters}
             fiscalPeriods={getFiscalPeriods()}
-            clients={clients}
-            showClientFilter={isAccountant}
           />
 
           <SalesInvoiceTable
@@ -128,6 +139,8 @@ export default function SalesValidation() {
           />
         </div>
       </ZenCard>
+
+      <StepNavigator currentStep={2} />
 
       {/* Detail Dialog */}
       <SalesInvoiceDetailDialog

@@ -4,13 +4,14 @@ import JSZip from 'jszip';
 import { Button } from '@/components/ui/button';
 import { ZenCard } from '@/components/zen';
 import { CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Download, FileSpreadsheet, FileText, Loader2, AlertCircle, FileDown, Users, Archive } from 'lucide-react';
+import { Download, FileSpreadsheet, FileText, Loader2, AlertCircle, FileDown, Users, Archive, Mail } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { TaxWithholding, WithholdingSummary } from '@/hooks/useWithholdings';
 import { useProfile } from '@/hooks/useProfile';
 import { toast } from 'sonner';
 import { getCountryName } from '@/lib/countries';
 import { generateModelo10PDF, generateIndividualBeneficiaryPDFs } from '@/lib/modelo10PdfGenerator';
+import { EmailExportButton } from '@/components/ui/email-export-button';
 
 interface WithholdingExportProps {
   withholdings: TaxWithholding[];
@@ -25,8 +26,11 @@ interface WithholdingExportProps {
   clientProfile?: {
     id?: string;
     nif?: string | null;
+    email?: string | null;
     full_name?: string | null;
     company_name?: string | null;
+    phone?: string | null;
+    address?: string | null;
   } | null;
   clientName?: string | null;
 }
@@ -36,14 +40,19 @@ export function WithholdingExport({ withholdings, summary, totals, selectedYear,
   const { profile } = useProfile();
 
   // Use client profile if provided (for accountants), otherwise use logged-in user's profile
-  const effectiveProfile = clientProfile && clientProfile.nif ? {
+  // IMPORTANT: Include address/phone/email from clientProfile for PDF generation + email drafting
+  const effectiveProfile = clientProfile ? {
     ...profile,
-    nif: clientProfile.nif,
-    full_name: clientProfile.full_name || profile?.full_name,
-    company_name: clientProfile.company_name || profile?.company_name,
+    nif: clientProfile.nif ?? profile?.nif,
+    full_name: clientProfile.full_name ?? profile?.full_name,
+    company_name: clientProfile.company_name ?? profile?.company_name,
+    address: clientProfile.address ?? profile?.address,
+    phone: clientProfile.phone ?? profile?.phone,
+    email: clientProfile.email ?? (profile as any)?.email,
   } : profile;
 
   const effectiveClientName = clientName || clientProfile?.company_name || clientProfile?.full_name || null;
+  const recipientEmail = clientProfile?.email || '';
 
   const getLocationLabel = (code: string) => {
     switch (code) {
@@ -516,6 +525,31 @@ export function WithholdingExport({ withholdings, summary, totals, selectedYear,
                 Exportar CSV (AT)
               </Button>
             </div>
+          </div>
+
+          {/* Email Export Section - PDF Individual */}
+          <div className="p-4 border rounded-lg space-y-3 bg-primary/5 border-primary/20">
+            <div className="flex items-center gap-2">
+              <Mail className="h-5 w-5 text-primary" />
+              <h4 className="font-medium">Enviar PDF por Email</h4>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Gera os PDFs individuais e abre o seu cliente de email (Outlook) com o corpo pré-preenchido.
+              Só precisa de anexar o ficheiro e enviar.
+            </p>
+            <EmailExportButton
+              recipientEmail={recipientEmail}
+              recipientName={effectiveClientName || 'Cliente'}
+              declarationType="modelo10"
+              year={selectedYear}
+              onGenerateFile={exportIndividualPDFs}
+              fileName={`Modelo10_${selectedYear}_Declaracoes.pdf`}
+              senderName={profile?.full_name || profile?.company_name || undefined}
+              variant="outline"
+              className="w-full"
+            >
+              Enviar PDF por Email
+            </EmailExportButton>
           </div>
 
           {/* Instructions */}

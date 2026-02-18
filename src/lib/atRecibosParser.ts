@@ -161,9 +161,14 @@ const COLUMN_MAPPINGS = {
     // Termos oficiais AT/SAF-T
     'Base de Incidência', 'Base Incidência', 'Base Tributável', 'Valor Tributável',
     'Base de Incidência em IRS', 'Base IRS',
-    // Termos ilíquidos
-    'Total Ilíquido', 'Valor Ilíquido', 'Importância Ilíquida', 'Bruto',
+    // Termos ilíquidos (IMPORTANTE: "Ilíquido" = bruto, SEM descontos - nova terminologia AT 2024)
+    'Ilíquido', 'Iliquido', 'Total Ilíquido', 'Valor Ilíquido', 'Importância Ilíquida', 'Bruto',
     'Valor Faturado', 'Total Faturado', 'Valor dos Serviços',
+    // Termos SAF-T (software certificado)
+    'GrossTotal', 'Gross Total', 'Total Bruto', 'Valor Total Bruto',
+    // Termos software contabilidade (PHC, Primavera, Sage, Moloni, InvoiceXpress)
+    'Valor antes de retenção', 'Total antes de impostos', 'Valor tributável em IRS',
+    'Valor s/ retenção', 'Base Trib.', 'Valor Base',
     // Preços unitários (para faturas detalhadas)
     'Preço Unitário', 'Preço', 'Subtotal', 'Total s/IVA',
   ],
@@ -187,8 +192,11 @@ const COLUMN_MAPPINGS = {
     'IRC', 'Retenção IRC', 'IRC Retido', 'Ret. IRC',
     // Taxa liberatória (Cat. E)
     'Taxa Liberatória', 'Liberatória', 'Ret. Liberatória',
+    // Termos software contabilidade (PHC, Primavera, Sage)
+    'Valor de Retenção', 'Valor de Retenção de IRS', 'Retenção Fonte',
+    'Valor Retido IRS', 'Imposto a Reter', 'Retenção a Clientes',
     // Outros
-    'Imposto', 'Desconto IRS', 'Dedução IRS',
+    'Imposto', 'Desconto IRS', 'Dedução IRS', 'Desconto Fiscal',
   ],
   // ============ VALOR LÍQUIDO ============
   // Valor após dedução da retenção (o que o prestador recebe)
@@ -202,6 +210,11 @@ const COLUMN_MAPPINGS = {
     'Valor a Pagar', 'Total a Pagar', 'Importância a Receber',
     // Após retenção
     'Valor após retenção', 'Líquido após retenção', 'Recebido',
+    // Termos software contabilidade (PHC, Primavera, Sage)
+    'Valor Final', 'Total Final', 'Montante a Receber', 'Total c/ desconto',
+    'Líquido após IRS', 'Total deduzido', 'Valor Efetivo', 'Valor Real',
+    // Termos vendas a dinheiro (onde total já tem retenção deduzida)
+    'Total a Pagar Final', 'Valor Liquidação',
   ],
   imovel: ['Imóvel', 'Imovel', 'Propriedade', 'Fração', 'Artigo', 'Artigo Matricial'],
   estado: ['Estado', 'Status', 'Situação'],
@@ -233,8 +246,8 @@ export async function parseATExcel(
   const records: ATReciboRecord[] = [];
 
   try {
-    // Read file as ArrayBuffer
-    const buffer = await file.arrayBuffer();
+    // Read file as ArrayBuffer (jsdom File may not implement arrayBuffer())
+    const buffer = await readFileAsArrayBuffer(file);
     const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
 
     // Get first sheet
@@ -321,6 +334,30 @@ export async function parseATExcel(
 }
 
 // ============ HELPER FUNCTIONS ============
+
+async function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
+  const f: any = file as any;
+  if (f && typeof f.arrayBuffer === 'function') {
+    return await f.arrayBuffer();
+  }
+
+  // Browser/jsdom fallback
+  if (typeof FileReader !== 'undefined') {
+    return await new Promise<ArrayBuffer>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as ArrayBuffer);
+      reader.onerror = () => reject(reader.error || new Error('FileReader failed'));
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  // Last resort
+  if (typeof Response !== 'undefined') {
+    return await new Response(file as any).arrayBuffer();
+  }
+
+  throw new Error('File does not support arrayBuffer()');
+}
 
 /**
  * Detect if file is Recibos Verdes or Rendas based on columns/filename
@@ -447,6 +484,23 @@ function parseRow(
 
   // Skip empty rows (need at least reference OR name)
   if (!referencia && !nomeEmitente) {
+    return null;
+  }
+
+  // ============ FILTRAR DOCUMENTOS ANULADOS ============
+  // Verificar se o documento está anulado/cancelado/revogado
+  const estado = getColumnValue(row, columnMap, 'estado').toLowerCase();
+  const ESTADOS_ANULADOS = ['anulado', 'anulada', 'cancelado', 'cancelada', 'revogado', 'revogada',
+    'inválido', 'inválida', 'invalido', 'invalida', 'void', 'cancelled', 'annulled'];
+
+  if (estado && ESTADOS_ANULADOS.some(e => estado.includes(e))) {
+    // Documento anulado - não processar
+    return null;
+  }
+
+  // Também verificar se "ANULADO" aparece na referência ou noutros campos
+  const textosCampos = [referencia, nomeEmitente, nomeCliente].join(' ').toLowerCase();
+  if (textosCampos.includes('anulado') || textosCampos.includes('anulada')) {
     return null;
   }
 

@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Upload, FileImage, X, Loader2, FileText, Sparkles } from 'lucide-react';
+import { detectMimeType } from '@/lib/mime';
 
 // Accepted file types
 const ACCEPTED_TYPES = [
@@ -27,15 +28,16 @@ export function FileUploader({ onFileSelect, isProcessing, accept = 'image/*,.pd
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const isAcceptedType = (file: File): boolean => {
+    const mime = detectMimeType(file);
     // Check exact match or partial match for image types
     return ACCEPTED_TYPES.some(type => 
-      file.type === type || 
-      (type.startsWith('image/') && file.type.startsWith('image/'))
+      mime === type || 
+      (type.startsWith('image/') && mime.startsWith('image/'))
     );
   };
 
   const isPDF = (file: File): boolean => {
-    return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    return detectMimeType(file) === 'application/pdf';
   };
 
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -55,8 +57,9 @@ export function FileUploader({ onFileSelect, isProcessing, accept = 'image/*,.pd
     
     setSelectedFile(file);
     
+    const mime = detectMimeType(file);
     // Create preview (for images only)
-    if (file.type.startsWith('image/') && !file.type.includes('heic') && !file.type.includes('heif')) {
+    if (mime.startsWith('image/') && !mime.includes('heic') && !mime.includes('heif')) {
       const reader = new FileReader();
       reader.onload = (e) => {
         setPreview(e.target?.result as string);

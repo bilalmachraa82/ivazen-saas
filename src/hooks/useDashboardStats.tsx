@@ -25,18 +25,28 @@ const EMPTY_STATS: DashboardStats = {
   lowConfidence: 0,
 };
 
-export function useDashboardStats() {
-  const { user } = useAuth();
+export function useDashboardStats(forClientId?: string | null) {
+  const { user, hasRole } = useAuth();
+  const isAccountant = hasRole('accountant');
+
+  // For accountants: use selected client, or aggregate all clients
+  // For regular users: always use own ID
+  const effectiveClientId = isAccountant ? forClientId : user?.id;
 
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
-    queryKey: ['dashboard-stats', user?.id],
+    queryKey: ['dashboard-stats', user?.id, effectiveClientId, isAccountant],
     queryFn: async (): Promise<DashboardStats> => {
-      if (!user) return EMPTY_STATS;
+      if (!effectiveClientId) return EMPTY_STATS;
 
-      const { data: invoices, error } = await supabase
+      let query = supabase
         .from('invoices')
-        .select('status, ai_confidence')
-        .eq('client_id', user.id);
+        .select('status, ai_confidence');
+
+      if (effectiveClientId) {
+        query = query.eq('client_id', effectiveClientId);
+      }
+
+      const { data: invoices, error } = await query;
 
       if (error) {
         console.error('Error fetching stats:', error);
@@ -54,18 +64,23 @@ export function useDashboardStats() {
 
       return { total, pending, validated, lowConfidence };
     },
-    enabled: !!user,
+    enabled: !!effectiveClientId,
   });
 
   const { data: recentInvoices, isLoading: invoicesLoading, refetch: refetchInvoices } = useQuery({
-    queryKey: ['recent-invoices', user?.id],
+    queryKey: ['recent-invoices', user?.id, effectiveClientId, isAccountant],
     queryFn: async (): Promise<RecentInvoice[]> => {
-      if (!user) return [];
+      if (!effectiveClientId) return [];
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('invoices')
-        .select('id, supplier_name, total_amount, status, ai_confidence, document_date')
-        .eq('client_id', user.id)
+        .select('id, supplier_name, total_amount, status, ai_confidence, document_date');
+
+      if (effectiveClientId) {
+        query = query.eq('client_id', effectiveClientId);
+      }
+
+      const { data, error } = await query
         .order('created_at', { ascending: false })
         .limit(5);
 
@@ -87,7 +102,7 @@ export function useDashboardStats() {
         date: new Date(inv.document_date).toLocaleDateString('pt-PT'),
       }));
     },
-    enabled: !!user,
+    enabled: !!effectiveClientId,
   });
 
   const refetch = async () => {

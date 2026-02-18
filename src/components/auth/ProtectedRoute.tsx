@@ -9,7 +9,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requireRole }: ProtectedRouteProps) {
-  const { user, loading } = useAuth();
+  const { user, loading, roles, hasRole } = useAuth();
 
   if (loading) {
     return (
@@ -23,8 +23,9 @@ export function ProtectedRoute({ children, requireRole }: ProtectedRouteProps) {
     return <Navigate to="/auth" replace />;
   }
 
-  // Role check can be added here if needed
-  // For now, authentication check is sufficient since RLS handles data access
+  if (requireRole && roles.length > 0 && !hasRole(requireRole)) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return <>{children}</>;
 }

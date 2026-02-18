@@ -206,7 +206,7 @@ export function InvoiceTable({ invoices, loading, onSelectInvoice }: InvoiceTabl
             const StatusIcon = status.icon;
             
             return (
-              <TableRow key={invoice.id} className="cursor-pointer hover:bg-muted/50">
+              <TableRow key={invoice.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onSelectInvoice(invoice)}>
                 <TableCell>
                   {format(new Date(invoice.document_date), 'dd/MM/yyyy', { locale: pt })}
                 </TableCell>

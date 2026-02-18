@@ -13,7 +13,7 @@ export interface SalesInvoiceFilters {
   clientId: string; // For accountants to filter by client
 }
 
-export function useSalesInvoices() {
+export function useSalesInvoices(externalClientId?: string | null) {
   const { user } = useAuth();
   const [invoices, setInvoices] = useState<SalesInvoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,13 +24,20 @@ export function useSalesInvoices() {
     clientId: 'all',
   });
 
+  const effectiveClientId = externalClientId !== undefined ? externalClientId : filters.clientId;
+
   const fetchInvoices = useCallback(async () => {
     if (!user) return;
 
+    // If externalClientId is explicitly null, don't fetch
+    if (externalClientId === null) {
+      setInvoices([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      // Don't filter by client_id here - RLS handles access control
-      // This allows accountants to see their clients' invoices
       let query = supabase
         .from('sales_invoices')
         .select('*')
@@ -50,9 +57,9 @@ export function useSalesInvoices() {
         );
       }
 
-      // Filter by specific client (for accountants)
-      if (filters.clientId !== 'all') {
-        query = query.eq('client_id', filters.clientId);
+      // Filter by effective client
+      if (effectiveClientId && effectiveClientId !== 'all') {
+        query = query.eq('client_id', effectiveClientId);
       }
 
       const { data, error } = await query;
@@ -65,7 +72,7 @@ export function useSalesInvoices() {
     } finally {
       setLoading(false);
     }
-  }, [user, filters.status, filters.fiscalPeriod, filters.search, filters.clientId]);
+  }, [user, filters.status, filters.fiscalPeriod, filters.search, effectiveClientId, externalClientId]);
 
   const validateInvoice = async (invoiceId: string, category?: string, notes?: string) => {
     try {
@@ -127,7 +134,7 @@ export function useSalesInvoices() {
   // Fetch when user or main filters change
   useEffect(() => {
     fetchInvoices();
-  }, [user, filters.status, filters.fiscalPeriod, filters.clientId]);
+  }, [user, filters.status, filters.fiscalPeriod, effectiveClientId]);
 
   // Debounced fetch for search
   useEffect(() => {

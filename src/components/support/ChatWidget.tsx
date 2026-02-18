@@ -9,14 +9,14 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet';
+  SheetDescription } from
+'@/components/ui/sheet';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
+  AccordionTrigger } from
+'@/components/ui/accordion';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
@@ -24,64 +24,64 @@ import { cn } from '@/lib/utils';
 
 // FAQ Content
 const faqs = [
-  {
-    id: 'faq-1',
-    question: 'Como digitalizo uma factura?',
-    answer: 'Na pagina "Upload", pode arrastar o ficheiro da factura ou tirar uma fotografia com a camara do telemovel. O IVAzen extrai automaticamente os dados usando inteligencia artificial e preenche os campos relevantes para si.',
-  },
-  {
-    id: 'faq-2',
-    question: 'O que e o Modelo 10?',
-    answer: 'O Modelo 10 e uma declaracao anual obrigatoria para quem fez pagamentos sujeitos a retencao na fonte. O IVAzen ajuda-o a calcular e preparar esta declaracao automaticamente com base nas suas facturas.',
-  },
-  {
-    id: 'faq-3',
-    question: 'Como adiciono um cliente?',
-    answer: 'Pode adicionar clientes em Definicoes > Gestao de Clientes. Basta introduzir o NIF e os dados sao preenchidos automaticamente. Tambem pode criar clientes durante o upload de facturas.',
-  },
-  {
-    id: 'faq-4',
-    question: 'Posso exportar para Excel?',
-    answer: 'Sim! Na pagina de Exportacao pode descarregar os seus dados em formato Excel (.xlsx), PDF ou CSV. Pode filtrar por periodo, tipo de factura e outros criterios antes de exportar.',
-  },
-  {
-    id: 'faq-5',
-    question: 'Quanto custa o IVAzen?',
-    answer: 'O IVAzen oferece um plano gratuito com funcionalidades basicas. Os planos Pro e Business incluem funcionalidades avancadas como integracao contabilistica, relatorios detalhados e suporte prioritario. Consulte a nossa pagina de precos para mais detalhes.',
-  },
-  {
-    id: 'faq-6',
-    question: 'Os meus dados estao seguros?',
-    answer: 'Sim, a seguranca e a nossa prioridade. Todos os dados sao encriptados em transito e em repouso. Utilizamos infraestrutura de cloud certificada e cumprimos com o RGPD. Nunca partilhamos os seus dados com terceiros.',
-  },
-  {
-    id: 'faq-7',
-    question: 'Como funciona a classificacao automatica?',
-    answer: 'O nosso sistema de IA analisa cada factura e sugere automaticamente a categoria fiscal, taxa de IVA e conta contabilistica apropriada. Pode sempre corrigir ou ajustar as sugestoes antes de confirmar.',
-  },
-];
+{
+  id: 'faq-1',
+  question: 'Como digitalizo uma factura?',
+  answer: 'Na pagina "Upload", pode arrastar o ficheiro da factura ou tirar uma fotografia com a camara do telemovel. O IVAzen extrai automaticamente os dados usando inteligencia artificial e preenche os campos relevantes para si.'
+},
+{
+  id: 'faq-2',
+  question: 'O que e o Modelo 10?',
+  answer: 'O Modelo 10 e uma declaracao anual obrigatoria para quem fez pagamentos sujeitos a retencao na fonte. O IVAzen ajuda-o a calcular e preparar esta declaracao automaticamente com base nas suas facturas.'
+},
+{
+  id: 'faq-3',
+  question: 'Como adiciono um cliente?',
+  answer: 'Pode adicionar clientes em Definicoes > Gestao de Clientes. Basta introduzir o NIF e os dados sao preenchidos automaticamente. Tambem pode criar clientes durante o upload de facturas.'
+},
+{
+  id: 'faq-4',
+  question: 'Posso exportar para Excel?',
+  answer: 'Sim! Na pagina de Exportacao pode descarregar os seus dados em formato Excel (.xlsx), PDF ou CSV. Pode filtrar por periodo, tipo de factura e outros criterios antes de exportar.'
+},
+{
+  id: 'faq-5',
+  question: 'Quanto custa o IVAzen?',
+  answer: 'O IVAzen oferece um plano gratuito com funcionalidades basicas. Os planos Pro e Business incluem funcionalidades avancadas como integracao contabilistica, relatorios detalhados e suporte prioritario. Consulte a nossa pagina de precos para mais detalhes.'
+},
+{
+  id: 'faq-6',
+  question: 'Os meus dados estao seguros?',
+  answer: 'Sim, a seguranca e a nossa prioridade. Todos os dados sao encriptados em transito e em repouso. Utilizamos infraestrutura de cloud certificada e cumprimos com o RGPD. Nunca partilhamos os seus dados com terceiros.'
+},
+{
+  id: 'faq-7',
+  question: 'Como funciona a classificacao automatica?',
+  answer: 'O nosso sistema de IA analisa cada factura e sugere automaticamente a categoria fiscal, taxa de IVA e conta contabilistica apropriada. Pode sempre corrigir ou ajustar as sugestoes antes de confirmar.'
+}];
+
 
 // Useful links
 const usefulLinks = [
-  {
-    title: 'Glossario Fiscal',
-    description: 'Termos e definicoes fiscais',
-    href: '/glossario',
-    icon: BookOpen,
-  },
-  {
-    title: 'Termos de Servico',
-    description: 'Condicoes de utilizacao',
-    href: '/terms',
-    icon: ExternalLink,
-  },
-  {
-    title: 'Politica de Privacidade',
-    description: 'Como protegemos os seus dados',
-    href: '/privacy',
-    icon: ExternalLink,
-  },
-];
+{
+  title: 'Glossario Fiscal',
+  description: 'Termos e definicoes fiscais',
+  href: '/glossario',
+  icon: BookOpen
+},
+{
+  title: 'Termos de Servico',
+  description: 'Condicoes de utilizacao',
+  href: '/terms',
+  icon: ExternalLink
+},
+{
+  title: 'Politica de Privacidade',
+  description: 'Como protegemos os seus dados',
+  href: '/privacy',
+  icon: ExternalLink
+}];
+
 
 interface ContactFormData {
   name: string;
@@ -96,7 +96,7 @@ export function ChatWidget() {
   const [formData, setFormData] = useState<ContactFormData>({
     name: '',
     email: '',
-    message: '',
+    message: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -109,8 +109,8 @@ export function ChatWidget() {
   };
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
+  e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+  {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -122,7 +122,7 @@ export function ChatWidget() {
       toast({
         title: 'Campos obrigatorios',
         description: 'Por favor preencha todos os campos.',
-        variant: 'destructive',
+        variant: 'destructive'
       });
       return;
     }
@@ -134,7 +134,7 @@ export function ChatWidget() {
 
     toast({
       title: 'Mensagem enviada!',
-      description: 'Obrigado pelo seu contacto. Responderemos em breve.',
+      description: 'Obrigado pelo seu contacto. Responderemos em breve.'
     });
 
     setFormData({ name: '', email: '', message: '' });
@@ -169,19 +169,19 @@ export function ChatWidget() {
           // Animation on mount
           'animate-slide-up'
         )}
-        aria-label="Abrir chat de suporte"
-      >
+        aria-label="Abrir chat de suporte">
+
         <MessageCircle className="w-6 h-6" />
 
         {/* Notification Badge */}
-        {showNotification && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
+        {showNotification &&
+        <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
             1
           </span>
-        )}
+        }
 
         {/* Glow ring effect */}
-        <span className="absolute inset-0 rounded-full gradient-primary opacity-40 blur-md -z-10 animate-pulse" />
+        
       </button>
 
       {/* Chat Sheet/Modal */}
@@ -192,8 +192,8 @@ export function ChatWidget() {
             'w-full sm:max-w-md p-0 flex flex-col',
             'bg-background/95 backdrop-blur-xl',
             'border-l border-border/50'
-          )}
-        >
+          )}>
+
           {/* Header */}
           <SheetHeader className="px-6 py-4 border-b border-border/50 bg-gradient-to-r from-primary/10 to-accent/10">
             <div className="flex items-center gap-3">
@@ -215,8 +215,8 @@ export function ChatWidget() {
           <Tabs
             value={activeTab}
             onValueChange={setActiveTab}
-            className="flex-1 flex flex-col overflow-hidden"
-          >
+            className="flex-1 flex flex-col overflow-hidden">
+
             <TabsList className="mx-4 mt-4 grid grid-cols-3 bg-muted/50">
               <TabsTrigger value="faq" className="text-sm">
                 FAQ
@@ -237,12 +237,12 @@ export function ChatWidget() {
                     Perguntas frequentes sobre o IVAzen
                   </p>
                   <Accordion type="single" collapsible className="space-y-2">
-                    {faqs.map((faq) => (
-                      <AccordionItem
-                        key={faq.id}
-                        value={faq.id}
-                        className="border border-border/50 rounded-lg px-4 bg-card/50 hover:bg-card transition-colors"
-                      >
+                    {faqs.map((faq) =>
+                    <AccordionItem
+                      key={faq.id}
+                      value={faq.id}
+                      className="border border-border/50 rounded-lg px-4 bg-card/50 hover:bg-card transition-colors">
+
                         <AccordionTrigger className="text-sm font-medium text-left hover:no-underline py-3">
                           {faq.question}
                         </AccordionTrigger>
@@ -250,7 +250,7 @@ export function ChatWidget() {
                           {faq.answer}
                         </AccordionContent>
                       </AccordionItem>
-                    ))}
+                    )}
                   </Accordion>
                 </div>
               </ScrollArea>
@@ -272,8 +272,8 @@ export function ChatWidget() {
                       placeholder="O seu nome"
                       value={formData.name}
                       onChange={handleInputChange}
-                      className="bg-background/50"
-                    />
+                      className="bg-background/50" />
+
                   </div>
 
                   <div className="space-y-2">
@@ -285,8 +285,8 @@ export function ChatWidget() {
                       placeholder="seu@email.com"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="bg-background/50"
-                    />
+                      className="bg-background/50" />
+
                   </div>
 
                   <div className="space-y-2">
@@ -298,31 +298,31 @@ export function ChatWidget() {
                       value={formData.message}
                       onChange={handleInputChange}
                       rows={4}
-                      className="bg-background/50 resize-none"
-                    />
+                      className="bg-background/50 resize-none" />
+
                   </div>
 
                   <div className="flex gap-2">
                     <Button
                       type="submit"
                       className="flex-1 gradient-primary"
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? (
-                        'A enviar...'
-                      ) : (
-                        <>
+                      disabled={isSubmitting}>
+
+                      {isSubmitting ?
+                      'A enviar...' :
+
+                      <>
                           <Send className="w-4 h-4 mr-2" />
                           Enviar
                         </>
-                      )}
+                      }
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
                       onClick={handleEmailClick}
-                      title="Abrir no cliente de email"
-                    >
+                      title="Abrir no cliente de email">
+
                       <Mail className="w-4 h-4" />
                     </Button>
                   </div>
@@ -372,8 +372,8 @@ export function ChatWidget() {
                         <h3 className="font-semibold">Email Direto</h3>
                         <a
                           href="mailto:suporte@ivazen.pt"
-                          className="text-sm text-primary hover:underline"
-                        >
+                          className="text-sm text-primary hover:underline">
+
                           suporte@ivazen.pt
                         </a>
                       </div>
@@ -384,12 +384,12 @@ export function ChatWidget() {
                   <div>
                     <h3 className="font-semibold mb-3">Links Uteis</h3>
                     <div className="space-y-2">
-                      {usefulLinks.map((link) => (
-                        <a
-                          key={link.href}
-                          href={link.href}
-                          className="flex items-center gap-3 p-3 rounded-lg border border-border/50 bg-card/50 hover:bg-card hover:border-primary/30 transition-all group"
-                        >
+                      {usefulLinks.map((link) =>
+                      <a
+                        key={link.href}
+                        href={link.href}
+                        className="flex items-center gap-3 p-3 rounded-lg border border-border/50 bg-card/50 hover:bg-card hover:border-primary/30 transition-all group">
+
                           <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center group-hover:bg-primary/10 transition-colors">
                             <link.icon className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                           </div>
@@ -401,7 +401,7 @@ export function ChatWidget() {
                           </div>
                           <ChevronDown className="w-4 h-4 text-muted-foreground -rotate-90" />
                         </a>
-                      ))}
+                      )}
                     </div>
                   </div>
 
@@ -417,8 +417,8 @@ export function ChatWidget() {
           </Tabs>
         </SheetContent>
       </Sheet>
-    </>
-  );
+    </>);
+
 }
 
 export default ChatWidget;

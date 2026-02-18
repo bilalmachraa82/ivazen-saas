@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -8,10 +8,17 @@ import { ClassificationEditor } from './ClassificationEditor';
 import { ImageZoom } from './ImageZoom';
 import { ValidationHistory } from './ValidationHistory';
 import { useValidationHistory } from '@/hooks/useValidationHistory';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
-import { FileText, Image as ImageIcon, Calculator, Building2, ChevronLeft, ChevronRight, History } from 'lucide-react';
+import { FileText, Image as ImageIcon, Calculator, Building2, ChevronLeft, ChevronRight, History, Save, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { validatePortugueseNIF } from '@/lib/nifValidator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { RefreshCw, AlertTriangle as AlertTriangleIcon } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Invoice = Tables<'invoices'>;
@@ -26,9 +33,16 @@ interface InvoiceDetailDialogProps {
     final_deductibility: number;
   }) => Promise<boolean>;
   getSignedUrl: (imagePath: string) => Promise<string | null>;
+  onReExtract: (invoiceId: string) => Promise<{
+    success: boolean;
+    error?: string;
+    warnings?: string[];
+    changes?: Array<{ field: string; old_value: unknown; new_value: unknown }>;
+  }>;
   onNavigate?: (direction: 'prev' | 'next') => void;
   canNavigatePrev?: boolean;
   canNavigateNext?: boolean;
+  onDataUpdated?: () => void;
 }
 
 export function InvoiceDetailDialog({
@@ -37,13 +51,28 @@ export function InvoiceDetailDialog({
   onOpenChange,
   onValidate,
   getSignedUrl,
+  onReExtract,
   onNavigate,
   canNavigatePrev = false,
   canNavigateNext = false,
+  onDataUpdated,
 }: InvoiceDetailDialogProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loadingImage, setLoadingImage] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isReclassifying, setIsReclassifying] = useState(false);
+  const [isReExtracting, setIsReExtracting] = useState(false);
+
+  // Editable fields
+  const [editSupplierNif, setEditSupplierNif] = useState('');
+  const [editSupplierName, setEditSupplierName] = useState('');
+  const [editDocumentDate, setEditDocumentDate] = useState('');
+  const [editDocumentNumber, setEditDocumentNumber] = useState('');
+  const [editTotalAmount, setEditTotalAmount] = useState('');
+  const [editTotalVat, setEditTotalVat] = useState('');
+  const [nifError, setNifError] = useState('');
 
   // Validation history hook
   const {
@@ -57,6 +86,20 @@ export function InvoiceDetailDialog({
     invoiceType: 'purchase',
     enabled: open && !!invoice,
   });
+
+  // Reset edit state when invoice changes
+  useEffect(() => {
+    if (invoice) {
+      setEditSupplierNif(invoice.supplier_nif || '');
+      setEditSupplierName(invoice.supplier_name || '');
+      setEditDocumentDate(invoice.document_date || '');
+      setEditDocumentNumber(invoice.document_number || '');
+      setEditTotalAmount(String(invoice.total_amount || 0));
+      setEditTotalVat(String(invoice.total_vat || 0));
+      setIsEditing(false);
+      setNifError('');
+    }
+  }, [invoice?.id]);
 
   useEffect(() => {
     if (invoice?.image_path && open) {
@@ -74,12 +117,10 @@ export function InvoiceDetailDialog({
     if (!open) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
 
-      // Navigation: Arrow keys or J/K
       if ((e.key === 'ArrowLeft' || e.key === 'k' || e.key === 'K') && canNavigatePrev && onNavigate) {
         e.preventDefault();
         onNavigate('prev');
@@ -98,6 +139,129 @@ export function InvoiceDetailDialog({
 
   if (!invoice) return null;
 
+  const handleNifChange = (value: string) => {
+    setEditSupplierNif(value);
+    const cleaned = value.trim();
+    // Only validate as PT NIF if it's exactly 9 digits
+    if (/^\d{9}$/.test(cleaned)) {
+      const valid = validatePortugueseNIF(cleaned);
+      setNifError(valid ? '' : 'NIF inválido (check digit)');
+    } else if (/^\d+$/.test(cleaned) && cleaned.length < 9) {
+      setNifError('NIF PT deve ter 9 dígitos');
+    } else if (cleaned.length > 0 && /^[A-Z]{2}/.test(cleaned)) {
+      // Foreign VAT ID (e.g. IE3668997OH) - accept without validation
+      setNifError('');
+    } else if (cleaned.length === 0) {
+      setNifError('');
+    } else {
+      setNifError('');
+    }
+  };
+
+  // Check if document date is in the future
+  const isFutureDate = editDocumentDate && new Date(editDocumentDate) > new Date();
+
+  // Reclassify single invoice with AI
+  const handleReclassify = async () => {
+    setIsReclassifying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('classify-invoice', {
+        body: { invoice_id: invoice.id },
+      });
+      if (error) throw error;
+      toast.success('Factura reclassificada com IA');
+      onDataUpdated?.();
+    } catch (err) {
+      console.error('Reclassify error:', err);
+      toast.error('Erro ao reclassificar');
+    } finally {
+      setIsReclassifying(false);
+    }
+  };
+
+  const handleReExtract = async () => {
+    setIsReExtracting(true);
+    try {
+      const result = await onReExtract(invoice.id);
+      if (!result.success) {
+        toast.error(result.error || 'Erro ao reextrair dados');
+        return;
+      }
+
+      if (result.changes && result.changes.length > 0) {
+        await logValidation('edited', result.changes);
+      } else {
+        await logValidation('edited', [
+          {
+            field: 'reextract',
+            old_value: null,
+            new_value: new Date().toISOString(),
+          },
+        ]);
+      }
+
+      if (result.warnings && result.warnings.length > 0) {
+        toast.warning('Reextração concluída com avisos', {
+          description: result.warnings.slice(0, 2).join(' | '),
+        });
+      } else {
+        toast.success('Dados reextraídos com sucesso');
+      }
+
+      setIsEditing(false);
+      onDataUpdated?.();
+    } catch (error) {
+      console.error('Re-extract error:', error);
+      toast.error('Erro ao reextrair dados');
+    } finally {
+      setIsReExtracting(false);
+    }
+  };
+
+  const handleSaveData = async () => {
+    if (nifError) {
+      toast.error('Corrija o NIF antes de guardar');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Recalculate fiscal_period from date
+      const fiscalPeriod = editDocumentDate
+        ? editDocumentDate.substring(0, 7).replace('-', '')
+        : invoice.fiscal_period;
+
+      // For NIF: keep as-is (supports foreign VAT IDs)
+      const nifValue = editSupplierNif.trim() || invoice.supplier_nif;
+
+      const updates: Record<string, any> = {
+        supplier_nif: nifValue,
+        supplier_name: editSupplierName || invoice.supplier_name,
+        document_date: editDocumentDate || invoice.document_date,
+        document_number: editDocumentNumber || invoice.document_number,
+        total_amount: parseFloat(editTotalAmount) || invoice.total_amount,
+        total_vat: parseFloat(editTotalVat) || invoice.total_vat,
+        fiscal_period: fiscalPeriod,
+      };
+
+      const { error } = await supabase
+        .from('invoices')
+        .update(updates)
+        .eq('id', invoice.id);
+
+      if (error) throw error;
+
+      toast.success('Dados da factura actualizados');
+      setIsEditing(false);
+      onDataUpdated?.();
+    } catch (error) {
+      console.error('Error updating invoice data:', error);
+      toast.error('Erro ao guardar alterações');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleValidate = async (classification: {
     final_classification: string;
     final_dp_field: number;
@@ -105,7 +269,6 @@ export function InvoiceDetailDialog({
   }) => {
     setIsValidating(true);
 
-    // Prepare changes for logging
     const oldValues = {
       final_classification: invoice.final_classification || invoice.ai_classification,
       final_dp_field: invoice.final_dp_field || invoice.ai_dp_field,
@@ -130,11 +293,9 @@ export function InvoiceDetailDialog({
     const success = await onValidate(invoice.id, classification);
 
     if (success) {
-      // Log the validation
       const hasClassificationChanged = oldValues.final_classification !== newValues.final_classification;
       const action = hasClassificationChanged ? 'classification_changed' : 'validated';
       await logValidation(action, changes);
-
       onOpenChange(false);
     }
 
@@ -231,86 +392,195 @@ export function InvoiceDetailDialog({
               <TabsContent value="details" className="mt-4">
                 <ScrollArea className="h-[400px] pr-4">
                   <div className="space-y-6">
+                    {/* Edit toggle */}
+                    <div className="flex justify-end">
+                      {!isEditing ? (
+                        <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="gap-1.5">
+                          <Pencil className="h-3.5 w-3.5" />
+                          Editar dados
+                        </Button>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => {
+                            setIsEditing(false);
+                            // Reset to original values
+                            setEditSupplierNif(invoice.supplier_nif || '');
+                            setEditSupplierName(invoice.supplier_name || '');
+                            setEditDocumentDate(invoice.document_date || '');
+                            setEditDocumentNumber(invoice.document_number || '');
+                            setEditTotalAmount(String(invoice.total_amount || 0));
+                            setEditTotalVat(String(invoice.total_vat || 0));
+                            setNifError('');
+                          }}>
+                            Cancelar
+                          </Button>
+                          <Button size="sm" onClick={handleSaveData} disabled={isSaving || !!nifError} className="gap-1.5">
+                            <Save className="h-3.5 w-3.5" />
+                            {isSaving ? 'A guardar...' : 'Guardar'}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Supplier */}
                     <div>
                       <div className="flex items-center gap-2 mb-3">
                         <Building2 className="h-4 w-4 text-muted-foreground" />
                         <h4 className="font-medium">Fornecedor</h4>
                       </div>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <p className="text-muted-foreground">Nome</p>
-                          <p className="font-medium">{invoice.supplier_name || 'N/A'}</p>
+                      {isEditing ? (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="edit-supplier-name" className="text-xs text-muted-foreground">Nome</Label>
+                            <Input
+                              id="edit-supplier-name"
+                              value={editSupplierName}
+                              onChange={(e) => setEditSupplierName(e.target.value)}
+                              className="h-8 text-sm"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="edit-supplier-nif" className="text-xs text-muted-foreground">NIF</Label>
+                            <Input
+                              id="edit-supplier-nif"
+                              value={editSupplierNif}
+                              onChange={(e) => handleNifChange(e.target.value)}
+                              className={`h-8 text-sm font-mono ${nifError ? 'border-destructive' : ''}`}
+                              maxLength={20}
+                            />
+                            {nifError && <p className="text-[10px] text-destructive">{nifError}</p>}
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-muted-foreground">NIF</p>
-                          <p className="font-mono font-medium">{invoice.supplier_nif}</p>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <p className="text-muted-foreground">Nome</p>
+                            <p className="font-medium">{invoice.supplier_name || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">NIF/VAT</p>
+                            <p className="font-mono font-medium">{invoice.supplier_nif}</p>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
 
                     <Separator />
 
+                    {/* Document */}
                     <div>
                       <div className="flex items-center gap-2 mb-3">
                         <FileText className="h-4 w-4 text-muted-foreground" />
                         <h4 className="font-medium">Documento</h4>
                       </div>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <p className="text-muted-foreground">Tipo</p>
-                          <p className="font-medium">{invoice.document_type || 'Factura'}</p>
+                      {isEditing ? (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="edit-doc-date" className="text-xs text-muted-foreground">Data</Label>
+                            <Input
+                              id="edit-doc-date"
+                              type="date"
+                              value={editDocumentDate}
+                              onChange={(e) => setEditDocumentDate(e.target.value)}
+                              className="h-8 text-sm"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="edit-doc-number" className="text-xs text-muted-foreground">Número</Label>
+                            <Input
+                              id="edit-doc-number"
+                              value={editDocumentNumber}
+                              onChange={(e) => setEditDocumentNumber(e.target.value)}
+                              className="h-8 text-sm"
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-muted-foreground">Número</p>
-                          <p className="font-medium">{invoice.document_number || 'N/A'}</p>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <p className="text-muted-foreground">Tipo</p>
+                            <p className="font-medium">{invoice.document_type || 'Factura'}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Número</p>
+                            <p className="font-medium">{invoice.document_number || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Data</p>
+                            <p className="font-medium">
+                              {format(new Date(invoice.document_date), 'dd/MM/yyyy', { locale: pt })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">ATCUD</p>
+                            <p className="font-mono text-xs">{invoice.atcud || 'N/A'}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-muted-foreground">Data</p>
-                          <p className="font-medium">
-                            {format(new Date(invoice.document_date), 'dd/MM/yyyy', { locale: pt })}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">ATCUD</p>
-                          <p className="font-mono text-xs">{invoice.atcud || 'N/A'}</p>
-                        </div>
-                      </div>
+                      )}
                     </div>
 
                     <Separator />
 
+                    {/* Values */}
                     <div>
                       <div className="flex items-center gap-2 mb-3">
                         <Calculator className="h-4 w-4 text-muted-foreground" />
                         <h4 className="font-medium">Valores</h4>
                       </div>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Total</span>
-                          <span className="font-medium">€{Number(invoice.total_amount).toFixed(2)}</span>
+                      {isEditing ? (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="edit-total" className="text-xs text-muted-foreground">Total (€)</Label>
+                            <Input
+                              id="edit-total"
+                              type="number"
+                              step="0.01"
+                              value={editTotalAmount}
+                              onChange={(e) => setEditTotalAmount(e.target.value)}
+                              className="h-8 text-sm"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="edit-vat" className="text-xs text-muted-foreground">IVA Total (€)</Label>
+                            <Input
+                              id="edit-vat"
+                              type="number"
+                              step="0.01"
+                              value={editTotalVat}
+                              onChange={(e) => setEditTotalVat(e.target.value)}
+                              className="h-8 text-sm"
+                            />
+                          </div>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">IVA Total</span>
-                          <span className="font-medium">€{Number(invoice.total_vat || 0).toFixed(2)}</span>
+                      ) : (
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Total</span>
+                            <span className="font-medium">€{Number(invoice.total_amount).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">IVA Total</span>
+                            <span className="font-medium">€{Number(invoice.total_vat || 0).toFixed(2)}</span>
+                          </div>
+                          <Separator className="my-2" />
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Base Normal (23%)</span>
+                            <span>€{Number(invoice.base_standard || 0).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Base Intermédia (13%)</span>
+                            <span>€{Number(invoice.base_intermediate || 0).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Base Reduzida (6%)</span>
+                            <span>€{Number(invoice.base_reduced || 0).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Base Isenta</span>
+                            <span>€{Number(invoice.base_exempt || 0).toFixed(2)}</span>
+                          </div>
                         </div>
-                        <Separator className="my-2" />
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">Base Normal (23%)</span>
-                          <span>€{Number(invoice.base_standard || 0).toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">Base Intermédia (13%)</span>
-                          <span>€{Number(invoice.base_intermediate || 0).toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">Base Reduzida (6%)</span>
-                          <span>€{Number(invoice.base_reduced || 0).toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">Base Isenta</span>
-                          <span>€{Number(invoice.base_exempt || 0).toFixed(2)}</span>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </ScrollArea>
@@ -328,7 +598,39 @@ export function InvoiceDetailDialog({
 
           {/* Right: Classification Editor */}
           <div className="order-1 lg:order-2 mb-6 lg:mb-0">
-            <h3 className="font-semibold mb-4">Classificação</h3>
+            {isFutureDate && (
+              <Alert className="mb-4 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+                <AlertTriangleIcon className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800 dark:text-amber-200 text-sm">
+                  A data deste documento ({editDocumentDate}) é no futuro. Edite nos detalhes para corrigir.
+                </AlertDescription>
+              </Alert>
+            )}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold">Classificação</h3>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleReExtract}
+                  disabled={isReExtracting || isReclassifying}
+                  className="gap-1.5"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${isReExtracting ? 'animate-spin' : ''}`} />
+                  {isReExtracting ? 'A reextrair...' : 'Re-extrair OCR'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleReclassify}
+                  disabled={isReclassifying || isReExtracting}
+                  className="gap-1.5"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${isReclassifying ? 'animate-spin' : ''}`} />
+                  {isReclassifying ? 'A classificar...' : 'Reclassificar IA'}
+                </Button>
+              </div>
+            </div>
             <ClassificationEditor
               invoice={invoice}
               onValidate={handleValidate}

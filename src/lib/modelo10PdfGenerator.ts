@@ -268,8 +268,8 @@ function createBeneficiaryPDF(
   // emitterData contains accountant's company, not the client's
   const payerNif = profile?.nif || 'Não configurado';
   const payerName = data.clientName || profile?.company_name || profile?.full_name || 'Não configurado';
-  // For address, we don't have client address in profile - leave empty or use placeholder
-  const payerAddress = '-';
+  // Get address from profile if available
+  const payerAddress = profile?.address || '-';
 
   doc.setFont('helvetica', 'bold');
   doc.text('NIF da Empresa:', MARGINS.left + 3, currentY + 6);
@@ -412,14 +412,16 @@ function createBeneficiaryPDF(
   doc.setFontSize(FONTS.body);
   doc.setFont('helvetica', 'normal');
 
-  // Date line
-  const generationDate = new Date().toLocaleDateString('pt-PT', {
+  // Date line - Modelo 10 must always show January 31st of the following year
+  const declarationYear = data.selectedYear + 1; // Declaration is always for the year after the fiscal year
+  const declarationDate = new Date(declarationYear, 0, 31); // January 31st
+  const formattedDate = declarationDate.toLocaleDateString('pt-PT', {
     day: '2-digit',
     month: 'long',
     year: 'numeric'
   });
   // Use generic location since we don't have client's city
-  doc.text(`Portugal, ${generationDate}`, MARGINS.left + 3, currentY);
+  doc.text(`Portugal, ${formattedDate}`, MARGINS.left + 3, currentY);
 
   currentY += 10;
 
@@ -516,8 +518,8 @@ function drawPayerSection(
 
   y += 12;
 
-  // Content box
-  const boxHeight = 28;
+  // Content box - increased height to accommodate address
+  const boxHeight = 34;
   doc.setDrawColor(...COLORS.border);
   doc.rect(MARGINS.left, y, contentWidth, boxHeight, 'S');
 
@@ -528,8 +530,8 @@ function drawPayerSection(
   const profile = data.payerProfile;
   const clientDisplay = data.clientName || profile?.company_name || profile?.full_name || 'Não configurado';
   const nifDisplay = profile?.nif || 'Não configurado';
+  const addressDisplay = profile?.address || '-';
   const caeDisplay = profile?.cae || '-';
-  const activityDisplay = profile?.activity_description || '-';
 
   // Left column
   doc.setFont('helvetica', 'bold');
@@ -543,14 +545,14 @@ function drawPayerSection(
   doc.text(clientDisplay.substring(0, 50), MARGINS.left + 28, y + 12);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('CAE:', MARGINS.left + 3, y + 18);
+  doc.text('Morada:', MARGINS.left + 3, y + 18);
   doc.setFont('helvetica', 'normal');
-  doc.text(caeDisplay, MARGINS.left + 15, y + 18);
+  doc.text(addressDisplay.substring(0, 70), MARGINS.left + 20, y + 18);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Actividade:', MARGINS.left + 3, y + 24);
+  doc.text('CAE:', MARGINS.left + 3, y + 24);
   doc.setFont('helvetica', 'normal');
-  doc.text(activityDisplay.substring(0, 60), MARGINS.left + 28, y + 24);
+  doc.text(caeDisplay, MARGINS.left + 15, y + 24);
 
   // Right column
   const rightCol = MARGINS.left + contentWidth / 2 + 10;

@@ -67,7 +67,7 @@ interface AccountantMetrics {
 export function useAccountant() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  
 
   // Check if user is an accountant
   const { data: isAccountant, isLoading: isCheckingRole } = useQuery({
@@ -285,11 +285,6 @@ export function useAccountant() {
     return allInvoices.filter(inv => inv.status === 'classified');
   }, [allInvoices]);
 
-  // Get invoices for selected client
-  const selectedClientInvoices = useMemo(() => {
-    if (!allInvoices || !selectedClientId) return [];
-    return allInvoices.filter(inv => inv.client_id === selectedClientId);
-  }, [allInvoices, selectedClientId]);
 
   // Helper to save classification example and update AI metrics
   const saveClassificationExample = async (invoice: {
@@ -335,15 +330,18 @@ export function useAccountant() {
         console.error('Error saving classification example:', exampleError);
       }
       
-      // Update AI metrics via RPC - CRITICAL for tracking accuracy
-      const { error: metricsError } = await supabase.rpc('update_ai_metrics', {
-        p_supplier_nif: invoice.supplier_nif,
-        p_supplier_name: invoice.supplier_name || null,
-        p_was_correction: wasCorrection,
-      });
-      
-      if (metricsError) {
-        console.error('Error updating AI metrics:', metricsError);
+      // Update AI metrics via RPC (only for PT NIFs: 9 digits)
+      const supplierNifDigits = String(invoice.supplier_nif || '').replace(/\D/g, '');
+      if (/^\d{9}$/.test(supplierNifDigits)) {
+        const { error: metricsError } = await supabase.rpc('update_ai_metrics', {
+          p_supplier_nif: supplierNifDigits,
+          p_supplier_name: invoice.supplier_name || null,
+          p_was_correction: wasCorrection,
+        });
+
+        if (metricsError) {
+          console.error('Error updating AI metrics:', metricsError);
+        }
       }
     } catch (error) {
       console.error('Error in saveClassificationExample:', error);
@@ -386,7 +384,7 @@ export function useAccountant() {
           client_id: invoice.client_id,
           ai_classification: invoice.ai_classification,
           final_classification: invoice.ai_classification || 'Desconhecido',
-          final_dp_field: invoice.ai_dp_field || 40,
+          final_dp_field: invoice.ai_dp_field || 24,
           final_deductibility: invoice.ai_deductibility || 100,
           wasCorrection: false, // Batch validation = confirming AI
         });
@@ -439,7 +437,7 @@ export function useAccountant() {
         client_id: invoice.client_id,
         ai_classification: invoice.ai_classification,
         final_classification: invoice.ai_classification || 'Desconhecido',
-        final_dp_field: invoice.ai_dp_field || 40,
+        final_dp_field: invoice.ai_dp_field || 24,
         final_deductibility: invoice.ai_deductibility || 100,
         wasCorrection: false, // Single validation = confirming AI
       });
@@ -462,11 +460,8 @@ export function useAccountant() {
     allInvoices,
     allSalesInvoices,
     pendingInvoices,
-    selectedClientInvoices,
     isLoadingInvoices,
     metrics,
-    selectedClientId,
-    setSelectedClientId,
     batchValidate: batchValidateMutation.mutate,
     isBatchValidating: batchValidateMutation.isPending,
     validateInvoice: validateInvoiceMutation.mutate,

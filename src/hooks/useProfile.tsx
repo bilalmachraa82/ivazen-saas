@@ -25,6 +25,11 @@ export interface Profile {
   has_other_employment: boolean | null;
   other_employment_salary: number | null;
   taxable_profit: number | null;
+  // Contact fields
+  phone: string | null;
+  address: string | null;
+  // AT certificate contact email
+  at_contact_email: string | null;
 }
 
 interface AccountantProfile {

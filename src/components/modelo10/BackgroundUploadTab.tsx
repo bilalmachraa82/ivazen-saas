@@ -15,12 +15,23 @@ import {
   RefreshCw,
   Clock,
   PlayCircle,
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useWithholdings } from '@/hooks/useWithholdings';
 import { useUploadQueue, QueueItem as UploadQueueItem } from '@/hooks/useUploadQueue';
@@ -40,7 +51,22 @@ interface BackgroundUploadTabProps {
 export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccountantOwnAccount }: BackgroundUploadTabProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const { toast } = useToast();
+  
+  // Get withholdings to show the effective saved count
+  const { 
+    withholdings, 
+    isLoading: isLoadingWithholdings, 
+    deleteAllForYear,
+    isDeletingAll,
+  } = useWithholdings(selectedClientId);
+  
+  // Filter withholdings by selected year
+  const withholdingsForYear = withholdings.filter(w => w.fiscal_year === selectedYear);
+  const effectiveCount = withholdingsForYear.length;
+  
   // Pass selectedClientId to the hook so withholdings are created for the correct client
   const {
     items,
@@ -52,10 +78,41 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
     uploadToQueue,
     removeItem,
     clearCompleted,
+    clearAllQueue,
     retryItem,
     triggerProcessing,
     refresh,
   } = useUploadQueue(selectedClientId);
+
+  // Handle reset year (delete all withholdings + clear queue)
+  const handleResetYear = async () => {
+    if (!selectedClientId) return;
+    
+    setIsResetting(true);
+    try {
+      // 1. Delete all withholdings for the selected year (pass year explicitly)
+      await deleteAllForYear(selectedYear);
+      
+      // 2. Clear the entire upload queue for this client
+      await clearAllQueue(selectedClientId);
+      
+      toast({
+        title: 'Ano reposto com sucesso',
+        description: `Todas as retenções de ${selectedYear} e a fila de upload foram eliminadas.`,
+      });
+      
+      setShowResetDialog(false);
+    } catch (error) {
+      console.error('Error resetting year:', error);
+      toast({
+        title: 'Erro ao repor ano',
+        description: 'Não foi possível eliminar todos os dados. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   // Handle file drop
   const handleDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
@@ -139,7 +196,22 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
       status: 'completed' as const,
       progress: 100,
       extractedData: item.extracted_data as BulkQueueItem['extractedData'],
-      confidence: item.confidence || 0,
+      // getConfidenceStatus expects 0-1, backend stores 0-100
+      confidence: item.confidence !== null ? item.confidence / 100 : 0,
+      warnings: item.warnings || [],
+    }));
+
+  // Convert items needing review to BulkQueueItem format
+  const needsReviewItems: BulkQueueItem[] = items
+    .filter(item => item.status === 'needs_review' && item.extracted_data)
+    .map(item => ({
+      id: item.id,
+      file: new File([], item.file_name),
+      fileName: item.file_name,
+      status: 'completed' as const, // Show as completed but with warnings
+      progress: 100,
+      extractedData: item.extracted_data as BulkQueueItem['extractedData'],
+      confidence: item.confidence !== null ? item.confidence / 100 : 0,
       warnings: item.warnings || [],
     }));
 
@@ -154,6 +226,8 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
         return <Badge variant="default" className="bg-green-500"><CheckCircle className="h-3 w-3 mr-1" />Concluído</Badge>;
       case 'failed':
         return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Falhou</Badge>;
+      case 'needs_review':
+        return <Badge variant="outline" className="border-orange-500 text-orange-600"><AlertCircle className="h-3 w-3 mr-1" />Requer Revisão</Badge>;
     }
   };
 
@@ -161,9 +235,9 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold">Upload em Massa (Background)</h2>
+        <h2 className="text-2xl font-bold">Upload de Documentos</h2>
         <p className="text-muted-foreground mt-1">
-          Para grandes volumes (até 500 ficheiros). Processamento automático em segundo plano.
+          Envie até 500 ficheiros de uma vez. Processamento automático com validação IA.
         </p>
       </div>
 
@@ -189,39 +263,59 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
         </Alert>
       )}
 
-      {/* Stats Cards */}
+      {/* Main Stats Card - Effective Withholdings Count */}
+      <Card className="border-green-500/30 bg-green-50/50 dark:bg-green-950/20">
+        <CardContent className="pt-6 pb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-3xl font-bold text-green-700 dark:text-green-400">
+                {isLoadingWithholdings ? '...' : effectiveCount}
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">
+                Retenções Guardadas ({selectedYear})
+              </p>
+            </div>
+            <CheckCircle className="h-10 w-10 text-green-500/50" />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Queue Stats Cards - Only show if there are items in queue */}
       {stats && stats.total_count > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <Card>
-            <CardContent className="pt-4">
-              <div className="text-2xl font-bold">{stats.total_count}</div>
-              <p className="text-xs text-muted-foreground">Total</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="text-2xl font-bold text-yellow-600">{stats.pending_count}</div>
-              <p className="text-xs text-muted-foreground">Pendentes</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="text-2xl font-bold text-blue-600">{stats.processing_count}</div>
-              <p className="text-xs text-muted-foreground">A processar</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="text-2xl font-bold text-green-600">{stats.completed_count}</div>
-              <p className="text-xs text-muted-foreground">Concluídos</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="text-2xl font-bold text-red-600">{stats.failed_count}</div>
-              <p className="text-xs text-muted-foreground">Falhados</p>
-            </CardContent>
-          </Card>
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-muted-foreground">Fila de Processamento</p>
+          <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
+            <Card>
+              <CardContent className="pt-3 pb-2">
+                <div className="text-xl font-bold text-yellow-600">{stats.pending_count}</div>
+                <p className="text-xs text-muted-foreground">Pendentes</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-3 pb-2">
+                <div className="text-xl font-bold text-blue-600">{stats.processing_count}</div>
+                <p className="text-xs text-muted-foreground">A processar</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-3 pb-2">
+                <div className="text-xl font-bold text-green-600">{stats.completed_count}</div>
+                <p className="text-xs text-muted-foreground">Concluídos</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-3 pb-2">
+                <div className="text-xl font-bold text-orange-600">{stats.needs_review_count}</div>
+                <p className="text-xs text-muted-foreground">Revisão</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-3 pb-2">
+                <div className="text-xl font-bold text-red-600">{stats.failed_count}</div>
+                <p className="text-xs text-muted-foreground">Falhados</p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       )}
 
@@ -262,7 +356,7 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
                   : 'Arraste ficheiros ou clique para selecionar'}
             </p>
             <p className="text-sm text-muted-foreground">
-              Suporta PDF, JPG, PNG • Máx. 5MB por ficheiro • Até 500 ficheiros
+              Suporta PDF, JPG, PNG • Máx. 5MB por ficheiro • Até 500 ficheiros por lote
             </p>
           </div>
         </CardContent>
@@ -351,6 +445,15 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
                     Limpar Concluídos
                   </Button>
                 )}
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  onClick={() => setShowResetDialog(true)}
+                  disabled={isAccountantOwnAccount}
+                >
+                  <RotateCcw className="h-4 w-4 mr-1" />
+                  Repor Ano
+                </Button>
               </div>
             </CardTitle>
           </CardHeader>
@@ -380,14 +483,14 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
                           <Badge
                             variant="outline"
                             className={
-                              item.confidence >= 0.95
+                              item.confidence >= 95
                                 ? 'border-green-500 text-green-600'
-                                : item.confidence >= 0.8
+                                : item.confidence >= 80
                                 ? 'border-yellow-500 text-yellow-600'
                                 : 'border-red-500 text-red-600'
                             }
                           >
-                            {(item.confidence * 100).toFixed(0)}%
+                            {Math.round(item.confidence)}%
                           </Badge>
                         )}
                       </td>
@@ -415,6 +518,32 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
         </Card>
       )}
 
+      {/* Alert for Documents Needing Review */}
+      {needsReviewItems.length > 0 && (
+        <Alert variant="destructive" className="mt-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>{needsReviewItems.length} documento(s) NÃO foram guardados</strong> porque falharam a validação
+            (ex.: NIF inválido, valor bruto/data em falta, documento anulado, ou documento sem retenção aplicável). Reveja os avisos abaixo.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Review Table for Documents Needing Review (Problems) */}
+      {needsReviewItems.length > 0 && (
+        <div className="mt-8">
+          <h3 className="text-xl font-semibold mb-4 text-orange-600">
+            ⚠️ Documentos com Problemas ({needsReviewItems.length})
+          </h3>
+          <BulkReviewTable
+            items={needsReviewItems}
+            onRemove={removeItem}
+            selectedClientId={selectedClientId}
+            selectedYear={selectedYear}
+          />
+        </div>
+      )}
+
       {/* Review Table for Completed Items */}
       {completedItems.length > 0 && (
         <div className="mt-8">
@@ -438,6 +567,49 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
           <p className="text-sm">Arraste ficheiros para começar</p>
         </div>
       )}
+
+      {/* Reset Year Confirmation Dialog */}
+      <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">
+              ⚠️ Repor Ano {selectedYear}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Esta acção vai <strong>apagar permanentemente</strong>:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-sm">
+                <li><strong>{effectiveCount} retenções guardadas</strong> do ano {selectedYear}</li>
+                <li><strong>{stats?.total_count || 0} itens na fila</strong> de upload (pendentes, a processar, concluídos)</li>
+              </ul>
+              <p className="text-destructive font-medium mt-3">
+                Esta acção é irreversível!
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isResetting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleResetYear}
+              disabled={isResetting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isResetting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  A eliminar...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Confirmar e Apagar
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1,12 +1,6 @@
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Users } from 'lucide-react';
-
-interface Client {
-  id: string;
-  full_name: string;
-  company_name: string | null;
-}
+import { Search } from 'lucide-react';
 
 interface InvoiceFiltersProps {
   filters: {
@@ -17,16 +11,12 @@ interface InvoiceFiltersProps {
   };
   onFiltersChange: (filters: { status: string; fiscalPeriod: string; search: string; clientId: string }) => void;
   fiscalPeriods: string[];
-  clients?: Client[];
-  showClientFilter?: boolean;
 }
 
 export function InvoiceFilters({ 
   filters, 
   onFiltersChange, 
   fiscalPeriods, 
-  clients = [],
-  showClientFilter = false 
 }: InvoiceFiltersProps) {
   return (
     <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
@@ -39,26 +29,6 @@ export function InvoiceFilters({
           className="pl-10"
         />
       </div>
-
-      {showClientFilter && clients.length > 0 && (
-        <Select
-          value={filters.clientId}
-          onValueChange={(value) => onFiltersChange({ ...filters, clientId: value })}
-        >
-          <SelectTrigger className="w-full sm:w-[200px]">
-            <Users className="h-4 w-4 mr-2 text-muted-foreground" />
-            <SelectValue placeholder="Cliente" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os clientes</SelectItem>
-            {clients.map((client) => (
-              <SelectItem key={client.id} value={client.id}>
-                {client.company_name || client.full_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
 
       <Select
         value={filters.status}

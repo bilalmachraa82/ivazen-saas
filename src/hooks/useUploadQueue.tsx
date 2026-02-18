@@ -12,13 +12,12 @@ import { useToast } from '@/hooks/use-toast';
 
 export interface QueueItem {
   id: string;
-  file_path: string;
   file_name: string;
-  file_size: number;
-  mime_type: string;
   fiscal_year: number;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  // needs_review: document processed but NOT saved (failed validation, missing NIF, etc.)
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'needs_review';
   extracted_data: unknown | null;
+  // Stored by backend as 0-100
   confidence: number | null;
   warnings: string[] | null;
   error_message: string | null;
@@ -34,18 +33,23 @@ export interface QueueStats {
   processing_count: number;
   completed_count: number;
   failed_count: number;
+  needs_review_count: number; // Documents processed but NOT saved (needs manual review)
 }
 
 interface DbQueueItem {
   id: string;
+  client_id: string;
+  user_id: string;
   file_name: string;
-  file_data: string;
-  qr_content: string | null;
-  upload_type: string;
   status: string;
+  extracted_data: unknown | null;
+  confidence: number | null;
+  warnings: string[] | null;
   error_message: string | null;
   retry_count: number;
   created_at: string;
+  started_at: string | null;
+  fiscal_year: number | null;
   processed_at: string | null;
 }
 
@@ -69,9 +73,23 @@ export function useUploadQueue(forClientId?: string | null) {
     }
 
     try {
+      if (!effectiveClientId) {
+        setItems([]);
+        setStats({
+          total_count: 0,
+          pending_count: 0,
+          processing_count: 0,
+          completed_count: 0,
+          failed_count: 0,
+          needs_review_count: 0,
+        });
+        return;
+      }
+
       const { data, error } = await supabase
         .from('upload_queue')
-        .select('*')
+        .select('id, client_id, user_id, file_name, status, extracted_data, confidence, warnings, error_message, retry_count, created_at, started_at, fiscal_year, processed_at')
+        .eq('client_id', effectiveClientId)
         .eq('user_id', user.id)
         .order('created_at', { ascending: true });
 
@@ -79,19 +97,16 @@ export function useUploadQueue(forClientId?: string | null) {
 
       const mappedItems: QueueItem[] = (data as DbQueueItem[] || []).map(item => ({
         id: item.id,
-        file_path: '',
         file_name: item.file_name,
-        file_size: 0,
-        mime_type: 'image/jpeg',
-        fiscal_year: new Date().getFullYear(),
+        fiscal_year: item.fiscal_year ?? new Date().getFullYear(),
         status: item.status as QueueItem['status'],
-        extracted_data: null,
-        confidence: null,
-        warnings: null,
+        extracted_data: item.extracted_data ?? null,
+        confidence: item.confidence ?? null,
+        warnings: item.warnings ?? null,
         error_message: item.error_message,
         attempts: item.retry_count,
         created_at: item.created_at,
-        started_at: null,
+        started_at: item.started_at,
         completed_at: item.processed_at,
       }));
 
@@ -104,6 +119,7 @@ export function useUploadQueue(forClientId?: string | null) {
         processing_count: mappedItems.filter(i => i.status === 'processing').length,
         completed_count: mappedItems.filter(i => i.status === 'completed').length,
         failed_count: mappedItems.filter(i => i.status === 'failed').length,
+        needs_review_count: mappedItems.filter(i => i.status === 'needs_review').length,
       };
       setStats(newStats);
     } catch (error) {
@@ -111,7 +127,7 @@ export function useUploadQueue(forClientId?: string | null) {
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+   }, [user, effectiveClientId]);
 
   useEffect(() => {
     fetchQueue();
@@ -139,15 +155,13 @@ export function useUploadQueue(forClientId?: string | null) {
 
       console.log('Processing result:', data);
 
-      const processed = data?.processed || 0;
-      const completed = data?.completed || 0;
-      const failed = data?.failed || 0;
-      const rateLimited = data?.rateLimited || 0;
-
       if (showToast) {
+        const pendingCount = typeof data?.pending_count === 'number' ? data.pending_count : null;
         toast({
-          title: 'Processamento concluído',
-          description: `${completed} ficheiros processados, ${failed} falhados${rateLimited > 0 ? `, ${rateLimited} aguardam retry` : ''} de ${processed} total`,
+          title: 'Processamento iniciado',
+          description: pendingCount !== null
+            ? `Fila iniciada em background (${pendingCount} pendentes). Atualize em alguns segundos.`
+            : 'Fila iniciada em background. Atualize em alguns segundos.',
         });
       }
 
@@ -211,6 +225,7 @@ export function useUploadQueue(forClientId?: string | null) {
             qr_content: null,
             upload_type: 'expense',
             status: 'pending',
+            fiscal_year: _fiscalYear,
           });
 
         if (error) throw error;
@@ -294,6 +309,38 @@ export function useUploadQueue(forClientId?: string | null) {
     }
   }, [user, fetchQueue, toast]);
 
+  // Clear ALL queue items for a specific client (for reset functionality)
+  const clearAllQueue = useCallback(async (clientId?: string) => {
+    if (!user) return;
+
+    try {
+      const targetClientId = clientId || effectiveClientId;
+      if (!targetClientId) {
+        throw new Error('Client ID not specified');
+      }
+
+      const { error } = await supabase
+        .from('upload_queue')
+        .delete()
+        .eq('client_id', targetClientId);
+
+      if (error) throw error;
+
+      await fetchQueue();
+      toast({
+        title: 'Fila limpa',
+        description: 'Todos os itens da fila foram removidos',
+      });
+    } catch (error) {
+      console.error('Error clearing all queue:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível limpar a fila',
+        variant: 'destructive',
+      });
+    }
+  }, [user, effectiveClientId, fetchQueue, toast]);
+
   // Retry failed item
   const retryItem = useCallback(async (itemId: string) => {
     if (!user) return;
@@ -327,6 +374,7 @@ export function useUploadQueue(forClientId?: string | null) {
     uploadToQueue,
     removeItem,
     clearCompleted,
+    clearAllQueue,
     retryItem,
     triggerProcessing,
     refresh: fetchQueue,

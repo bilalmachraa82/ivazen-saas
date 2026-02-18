@@ -20,13 +20,15 @@ import { WithholdingEditDialog } from './WithholdingEditDialog';
 interface WithholdingListProps {
   withholdings: TaxWithholding[];
   onDelete: (id: string) => Promise<void>;
+  onDeleteAll?: () => Promise<void>;
   onUpdate: (id: string, data: Partial<WithholdingFormData>, previousData?: TaxWithholding) => Promise<void>;
   isDeleting: boolean;
+  isDeletingAll?: boolean;
   isUpdating: boolean;
   fiscalYear: number;
 }
 
-export function WithholdingList({ withholdings, onDelete, onUpdate, isDeleting, isUpdating, fiscalYear }: WithholdingListProps) {
+export function WithholdingList({ withholdings, onDelete, onDeleteAll, onUpdate, isDeleting, isDeletingAll, isUpdating, fiscalYear }: WithholdingListProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingWithholding, setEditingWithholding] = useState<TaxWithholding | null>(null);
   const [filters, setFilters] = useState<WithholdingFiltersState>({
@@ -174,21 +176,64 @@ export function WithholdingList({ withholdings, onDelete, onUpdate, isDeleting, 
           Lista de Retenções ({filteredWithholdings.length}
           {filteredWithholdings.length !== withholdings.length && ` de ${withholdings.length}`})
         </CardTitle>
-        
-        {uniqueBeneficiariesCount > 0 && (
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleGenerateAllPDFs}
-            className="flex items-center gap-2"
-          >
-            <Files className="h-4 w-4" />
-            <span className="hidden sm:inline">Gerar Todos PDFs</span>
-            <Badge variant="secondary" className="ml-1">
-              {uniqueBeneficiariesCount}
-            </Badge>
-          </Button>
-        )}
+
+        <div className="flex items-center gap-2">
+          {uniqueBeneficiariesCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGenerateAllPDFs}
+              className="flex items-center gap-2"
+            >
+              <Files className="h-4 w-4" />
+              <span className="hidden sm:inline">Gerar Todos PDFs</span>
+              <Badge variant="secondary" className="ml-1">
+                {uniqueBeneficiariesCount}
+              </Badge>
+            </Button>
+          )}
+
+          {onDeleteAll && withholdings.length > 0 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={isDeletingAll}
+                  className="flex items-center gap-2"
+                >
+                  {isDeletingAll ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline">Eliminar Todos</span>
+                  <Badge variant="secondary" className="ml-1 bg-destructive-foreground/20">
+                    {withholdings.length}
+                  </Badge>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Eliminar TODAS as retenções de {fiscalYear}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta acção vai eliminar permanentemente <strong>{withholdings.length} retenção(ões)</strong> do ano fiscal {fiscalYear}.
+                    Esta acção não pode ser revertida.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => onDeleteAll()}
+                    className="bg-destructive hover:bg-destructive/90"
+                  >
+                    Eliminar Todos ({withholdings.length})
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <WithholdingFilters filters={filters} onFiltersChange={setFilters} />

@@ -3,9 +3,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 import { useDuplicateCheck, DuplicateCheckResult } from './useDuplicateCheck';
+import { detectMimeType } from '@/lib/mime';
+import { normalizeSupplierTaxId, normalizeSupplierVatId } from '@/lib/taxId';
+import { deriveFiscalPeriodFromDocumentDate, normalizeDocumentDate } from '@/lib/fiscalPeriod';
 
 interface ParsedInvoice {
   supplier_nif: string;
+  supplier_vat_id?: string | null;
   supplier_name?: string | null;
   customer_nif: string | null;
   document_type: string | null;
@@ -109,7 +113,8 @@ export function useInvoiceUpload(options: UseInvoiceUploadOptions = {}) {
       const { error: uploadError } = await supabase.storage
         .from('invoices')
         .upload(filePath, file, {
-          contentType: file.type || 'image/jpeg',
+          // Some environments provide an empty/incorrect `file.type` for valid PDFs.
+          contentType: detectMimeType({ type: file.type, name: fileName }) || 'application/octet-stream',
           upsert: false
         });
 
@@ -141,34 +146,47 @@ export function useInvoiceUpload(options: UseInvoiceUploadOptions = {}) {
     }
 
     try {
-      const { data, error } = await supabase
+      const payload = {
+        client_id: effectiveClientId,
+        image_path: imagePath,
+        supplier_nif: parsedData.supplier_nif,
+        supplier_vat_id: parsedData.supplier_vat_id || null,
+        supplier_name: parsedData.supplier_name,
+        customer_nif: parsedData.customer_nif,
+        document_type: parsedData.document_type,
+        document_date: parsedData.document_date,
+        document_number: parsedData.document_number,
+        atcud: parsedData.atcud,
+        base_reduced: parsedData.base_reduced,
+        vat_reduced: parsedData.vat_reduced,
+        base_intermediate: parsedData.base_intermediate,
+        vat_intermediate: parsedData.vat_intermediate,
+        base_standard: parsedData.base_standard,
+        vat_standard: parsedData.vat_standard,
+        base_exempt: parsedData.base_exempt,
+        total_vat: parsedData.total_vat,
+        total_amount: parsedData.total_amount,
+        fiscal_region: parsedData.fiscal_region,
+        fiscal_period: parsedData.fiscal_period,
+        qr_raw: parsedData.qr_raw || null,
+        status: 'pending',
+      };
+
+      let { data, error } = await supabase
         .from('invoices')
-        .insert({
-          client_id: effectiveClientId,
-          image_path: imagePath,
-          supplier_nif: parsedData.supplier_nif,
-          supplier_name: parsedData.supplier_name,
-          customer_nif: parsedData.customer_nif,
-          document_type: parsedData.document_type,
-          document_date: parsedData.document_date,
-          document_number: parsedData.document_number,
-          atcud: parsedData.atcud,
-          base_reduced: parsedData.base_reduced,
-          vat_reduced: parsedData.vat_reduced,
-          base_intermediate: parsedData.base_intermediate,
-          vat_intermediate: parsedData.vat_intermediate,
-          base_standard: parsedData.base_standard,
-          vat_standard: parsedData.vat_standard,
-          base_exempt: parsedData.base_exempt,
-          total_vat: parsedData.total_vat,
-          total_amount: parsedData.total_amount,
-          fiscal_region: parsedData.fiscal_region,
-          fiscal_period: parsedData.fiscal_period,
-          qr_raw: parsedData.qr_raw || null,
-          status: 'pending',
-        })
+        .insert(payload)
         .select('id')
         .single();
+
+      // Backward compatible: if migration hasn't been applied yet, retry without supplier_vat_id.
+      if (error && /supplier_vat_id/i.test(error.message || '') && /(does not exist|unknown)/i.test(error.message || '')) {
+        const { supplier_vat_id: _ignored, ...fallbackPayload } = payload;
+        ({ data, error } = await supabase
+          .from('invoices')
+          .insert(fallbackPayload)
+          .select('id')
+          .single());
+      }
 
       if (error) {
         console.error('Insert invoice error:', error);
@@ -201,7 +219,7 @@ export function useInvoiceUpload(options: UseInvoiceUploadOptions = {}) {
       const { data, error } = await supabase.functions.invoke('extract-invoice-data', {
         body: { 
           fileData: base64, 
-          mimeType: file.type,
+          mimeType: detectMimeType(file),
           userId: user.id 
         }
       });
@@ -212,20 +230,35 @@ export function useInvoiceUpload(options: UseInvoiceUploadOptions = {}) {
         return null;
       }
 
-      if (!data.success) {
-        toast.error(data.error || 'Não foi possível extrair dados da factura');
+      if (!data?.data) {
+        toast.error(data?.error || 'Não foi possível extrair dados da factura');
         return null;
+      }
+      if (!data.success) {
+        // Some suppliers have non-PT VAT IDs or missing NIF on scanned documents.
+        // We still accept the extracted payload so the user can review/fix it in the system.
+        toast.warning(data.error || 'Extração com avisos - verificar dados');
       }
 
       const extracted = data.data;
+      const normalizedDate = normalizeDocumentDate(extracted.document_date);
+      if (!normalizedDate) {
+        toast.error('Data do documento inválida ou não reconhecida');
+        return null;
+      }
       
       // Map extracted data to ParsedInvoice format
       return {
-        supplier_nif: extracted.supplier_nif,
+        supplier_nif: normalizeSupplierTaxId({
+          taxId: extracted.supplier_nif || extracted.supplier_vat_id,
+          supplierName: extracted.supplier_name,
+          documentNumber: extracted.document_number,
+        }),
+        supplier_vat_id: normalizeSupplierVatId(extracted.supplier_vat_id || extracted.supplier_nif),
         supplier_name: extracted.supplier_name,
         customer_nif: extracted.customer_nif || null,
         document_type: extracted.document_type || null,
-        document_date: extracted.document_date,
+        document_date: normalizedDate,
         document_number: extracted.document_number || null,
         atcud: extracted.atcud || null,
         base_reduced: extracted.base_reduced || null,
@@ -238,7 +271,7 @@ export function useInvoiceUpload(options: UseInvoiceUploadOptions = {}) {
         total_vat: extracted.total_vat || null,
         total_amount: extracted.total_amount,
         fiscal_region: extracted.fiscal_region || 'PT',
-        fiscal_period: extracted.fiscal_period || new Date().toISOString().slice(0, 7).replace('-', ''),
+        fiscal_period: deriveFiscalPeriodFromDocumentDate(normalizedDate) || new Date().toISOString().slice(0, 7).replace('-', ''),
         qr_raw: extracted.qr_content || undefined,
       } as ParsedInvoice;
 

@@ -4,9 +4,10 @@ import { CardContent, CardDescription, CardHeader, CardTitle } from '@/component
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { 
   Users, Search, Loader2, User, UserPlus, UserMinus, 
-  FileCheck, Clock, Info, ExternalLink, HelpCircle, Plus
+  FileCheck, Clock, ExternalLink, HelpCircle, Plus, Pencil
 } from 'lucide-react';
 import { ZenCard, ZenStatsCard } from '@/components/zen';
 import { useClientManagement, AccountantClient } from '@/hooks/useClientManagement';
@@ -21,6 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CreateClientDialog } from './CreateClientDialog';
+import { EditClientDialog } from './EditClientDialog';
 
 export function ClientManagementPanel() {
   const {
@@ -38,6 +40,7 @@ export function ClientManagementPanel() {
   } = useClientManagement();
 
   const [clientToRemove, setClientToRemove] = useState<AccountantClient | null>(null);
+  const [clientToEdit, setClientToEdit] = useState<AccountantClient | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const handleSearch = () => {
     searchClients(searchTerm);
@@ -58,10 +61,25 @@ export function ClientManagementPanel() {
     <>
       <ZenCard gradient="primary" withLine className="shadow-xl" animationDelay="100ms">
         <CardHeader>
-          <CardTitle className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10">
-              <Users className="h-5 w-5 text-primary" />
-            </div>
+        <CardTitle className="flex items-center gap-3">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateDialog(true)}
+                  className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 
+                             hover:from-primary/30 hover:to-primary/20 
+                             transition-all cursor-pointer group"
+                >
+                  <div className="relative">
+                    <Users className="h-5 w-5 text-primary" />
+                    <Plus className="h-3 w-3 text-primary absolute -bottom-1 -right-1 
+                                    opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Criar novo cliente</TooltipContent>
+            </Tooltip>
             Gestão de Clientes
             <Badge className="bg-primary/20 text-primary border-0">
               {totalClients} clientes
@@ -94,19 +112,29 @@ export function ClientManagementPanel() {
             />
           </div>
 
+          {/* Create Client Button - Prominent */}
+          <Button 
+            onClick={() => setShowCreateDialog(true)}
+            className="w-full h-14 bg-gradient-to-r from-primary to-primary/80 
+                       hover:from-primary/90 hover:to-primary/70
+                       shadow-lg hover:shadow-xl hover:shadow-primary/20
+                       transition-all duration-300 group"
+            size="lg"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-white/20">
+                <UserPlus className="h-5 w-5" />
+              </div>
+              <div className="text-left">
+                <span className="font-semibold block">Criar Novo Cliente</span>
+                <span className="text-xs opacity-80">Adicione à sua carteira</span>
+              </div>
+            </div>
+          </Button>
+
           {/* Search Section */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Adicionar Novo Cliente</label>
-              <Button
-                size="sm"
-                onClick={() => setShowCreateDialog(true)}
-                className="zen-button gap-1"
-              >
-                <Plus className="h-4 w-4" />
-                Criar Cliente
-              </Button>
-            </div>
+            <label className="text-sm font-medium text-muted-foreground">Ou pesquise clientes existentes</label>
             <div className="flex gap-2">
               <div className="flex-1">
                 <Input
@@ -131,9 +159,6 @@ export function ClientManagementPanel() {
                 )}
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Pesquise clientes existentes ou <button type="button" onClick={() => setShowCreateDialog(true)} className="text-primary hover:underline">crie um novo cliente</button>
-            </p>
           </div>
 
           {/* Search Results */}
@@ -230,14 +255,32 @@ export function ClientManagementPanel() {
                       <Badge variant="outline" className="bg-muted">
                         {client.validated_invoices} validadas
                       </Badge>
-                      <Button 
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setClientToRemove(client)}
-                        className="text-destructive hover:bg-destructive/10"
-                      >
-                        <UserMinus className="h-4 w-4" />
-                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setClientToEdit(client)}
+                            className="text-muted-foreground hover:text-primary hover:bg-primary/10"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Editar cliente</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setClientToRemove(client)}
+                            className="text-destructive hover:bg-destructive/10"
+                          >
+                            <UserMinus className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Remover cliente</TooltipContent>
+                      </Tooltip>
                     </div>
                   </div>
                 ))}
@@ -247,21 +290,32 @@ export function ClientManagementPanel() {
 
           {/* Empty state for accountants without clients */}
           {clients.length === 0 && !isLoadingClients && (
-            <div className="p-4 bg-muted/30 rounded-xl border border-dashed border-border">
-              <div className="flex items-start gap-3">
-                <Info className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Sem clientes na carteira</p>
-                  <p className="text-xs text-muted-foreground">
-                    Utilize a pesquisa acima para encontrar e adicionar clientes à sua carteira.
-                    Pode pesquisar por NIF, email ou nome.
-                  </p>
-                  <Link to="/accountant/onboarding" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                    <HelpCircle className="h-3 w-3" />
-                    Ver guia completo
-                  </Link>
-                </div>
+            <div className="p-6 bg-gradient-to-br from-primary/5 to-primary/10 
+                            rounded-xl border-2 border-dashed border-primary/30 text-center">
+              <div className="p-4 rounded-full bg-primary/10 w-16 h-16 mx-auto mb-4 
+                              flex items-center justify-center">
+                <Users className="h-8 w-8 text-primary" />
               </div>
+              <p className="font-semibold text-lg mb-2">Sem clientes na carteira</p>
+              <p className="text-sm text-muted-foreground mb-4">
+                Comece por criar o seu primeiro cliente ou pesquise existentes.
+              </p>
+              <Button 
+                onClick={() => setShowCreateDialog(true)}
+                className="w-full h-12 bg-gradient-to-r from-primary to-primary/80
+                           hover:from-primary/90 hover:to-primary/70 shadow-lg"
+                size="lg"
+              >
+                <UserPlus className="h-5 w-5 mr-2" />
+                Criar o Seu Primeiro Cliente
+              </Button>
+              <p className="text-xs text-muted-foreground mt-4">
+                ou use a pesquisa acima para encontrar clientes existentes
+              </p>
+              <Link to="/accountant/onboarding" className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-2">
+                <HelpCircle className="h-3 w-3" />
+                Ver guia completo
+              </Link>
             </div>
           )}
 
@@ -320,6 +374,14 @@ export function ClientManagementPanel() {
         onSuccess={() => {
           // Invalidate clients query to refresh the list
         }}
+      />
+
+      {/* Edit Client Dialog */}
+      <EditClientDialog
+        open={!!clientToEdit}
+        onOpenChange={(open) => !open && setClientToEdit(null)}
+        client={clientToEdit}
+        onSuccess={() => setClientToEdit(null)}
       />
     </>
   );

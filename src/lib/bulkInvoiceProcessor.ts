@@ -6,12 +6,15 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { validatePortugueseNIF } from './nifValidator';
+import { detectMimeType } from './mime';
+import { isTemporarySupplierTaxId, normalizeSupplierTaxId, normalizeSupplierVatId } from './taxId';
+import { deriveFiscalPeriodFromDocumentDate, normalizeDocumentDate } from './fiscalPeriod';
 
 export const BULK_INVOICE_CONFIG = {
-  MAX_CONCURRENT: 5,        // Max 5 docs processing simultaneously
+  MAX_CONCURRENT: 2,        // Max 2 docs simultaneously (prevents auth token exhaustion)
   MAX_RETRIES: 3,           // Retry up to 3 times if failed
-  RETRY_DELAY_MS: 1000,     // 1s between retries (exponential backoff)
-  BATCH_DELAY_MS: 500,      // 500ms delay between batches
+  RETRY_DELAY_MS: 2000,     // 2s between retries (exponential backoff)
+  BATCH_DELAY_MS: 1000,     // 1s delay between batches
   MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB max per file
   MAX_FILES_PER_BATCH: 100,
 };
@@ -32,6 +35,7 @@ export interface InvoiceQueueItem {
 
 export interface ExtractedInvoiceData {
   supplier_nif: string;
+  supplier_vat_id?: string | null;
   supplier_name?: string | null;
   customer_nif: string | null;
   customer_name?: string | null; // For sales invoices
@@ -68,6 +72,14 @@ export async function processBulkInvoices(
   for (let i = 0; i < items.length; i += BULK_INVOICE_CONFIG.MAX_CONCURRENT) {
     const batch = items.slice(i, i + BULK_INVOICE_CONFIG.MAX_CONCURRENT);
 
+    // Refresh auth session before each batch to prevent token expiration
+    try {
+      await supabase.auth.refreshSession();
+      console.log(`[BulkProcessor] Batch ${Math.floor(i / BULK_INVOICE_CONFIG.MAX_CONCURRENT) + 1}: session refreshed, processing ${batch.length} files`);
+    } catch (refreshErr) {
+      console.warn('[BulkProcessor] Session refresh failed, continuing:', refreshErr);
+    }
+
     const batchResults = await Promise.all(
       batch.map(item => processInvoiceDocument(item, clientId, onProgress, options))
     );
@@ -99,8 +111,18 @@ async function processInvoiceDocument(
       // Update status to processing
       onProgress(item.id, { ...item, status: 'processing', progress: 20 });
 
-      // Convert file to base64
+      // Convert file to base64 (with fallback and validation)
       const base64 = await fileToBase64(item.file);
+
+      // Validate base64 is not empty
+      const base64Content = base64.replace(/^data:[^;]+;base64,/, '');
+      if (!base64Content || base64Content.length < 100) {
+        throw new Error(`Ficheiro vazio após conversão: ${item.fileName} (${item.file.size} bytes)`);
+      }
+
+      // Detect correct MIME type (file.type can be empty)
+      const mimeType = detectMimeType(item.file);
+      console.log(`[BulkProcessor] Processing ${item.fileName}: ${Math.round(item.file.size/1024)}KB, mime=${mimeType}, base64=${Math.round(base64Content.length/1024)}KB`);
 
       onProgress(item.id, { ...item, status: 'processing', progress: 40 });
 
@@ -108,7 +130,7 @@ async function processInvoiceDocument(
       const response = await supabase.functions.invoke('extract-invoice-data', {
         body: {
           fileData: base64,
-          mimeType: item.file.type,
+          mimeType: mimeType,
         }
       });
 
@@ -126,11 +148,17 @@ async function processInvoiceDocument(
 
       // Map to our format
       const invoiceData: ExtractedInvoiceData = {
-        supplier_nif: extracted.supplier_nif,
+        // Fiscal period is derived deterministically from issue date to avoid quarter misclassification.
+        supplier_nif: normalizeSupplierTaxId({
+          taxId: extracted.supplier_nif || extracted.supplier_vat_id,
+          supplierName: extracted.supplier_name,
+          documentNumber: extracted.document_number,
+        }),
+        supplier_vat_id: normalizeSupplierVatId(extracted.supplier_vat_id || extracted.supplier_nif),
         supplier_name: extracted.supplier_name,
         customer_nif: extracted.customer_nif || null,
         document_type: extracted.document_type || null,
-        document_date: extracted.document_date,
+        document_date: normalizeDocumentDate(extracted.document_date) || extracted.document_date,
         document_number: extracted.document_number || null,
         atcud: extracted.atcud || null,
         base_reduced: extracted.base_reduced || null,
@@ -143,7 +171,10 @@ async function processInvoiceDocument(
         total_vat: extracted.total_vat || null,
         total_amount: extracted.total_amount,
         fiscal_region: extracted.fiscal_region || 'PT',
-        fiscal_period: extracted.fiscal_period || new Date().toISOString().slice(0, 7).replace('-', ''),
+        fiscal_period:
+          deriveFiscalPeriodFromDocumentDate(normalizeDocumentDate(extracted.document_date) || extracted.document_date) ||
+          extracted.fiscal_period ||
+          new Date().toISOString().slice(0, 7).replace('-', ''),
         qr_raw: extracted.qr_content || undefined,
       };
 
@@ -154,8 +185,9 @@ async function processInvoiceDocument(
 
       let invoiceId: string | undefined;
 
-      // Save to database if requested and confidence is acceptable
-      if (options.saveToDatabase && confidence >= 0.5) {
+      // Save to database if requested and extraction has minimal required fields.
+      // We do not block saving solely because supplier tax id is missing/foreign.
+      if (options.saveToDatabase && confidence > 0) {
         onProgress(item.id, { ...item, status: 'processing', progress: 80 });
 
         // Upload file to storage
@@ -243,7 +275,8 @@ async function uploadInvoiceFile(
     const { error } = await supabase.storage
       .from('invoices')
       .upload(filePath, file, {
-        contentType: file.type || 'application/octet-stream',
+        // Some environments report PDFs as application/octet-stream. Always detect by extension fallback.
+        contentType: detectMimeType(file),
         upsert: false
       });
 
@@ -262,7 +295,7 @@ async function uploadInvoiceFile(
 /**
  * Save invoice to database
  */
-async function saveInvoiceToDatabase(
+export async function saveInvoiceToDatabase(
   data: ExtractedInvoiceData,
   imagePath: string,
   clientId: string,
@@ -271,11 +304,54 @@ async function saveInvoiceToDatabase(
   try {
     const table = invoiceType === 'sales' ? 'sales_invoices' : 'invoices';
 
+    // Prevent duplicates in bulk upload flow (individual upload already checks duplicates).
+    // Criteria (priority):
+    // 1) ATCUD (when present)
+    // 2) supplier_nif + document_number + document_date (when document_number present)
+    try {
+      const atcud = (data.atcud || '').trim();
+      if (atcud) {
+        const { data: existing, error: findError } = await supabase
+          .from(table)
+          .select('id')
+          .eq('client_id', clientId)
+          .eq('atcud', atcud)
+          .limit(1);
+
+        if (findError) {
+          console.warn('[saveInvoiceToDatabase] ATCUD duplicate check error:', findError);
+        } else if (existing && existing.length > 0) {
+          return { success: true, invoiceId: existing[0].id };
+        }
+      }
+
+      const docNum = (data.document_number || '').trim();
+      if (docNum) {
+        const { data: existing, error: findError } = await supabase
+          .from(table)
+          .select('id')
+          .eq('client_id', clientId)
+          .eq('supplier_nif', data.supplier_nif)
+          .eq('document_number', docNum)
+          .eq('document_date', data.document_date)
+          .limit(1);
+
+        if (findError) {
+          console.warn('[saveInvoiceToDatabase] document duplicate check error:', findError);
+        } else if (existing && existing.length > 0) {
+          return { success: true, invoiceId: existing[0].id };
+        }
+      }
+    } catch (dupErr) {
+      console.warn('[saveInvoiceToDatabase] duplicate check exception:', dupErr);
+    }
+
     // Base data common to both tables
     const baseData = {
       client_id: clientId,
       image_path: imagePath,
       supplier_nif: data.supplier_nif,
+      ...(invoiceType === 'purchase' ? { supplier_vat_id: data.supplier_vat_id || null } : {}),
       customer_nif: data.customer_nif,
       document_type: data.document_type,
       document_date: data.document_date,
@@ -301,11 +377,28 @@ async function saveInvoiceToDatabase(
       ? { ...baseData, customer_name: data.customer_name }
       : { ...baseData, supplier_name: data.supplier_name };
 
-    const { data: result, error } = await supabase
+    let { data: result, error } = await supabase
       .from(table)
-      .insert(insertData)
+      .insert(insertData as any)
       .select('id')
       .single();
+
+    // Backward compatible: if migration hasn't been applied yet, retry without supplier_vat_id.
+    if (
+      error &&
+      invoiceType === 'purchase' &&
+      /supplier_vat_id/i.test(error.message || '') &&
+      /(does not exist|unknown|could not find)/i.test(error.message || '')
+    ) {
+      const fallback: any = { ...(insertData as any) };
+      delete fallback.supplier_vat_id;
+
+      ({ data: result, error } = await supabase
+        .from(table)
+        .insert(fallback)
+        .select('id')
+        .single());
+    }
 
     if (error) {
       console.error('Insert error:', error);
@@ -326,20 +419,23 @@ function calculateInvoiceConfidence(data: ExtractedInvoiceData): { confidence: n
   let confidence = 1.0;
   const warnings: string[] = [];
 
-  // CRITICAL validations (block if failed)
-
-  // 1. Supplier NIF validation
-  if (!data.supplier_nif) {
-    confidence = 0;
-    warnings.push('NIF do fornecedor nao encontrado');
-    return { confidence, warnings };
-  }
-
-  const nifCheck = validatePortugueseNIF(data.supplier_nif);
-  if (!nifCheck.valid) {
-    confidence = 0;
-    warnings.push('NIF do fornecedor invalido');
-    return { confidence, warnings };
+  // Supplier tax id (PT NIF or foreign VAT). We do not block saving solely on this.
+  const supplierTaxId = (data.supplier_nif || '').trim();
+  if (!supplierTaxId || isTemporarySupplierTaxId(supplierTaxId)) {
+    confidence *= 0.75;
+    warnings.push('NIF do fornecedor nao encontrado (guardada para revisao)');
+  } else {
+    const cleaned = supplierTaxId.replace(/\s/g, '');
+    if (/^\d{9}$/.test(cleaned)) {
+      const nifCheck = validatePortugueseNIF(cleaned);
+      if (!nifCheck.valid) {
+        confidence *= 0.65;
+        warnings.push('NIF portugues parece invalido (possivel erro OCR)');
+      }
+    } else {
+      confidence *= 0.85;
+      warnings.push('Fornecedor estrangeiro (VAT nao PT) - confirmar dedutibilidade');
+    }
   }
 
   // 2. Total amount validation
@@ -377,6 +473,11 @@ function calculateInvoiceConfidence(data: ExtractedInvoiceData): { confidence: n
 
   // 7. Document date reasonableness
   const docDate = new Date(data.document_date);
+  if (Number.isNaN(docDate.getTime())) {
+    confidence *= 0.70;
+    warnings.push('Data do documento inválida - confirmar período fiscal');
+    return { confidence, warnings };
+  }
   const docYear = docDate.getFullYear();
   const currentYear = new Date().getFullYear();
   if (docYear < 2020 || docYear > currentYear + 1) {
@@ -401,36 +502,83 @@ function calculateInvoiceConfidence(data: ExtractedInvoiceData): { confidence: n
 }
 
 /**
- * Convert file to base64 string
+ * Convert ArrayBuffer to base64 string (manual encoding)
+ */
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+/**
+ * Convert file to base64 string with fallback and validation
  */
 async function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
+  const mimeType = detectMimeType(file);
 
-    const cleanup = () => {
-      reader.onload = null;
-      reader.onerror = null;
-      reader.onabort = null;
-    };
+  // Primary method: readAsDataURL
+  const result = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    const timeout = setTimeout(() => {
+      reader.abort();
+      reject(new Error('File reading timeout (30s)'));
+    }, 30000);
 
     reader.onload = () => {
-      const base64 = reader.result as string;
-      cleanup();
-      resolve(base64);
+      clearTimeout(timeout);
+      resolve(reader.result as string);
     };
-
-    reader.onerror = (error) => {
-      cleanup();
-      reject(error);
+    reader.onerror = () => {
+      clearTimeout(timeout);
+      reject(reader.error || new Error('FileReader error'));
     };
-
     reader.onabort = () => {
-      cleanup();
+      clearTimeout(timeout);
       reject(new Error('File reading aborted'));
     };
-
     reader.readAsDataURL(file);
   });
+
+  // Validate: extract base64 portion and check length
+  const base64Part = result.replace(/^data:[^;]+;base64,/, '');
+  if (base64Part.length > 100) {
+    console.log(`[fileToBase64] OK via readAsDataURL: file=${file.name} (${Math.round(file.size/1024)}KB), base64=${Math.round(base64Part.length/1024)}KB`);
+    // Re-construct with correct MIME type
+    return `data:${mimeType};base64,${base64Part}`;
+  }
+
+  // Fallback: readAsArrayBuffer + manual encoding
+  console.warn(`[fileToBase64] readAsDataURL produced empty result for ${file.name}, trying ArrayBuffer fallback...`);
+
+  const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+    const reader = new FileReader();
+    const timeout = setTimeout(() => {
+      reader.abort();
+      reject(new Error('ArrayBuffer reading timeout (30s)'));
+    }, 30000);
+
+    reader.onload = () => {
+      clearTimeout(timeout);
+      resolve(reader.result as ArrayBuffer);
+    };
+    reader.onerror = () => {
+      clearTimeout(timeout);
+      reject(reader.error || new Error('FileReader ArrayBuffer error'));
+    };
+    reader.readAsArrayBuffer(file);
+  });
+
+  const fallbackBase64 = arrayBufferToBase64(buffer);
+
+  if (fallbackBase64.length < 100) {
+    throw new Error(`Ficheiro vazio após conversão: ${file.name} (${file.size} bytes original, ${fallbackBase64.length} bytes base64)`);
+  }
+
+  console.log(`[fileToBase64] OK via ArrayBuffer fallback: file=${file.name} (${Math.round(file.size/1024)}KB), base64=${Math.round(fallbackBase64.length/1024)}KB`);
+  return `data:${mimeType};base64,${fallbackBase64}`;
 }
 
 /**
@@ -474,19 +622,26 @@ export function validateBulkFiles(files: FileList | File[]): {
     fileArray.splice(BULK_INVOICE_CONFIG.MAX_FILES_PER_BATCH);
   }
 
+  console.log('[validateBulkFiles] Input:', fileArray.length, 'files');
+
   for (const file of fileArray) {
     // Check file size
     if (file.size > BULK_INVOICE_CONFIG.MAX_FILE_SIZE) {
+      console.log('[validateBulkFiles] REJECTED (size):', file.name, 'size:', file.size);
       invalid.push({ file, reason: 'Ficheiro muito grande (max 10MB)' });
       continue;
     }
 
-    // Check file type
-    const isPDF = file.type === 'application/pdf';
-    const isImage = file.type.startsWith('image/');
+    // Check file type (some browsers/OS report empty file.type for valid PDFs)
+    const mime = detectMimeType(file);
+    const isPDF = mime === 'application/pdf';
+    const isImage = mime.startsWith('image/');
+
+    console.log('[validateBulkFiles] File:', file.name, 'size:', file.size, 'file.type:', JSON.stringify(file.type), 'detectedMime:', mime, 'isPDF:', isPDF, 'isImage:', isImage);
 
     if (!isPDF && !isImage) {
-      invalid.push({ file, reason: 'Tipo de ficheiro nao suportado' });
+      console.log('[validateBulkFiles] REJECTED (type):', file.name, 'file.type:', JSON.stringify(file.type), 'detectedMime:', mime);
+      invalid.push({ file, reason: `Tipo de ficheiro nao suportado (${file.type || 'sem tipo'} → ${mime})` });
       continue;
     }
 

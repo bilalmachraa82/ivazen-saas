@@ -1,7 +1,7 @@
 project_id = "oqvvtcfvjkghrwaatprx"
 
 [functions.process-queue]
-verify_jwt = true
+verify_jwt = false
 
 [functions.parse-qr]
 verify_jwt = true
@@ -10,7 +10,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.extract-invoice-data]
-verify_jwt = true
+verify_jwt = false
 
 [functions.classify-sales-category]
 verify_jwt = true
@@ -19,10 +19,34 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.create-client-direct]
-verify_jwt = true
+verify_jwt = false
 
 [functions.send-push-notification]
 verify_jwt = true
 
 [functions.check-fiscal-deadlines]
+verify_jwt = false
+
+[functions.sync-efatura]
+verify_jwt = false
+
+[functions.parse-credentials-pdf]
+verify_jwt = true
+
+[functions.import-client-credentials]
+verify_jwt = true
+
+[functions.upload-at-certificate]
+verify_jwt = true
+
+[functions.parse-excel-with-ai]
+verify_jwt = true
+
+[functions.sync-queue-manager]
+verify_jwt = true
+
+[functions.process-at-sync-queue]
+verify_jwt = false
+
+[functions.fetch-efatura-portal]
 verify_jwt = false

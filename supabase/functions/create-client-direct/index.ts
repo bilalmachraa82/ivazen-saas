@@ -1,5 +1,5 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,11 +9,29 @@ const corsHeaders = {
 interface CreateClientRequest {
   full_name: string;
   nif: string;
-  email: string;
+  email?: string | null;
+  phone?: string;
+  address?: string;
+}
+
+function normalizeEmail(rawEmail: unknown): string | null {
+  if (!rawEmail || typeof rawEmail !== 'string') return null;
+  const candidates = rawEmail.split(/[,;\s\n\t]+/).filter(Boolean);
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  
+  for (let candidate of candidates) {
+    candidate = candidate.replace(/[.,;:!]+$/, '').trim().toLowerCase();
+    if (emailRegex.test(candidate)) return candidate;
+  }
+  return null;
+}
+
+function generatePlaceholderEmail(nif: string): string {
+  const uuid = crypto.randomUUID().split('-')[0];
+  return `${nif}.${uuid}@cliente.ivazen.pt`;
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -21,73 +39,54 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      console.error('No authorization header provided');
       return new Response(
         JSON.stringify({ error: 'Não autorizado' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Create Supabase client with service role for admin operations
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     
-    // Client for checking user auth
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: { persistSession: false },
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    // Admin client for creating users
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { autoRefreshToken: false, persistSession: false }
     });
 
-    // Get the authenticated user (accountant)
-    const { data: { user: accountant }, error: authError } = await supabaseAuth.auth.getUser();
+    // Validate JWT explicitly (required for Lovable Cloud ES256 tokens)
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user: accountant }, error: authError } = await supabaseAdmin.auth.getUser(token);
     if (authError || !accountant) {
-      console.error('Auth error:', authError);
       return new Response(
         JSON.stringify({ error: 'Não autorizado' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Accountant ID:', accountant.id);
-
-    // Check if user is an accountant
-    const { data: roleData, error: roleError } = await supabaseAdmin
+    const { data: roleData } = await supabaseAdmin
       .from('user_roles')
       .select('role')
       .eq('user_id', accountant.id)
       .eq('role', 'accountant')
       .single();
 
-    if (roleError || !roleData) {
-      console.error('Role check failed:', roleError);
+    if (!roleData) {
       return new Response(
         JSON.stringify({ error: 'Apenas contabilistas podem criar clientes' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Parse request body
     const body: CreateClientRequest = await req.json();
-    const { full_name, nif, email } = body;
+    const { full_name, nif, phone, address } = body;
 
-    // SECURITY: Don't log sensitive data (NIF, email)
-    console.log('Creating new client');
-
-    // Validate required fields
-    if (!full_name || !nif || !email) {
+    if (!full_name || !nif) {
       return new Response(
-        JSON.stringify({ error: 'Nome, NIF e email são obrigatórios' }),
+        JSON.stringify({ error: 'Nome e NIF são obrigatórios' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Validate NIF format (Portuguese NIF - 9 digits)
     const nifClean = nif.replace(/\s/g, '');
     if (!/^\d{9}$/.test(nifClean)) {
       return new Response(
@@ -96,162 +95,202 @@ serve(async (req) => {
       );
     }
 
-    // Check if email already exists
-    const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
-    const emailExists = existingUser?.users?.some(u => u.email?.toLowerCase() === email.toLowerCase());
+    let email = normalizeEmail(body.email);
+    let isPlaceholderEmail = false;
     
-    if (emailExists) {
-      return new Response(
-        JSON.stringify({ error: 'Já existe um utilizador com este email' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (!email) {
+      email = generatePlaceholderEmail(nifClean);
+      isPlaceholderEmail = true;
     }
 
-    // Check if NIF already exists in profiles (excluding the accountant's own profile)
-    const { data: existingProfiles } = await supabaseAdmin
+    // Check if NIF already exists
+    const { data: existingProfileByNIF } = await supabaseAdmin
       .from('profiles')
-      .select('id')
+      .select('id, accountant_id, full_name')
       .eq('nif', nifClean)
-      .neq('id', accountant.id);
+      .neq('id', accountant.id)
+      .maybeSingle();
 
-    if (existingProfiles && existingProfiles.length > 0) {
+    if (existingProfileByNIF) {
+      await supabaseAdmin
+        .from('client_accountants')
+        .upsert({
+          client_id: existingProfileByNIF.id,
+          accountant_id: accountant.id,
+          access_level: 'full',
+          is_primary: existingProfileByNIF.accountant_id === null,
+          invited_by: accountant.id
+        }, { onConflict: 'client_id,accountant_id' });
+
+      if (existingProfileByNIF.accountant_id === null) {
+        await supabaseAdmin
+          .from('profiles')
+          .update({ accountant_id: accountant.id, phone: phone || undefined, address: address || undefined })
+          .eq('id', existingProfileByNIF.id);
+      }
+
       return new Response(
-        JSON.stringify({ error: 'Já existe um cliente com este NIF' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: true, client_id: existingProfileByNIF.id, action: 'associated' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Create the user with admin API
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email: email,
-      email_confirm: true, // Auto-confirm email
-      user_metadata: {
-        full_name: full_name,
+    // Check if email already exists in profiles (efficient query, no listUsers limit)
+    if (!isPlaceholderEmail) {
+      const { data: existingProfileByEmail } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .ilike('email', email!)
+        .neq('id', accountant.id)
+        .maybeSingle();
+
+      if (existingProfileByEmail) {
+        await supabaseAdmin
+          .from('client_accountants')
+          .upsert({
+            client_id: existingProfileByEmail.id,
+            accountant_id: accountant.id,
+            access_level: 'full',
+            is_primary: false,
+            invited_by: accountant.id
+          }, { onConflict: 'client_id,accountant_id' });
+
+        await supabaseAdmin
+          .from('profiles')
+          .update({ nif: nifClean, company_name: full_name, phone: phone || null, address: address || null })
+          .eq('id', existingProfileByEmail.id)
+          .is('nif', null);
+
+        return new Response(
+          JSON.stringify({ success: true, client_id: existingProfileByEmail.id, action: 'associated_by_email' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
+    }
+
+    // Create new user
+    let usedEmail = email;
+    const firstAttempt = await supabaseAdmin.auth.admin.createUser({
+      email: usedEmail,
+      email_confirm: true,
+      user_metadata: { full_name }
     });
 
-    if (createError || !newUser?.user) {
-      console.error('Create user error:', createError);
+    let newUser = firstAttempt.data?.user;
+    let createError = firstAttempt.error;
+
+    if (createError) {
+      const errorMsg = createError.message?.toLowerCase() || '';
+      
+      if (errorMsg.includes('already') && errorMsg.includes('registered')) {
+        // Find by email in profiles (no listUsers limit)
+        const { data: foundProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('id')
+          .ilike('email', usedEmail)
+          .maybeSingle();
+        
+        if (foundProfile) {
+          await supabaseAdmin
+            .from('client_accountants')
+            .upsert({
+              client_id: foundProfile.id,
+              accountant_id: accountant.id,
+              access_level: 'full',
+              is_primary: false,
+              invited_by: accountant.id
+            }, { onConflict: 'client_id,accountant_id' });
+
+          return new Response(
+            JSON.stringify({ success: true, client_id: foundProfile.id, action: 'associated_race_condition' }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+      
+      if (errorMsg.includes('invalid') && errorMsg.includes('format')) {
+        usedEmail = generatePlaceholderEmail(nifClean);
+        isPlaceholderEmail = true;
+        
+        const retryAttempt = await supabaseAdmin.auth.admin.createUser({
+          email: usedEmail,
+          email_confirm: true,
+          user_metadata: { full_name }
+        });
+        
+        newUser = retryAttempt.data?.user;
+        createError = retryAttempt.error;
+      }
+    }
+
+    if (createError || !newUser) {
       return new Response(
-        JSON.stringify({ error: createError?.message || 'Erro ao criar utilizador' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: createError?.message || 'Erro ao criar utilizador', action: 'failed' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('User created:', newUser.user.id);
+    await new Promise(resolve => setTimeout(resolve, 300));
 
-    // Wait a bit for the trigger to create the profile
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Update or insert the profile with NIF, company name and accountant_id
-    // The profile should be created automatically by the database trigger
-    // but we'll do an upsert to be safe
-    const { error: upsertError } = await supabaseAdmin
+    await supabaseAdmin
       .from('profiles')
       .upsert({
-        id: newUser.user.id,
+        id: newUser.id,
         nif: nifClean,
-        company_name: full_name, // Use full_name as company_name for Modelo 10
+        company_name: full_name,
         accountant_id: accountant.id,
         full_name: full_name,
-        email: email
-      }, {
-        onConflict: 'id'
-      });
+        email: usedEmail,
+        phone: phone || null,
+        address: address || null,
+      }, { onConflict: 'id' });
 
-    if (upsertError) {
-      console.error('Upsert profile error:', upsertError);
-      // Try a simple update as fallback
-      const { error: updateError } = await supabaseAdmin
-        .from('profiles')
-        .update({
-          nif: nifClean,
-          company_name: full_name,
-          accountant_id: accountant.id,
-          full_name: full_name,
-          email: email
-        })
-        .eq('id', newUser.user.id);
-      
-      if (updateError) {
-        console.error('Update profile fallback error:', updateError);
-      }
-    }
-
-    // Generate magic link for the client
-    const siteUrl = Deno.env.get('SITE_URL') || `${supabaseUrl.replace('.supabase.co', '')}.lovable.dev`;
-    const redirectUrl = siteUrl.includes('localhost') ? 'http://localhost:5173/' : `https://${siteUrl}/`;
-    
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'magiclink',
-      email: email,
-      options: {
-        redirectTo: redirectUrl
-      }
-    });
-
-    if (linkError) {
-      console.error('Generate link error:', linkError);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Cliente criado mas erro ao gerar link. O cliente pode usar "Esqueci a password" para aceder.',
-          client_id: newUser.user.id
-        }),
-        { status: 207, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Build the full magic link URL
-    const magicLink = linkData.properties?.action_link;
-
-    console.log('Magic link generated successfully');
-
-    // CRITICAL: Insert into client_accountants table for proper association
-    const { error: clientAccountantError } = await supabaseAdmin
+    await supabaseAdmin
       .from('client_accountants')
-      .insert({
-        client_id: newUser.user.id,
+      .upsert({
+        client_id: newUser.id,
         accountant_id: accountant.id,
         access_level: 'full',
         is_primary: true,
         invited_by: accountant.id
-      });
+      }, { onConflict: 'client_id,accountant_id' });
 
-    if (clientAccountantError) {
-      console.error('Error inserting client_accountants:', clientAccountantError);
-      // Don't fail the request, the profile.accountant_id is already set as fallback
-    } else {
-      console.log('Client-accountant association created successfully');
+    let magicLink = null;
+    if (!isPlaceholderEmail) {
+      const siteUrl = Deno.env.get('SITE_URL') || 'https://ivazen.app';
+      try {
+        const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
+          type: 'magiclink',
+          email: usedEmail,
+          options: { redirectTo: siteUrl }
+        });
+        magicLink = linkData?.properties?.action_link;
+      } catch (_) {}
     }
 
-    // Record the invitation
-    await supabaseAdmin
-      .from('client_invitations')
-      .insert({
-        accountant_id: accountant.id,
-        client_id: newUser.user.id,
-        client_email: email,
-        client_nif: nifClean,
-        client_name: full_name,
-        company_name: full_name
-      });
+    try {
+      await supabaseAdmin
+        .from('client_invitations')
+        .upsert({
+          accountant_id: accountant.id,
+          client_id: newUser.id,
+          client_email: usedEmail,
+          client_nif: nifClean,
+          client_name: full_name,
+          company_name: full_name
+        }, { onConflict: 'accountant_id,client_id' });
+    } catch (_) {}
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        client_id: newUser.user.id,
-        magic_link: magicLink,
-        message: 'Cliente criado com sucesso'
-      }),
+      JSON.stringify({ success: true, client_id: newUser.id, magic_link: magicLink, action: 'created' }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error: unknown) {
-    console.error('Unexpected error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Erro interno do servidor';
+    const errorMessage = error instanceof Error ? error.message : 'Erro interno';
     return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: false, error: errorMessage, action: 'failed' }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

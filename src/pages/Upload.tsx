@@ -6,6 +6,7 @@ import { useSalesInvoiceUpload } from '@/hooks/useSalesInvoiceUpload';
 import { useProfile } from '@/hooks/useProfile';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useClientManagement } from '@/hooks/useClientManagement';
+import { useSelectedClient } from '@/hooks/useSelectedClient';
 import { DuplicateCheckResult } from '@/hooks/useDuplicateCheck';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { CardContent } from '@/components/ui/card';
@@ -25,9 +26,11 @@ import { BulkInvoiceUpload } from '@/components/upload/BulkInvoiceUpload';
 import { SAFTInvoiceImporter } from '@/components/upload/SAFTInvoiceImporter';
 import { ZenCard, ZenCardHeader, ZenHeader, ZenDecorations, ZenFloatingIcon, ZenList, ZenListItem } from '@/components/zen';
 import { Camera, CheckCircle2, Sparkles, QrCode, Upload as UploadIcon, Leaf, ShoppingCart, TrendingUp, AlertTriangle, Copy, XCircle, Layers, FileCode } from 'lucide-react';
+import { StepNavigator } from '@/components/dashboard/StepNavigator';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
+import { detectMimeType } from '@/lib/mime';
 
 type InvoiceType = 'purchase' | 'sales';
 type DetectionResult = { type: InvoiceType; confidence: 'high' | 'low'; reason: string } | null;
@@ -101,9 +104,7 @@ export default function Upload() {
   const { profile, isLoading: profileLoading } = useProfile();
   const { isOnline, isSyncing, pendingCount, queueUpload, syncPendingUploads } = useOfflineSync();
   const { isAccountant, clients, isLoadingClients } = useClientManagement();
-  
-  // Client selection for accountants - moved before hook calls
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const { selectedClientId, setSelectedClientId } = useSelectedClient();
   
   // Pass forClientId to upload hooks for accountants
   const purchaseUpload = useInvoiceUpload({ forClientId: isAccountant ? selectedClientId : null });
@@ -300,10 +301,8 @@ export default function Upload() {
     setSelectedFile(file);
 
     // Check if it's a PDF or HEIC - these need AI extraction
-    const isPDFOrHEIC = file.type === 'application/pdf' || 
-                        file.name.toLowerCase().endsWith('.pdf') ||
-                        file.type.includes('heic') ||
-                        file.type.includes('heif');
+    const mime = detectMimeType(file);
+    const isPDFOrHEIC = mime === 'application/pdf' || mime.includes('heic') || mime.includes('heif');
     
     if (isPDFOrHEIC) {
       // Process directly with AI extraction (no QR dialog)
@@ -704,15 +703,6 @@ export default function Upload() {
 
           {/* Bulk Upload Mode */}
           <TabsContent value="bulk" className="space-y-6">
-            {/* Accountant Client Selector */}
-            {isAccountant && (
-              <ClientSelector
-                clients={clients}
-                selectedClientId={selectedClientId}
-                onSelectClient={setSelectedClientId}
-                isLoading={isLoadingClients}
-              />
-            )}
             <BulkInvoiceUpload
               selectedClientId={isAccountant ? selectedClientId : user?.id}
               clientName={isAccountant ? clients.find(c => c.id === selectedClientId)?.company_name || clients.find(c => c.id === selectedClientId)?.full_name : null}
@@ -721,15 +711,6 @@ export default function Upload() {
 
           {/* SAFT Import Mode */}
           <TabsContent value="saft" className="space-y-6">
-            {/* Accountant Client Selector */}
-            {isAccountant && (
-              <ClientSelector
-                clients={clients}
-                selectedClientId={selectedClientId}
-                onSelectClient={setSelectedClientId}
-                isLoading={isLoadingClients}
-              />
-            )}
             <SAFTInvoiceImporter
               selectedClientId={isAccountant ? selectedClientId : user?.id}
               clientName={isAccountant ? clients.find(c => c.id === selectedClientId)?.company_name || clients.find(c => c.id === selectedClientId)?.full_name : null}
@@ -744,37 +725,6 @@ export default function Upload() {
           <ProfileIncompleteWarning missingNif={true} />
         )}
 
-        {/* Accountant Client Selector */}
-        {isAccountant && (
-          <>
-            <ClientSelector
-              clients={clients}
-              selectedClientId={selectedClientId}
-              onSelectClient={setSelectedClientId}
-              isLoading={isLoadingClients}
-            />
-            
-            {/* Client Confirmation Alert */}
-            {selectedClientId && (
-              <Alert className="border-primary/30 bg-primary/5">
-                <CheckCircle2 className="h-4 w-4 text-primary" />
-                <AlertTitle className="text-primary">Cliente Seleccionado</AlertTitle>
-                <AlertDescription className="text-muted-foreground">
-                  {(() => {
-                    const client = clients.find(c => c.id === selectedClientId);
-                    return client ? (
-                      <>
-                        <span className="font-medium">{client.company_name || client.full_name}</span>
-                        {client.nif && <span className="ml-2 font-mono text-xs">NIF: {client.nif}</span>}
-                        <p className="text-xs mt-1">Todas as facturas carregadas serão associadas a este cliente.</p>
-                      </>
-                    ) : null;
-                  })()}
-                </AlertDescription>
-              </Alert>
-            )}
-          </>
-        )}
 
         {/* Block upload when accountant has no clients */}
         {accountantNeedsClients && (
@@ -1117,6 +1067,12 @@ export default function Upload() {
             document.querySelector('[class*="bg-primary/5"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }}
         />
+
+        <div className="pt-2 text-center text-[11px] text-muted-foreground/70 select-text">
+          Build {__BUILD_COMMIT__} · {__BUILD_TIME_ISO__}
+        </div>
+
+        <StepNavigator currentStep={0} />
       </div>
     </DashboardLayout>
   );

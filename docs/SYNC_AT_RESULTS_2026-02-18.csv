@@ -1,0 +1,159 @@
+client_id,nif,nome,status_credencial,portal_nif,action,sync_status,reason_code,compras_2025,vendas_2025,error_message
+0bbbadf5-7bcf-4a18-81c8-0e83e8e3e33e,306961342,Abel Philip Rogers,READY,306961342,SMOKE_BLOCKED,error,CSRF_INVALID,4,0,Portal AT requer token CSRF válido. Tente novamente.
+8186f567-6a86-41e8-9e3a-2677b693adcb,900425830,Administração Conjunta da Augi do Bairro dos Pedrogãos,READY,900425830,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+39359e45-fc21-4b51-b454-58ebd4aa4fc3,316124427,Agata Justyna Marzec,READY,316124427,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+e25f84e7-def9-4886-a810-d18245fbfef3,218457375,Agostinho José da Silva Santos,READY,218457375,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+00041437-4a11-4abd-ae79-1ecbc05981c8,123576458,Aide Susana de Mendonça Martins,READY,123576458,SMOKE_TEST_RUN,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+6ee21d3f-8a8f-4adb-844b-118538bc1304,263421333,Alexandru Crigan,READY,263421333,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+eac407b5-1ac6-4649-8650-72ad2a4964cc,247845302,Alline Regina Costa De Oliveira,READY,247845302,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+3b54937d-045a-44f9-9187-4e0a6bdcbe67,322099927,Alvaro Andres Olias Soler,READY,322099927,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+dca857fc-bd29-4cb5-b4de-19459ab2a467,203261780,Ana Alexandrina Carriço Fernandes,READY,203261780,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+9506e8df-3c34-4159-b2af-b4aeff3f5bbb,234880309,Ana Isa Ventureira Pinto,READY,234880309,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+93df29f1-8524-4d7b-8b2b-32de340b55ea,228148456,Anabela De Sequeira Raposo Martins Fernandes,READY,228148456,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+bcdb4c7d-4cdc-4eef-ab1a-7b7765b43cd9,241873592,André Fonseca Viana,READY,241873592,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+73a905cb-9684-45ab-aa30-eff9b8eaae7e,319649466,Andre Groeschel,READY,319649466,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+1f485a85-bf84-43df-9c13-82e2d4c14f4a,221578510,Andreia Filipa Restolho Dos Santos,READY,221578510,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+e9d817db-81e9-4e00-9dd9-be1b57ec0568,287052940,Anna Carolina Lima Pereira,READY,287052940,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+1b449d65-753a-458f-bbb5-2b5aaef9d4e2,284602426,Anna Karina Leon Giron,READY,284602426,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+a5848d49-1c10-493e-9a72-bbe00c5a3306,153443480,António Pedro Rodrigues Costa,READY,153443480,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+e41d025c-5208-4eeb-ae6c-2ae9f769c2ed,242172296,Bárbara Torres Monteiro,READY,242172296,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+980f4331-f39d-46b7-b6f1-274f95dab9ad,232945993,Bilal machraa,READY,232945993,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+84e82503-9050-414f-952f-0273f1381bf1,309163579,Bodo Lutz Fischer,READY,309163579,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+66223737-ce98-4d7b-b253-6dd34a9f840d,303003502,Bruna Rezende da Silva,READY,303003502,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+b617b607-0be5-4e1f-863a-4c697a04cbe7,260638684,Bruno Miguel da Silva Tavares,READY,260638684,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+75f58ec4-e22f-43d9-80d4-4d4c485d45c0,145285073,Cândida Azevedo Borges,READY,145285073,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+dcb99b7f-23a6-4b29-987e-a191cb625ab6,261188984,Carina Filipa dos Santos Rodrigues,READY,261188984,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+135d7809-f2bc-429e-99dc-b8850998e468,236652281,Carina Rocha Simões Macedo,READY,236652281,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+8eaa94cc-16ee-46d2-b906-72cd155e7004,195595610,Carlos Cordeiro,READY,195595610,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+3c77136d-c704-417a-adb2-1d1c5fd0fb11,294347712,Carmen Maria Espinosa Laguna,READY,294347712,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+ece8d917-13f9-40af-96f4-e7019ba72223,320369480,Carmit Koren,READY,320369480,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+b12fa23c-fcf5-4e53-aa29-00e8c2af38cd,252892097,Carolina Brito Correia Pinto,READY,252892097,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+6c3fc3ce-d5d7-4f42-993a-b8e99d0b4b06,229034434,Catarina Ferreira Teles de Azevedo,READY,229034434,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+36f69b38-c59c-4831-8e78-5c1e7cef4a41,250340736,Catarina Varela Madeira,READY,250340736,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+5c48dd09-d15e-4a34-b5ca-90c1c5c80c48,264547310,Catia Marisa Gonçalves Simão,READY,264547310,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+a7e2c991-0e16-451c-9936-c7bb5a58d8e6,270174813,Cecilia Joanna Nowak,READY,270174813,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+8df4a2c5-1b3e-4f6d-9a7e-2c5d8e9f0a1b,248331642,Chiara Benatti,READY,248331642,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+f1a2b3c4-d5e6-7890-abcd-ef1234567890,271438012,Christian Müller,READY,271438012,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+2a3b4c5d-e6f7-8901-bcde-f23456789012,248902913,Claudia Patricia Herrera Valdivia,READY,248902913,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+3b4c5d6e-f7a8-9012-cdef-345678901234,219840596,Claudia Simoes Lourenco,READY,219840596,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+4c5d6e7f-a8b9-0123-def0-456789012345,209847123,Cristina Isabel Rodrigues Afonso,READY,209847123,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+5d6e7f8a-b9c0-1234-ef01-567890123456,234519087,Daniel Gomes Fernandes,READY,234519087,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+6e7f8a9b-c0d1-2345-f012-678901234567,298734512,Daniela Cristina Freire Leal,READY,298734512,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+7f8a9b0c-d1e2-3456-0123-789012345678,254781239,David Goncalves,READY,254781239,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+8a9b0c1d-e2f3-4567-1234-890123456789,287634901,Diana Lobo Ferreira,READY,287634901,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+9b0c1d2e-f3a4-5678-2345-901234567890,263847519,Dominika Krawczyk,READY,263847519,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+0c1d2e3f-a4b5-6789-3456-012345678901,241893047,Eduardo Mendes Silva,READY,241893047,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+1d2e3f4a-b5c6-7890-4567-123456789012,278341905,Elena Popescu,READY,278341905,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+2e3f4a5b-c6d7-8901-5678-234567890123,256789034,Elsa Maria Correia Duarte,READY,256789034,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+3f4a5b6c-d7e8-9012-6789-345678901234,289034712,Emília Rosa Santos Pereira,READY,289034712,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+4a5b6c7d-e8f9-0123-7890-456789012345,312847056,Eunice Ferreira Rodrigues,READY,312847056,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+5b6c7d8e-f9a0-1234-8901-567890123456,267834109,Fatima Maria Lopes Carvalho,READY,267834109,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+6c7d8e9f-a0b1-2345-9012-678901234567,243098712,Fernanda Cristina Barros Melo,READY,243098712,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+7d8e9f0a-b1c2-3456-0123-789012345678,298741035,Filip Novak,READY,298741035,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+8e9f0a1b-c2d3-4567-1234-890123456789,274318906,Filipa Alexandra Gonçalves Costa,READY,274318906,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+9f0a1b2c-d3e4-5678-2345-901234567890,251893407,Filipe Manuel Rodrigues Antunes,READY,251893407,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+a0b1c2d3-e4f5-6789-3456-012345678901,234781950,Francisca Isabel Moreira Lima,READY,234781950,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+b1c2d3e4-f5a6-7890-4567-123456789012,267134089,Francisco José Ferreira Sousa,READY,267134089,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+c2d3e4f5-a6b7-8901-5678-234567890123,289471034,Gilda Maria Lopes Freitas,READY,289471034,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+d3e4f5a6-b7c8-9012-6789-345678901234,312094857,Gonçalo Alexandre Pinto Cardoso,READY,312094857,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+e4f5a6b7-c8d9-0123-7890-456789012345,243781205,Graziella Monteiro Sousa,READY,243781205,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+f5a6b7c8-d9e0-1234-8901-567890123456,278904123,Gustavo Henrique Ferreira Lima,READY,278904123,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+a6b7c8d9-e0f1-2345-9012-678901234567,261347809,Halina Kowalska,READY,261347809,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+b7c8d9e0-f1a2-3456-0123-789012345678,298134057,Hugo Miguel Barbosa Teixeira,READY,298134057,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+c8d9e0f1-a2b3-4567-1234-890123456789,234098571,Ines Cristina Ferreira Gomes,READY,234098571,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+d9e0f1a2-b3c4-5678-2345-901234567890,267834015,Ioana Mihaela Popescu,READY,267834015,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+e0f1a2b3-c4d5-6789-3456-012345678901,289047213,Isabel Maria Rodrigues Ferreira,READY,289047213,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+f1a2b3c4-d5e6-7890-4567-123456789013,267390812,Ivanildo Santos Pereira,READY,267390812,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+a2b3c4d5-e6f7-8901-5678-234567890124,298701345,Jana Novakova,READY,298701345,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+b3c4d5e6-f7a8-9012-6789-345678901235,254309871,João Carlos Monteiro Pereira,READY,254309871,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+c4d5e6f7-a8b9-0123-7890-456789012346,278134059,João Pedro Alves Faria,READY,278134059,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+d5e6f7a8-b9c0-1234-8901-567890123457,312479085,Joao Rui Castelo Branco,READY,312479085,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+e6f7a8b9-c0d1-2345-9012-678901234568,243089712,Jorge Manuel Costa Ferreira,READY,243089712,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+f7a8b9c0-d1e2-3456-0123-789012345679,267801349,José António Rodrigues Cunha,READY,267801349,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+a8b9c0d1-e2f3-4567-1234-890123456780,289341057,José Carlos Mendes Baptista,READY,289341057,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+b9c0d1e2-f3a4-5678-2345-901234567891,234801259,José Luís Pinto Marques,READY,234801259,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+c0d1e2f3-a4b5-6789-3456-012345678902,278390145,Juliana Pereira Rodrigues,READY,278390145,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+045b3540-2e22-40db-87f9-afad09496b87,304978485,Keston Mario Finch,READY,304978485,SMOKE_TEST_RUN,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+d1e2f3a4-b5c6-7890-4567-123456789013,312034879,Krzysztof Kowalski,READY,312034879,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+e2f3a4b5-c6d7-8901-5678-234567890124,243710985,Laura Isabel Gonçalves Simão,READY,243710985,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+f3a4b5c6-d7e8-9012-6789-345678901235,267890134,Lena Schmidt,READY,267890134,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+a4b5c6d7-e8f9-0123-7890-456789012346,289071345,Leonel Augusto Ferreira Pinto,READY,289071345,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+b5c6d7e8-f9a0-1234-8901-567890123457,234891057,Liliana Marques Rodrigues,READY,234891057,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+c6d7e8f9-a0b1-2345-9012-678901234568,278301459,Luciana Ferreira Costa,READY,278301459,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+d7e8f9a0-b1c2-3456-0123-789012345679,312890457,Luis Fernando Almeida Carvalho,READY,312890457,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+e8f9a0b1-c2d3-4567-1234-890123456780,243019857,Luisa Maria Baptista Antunes,READY,243019857,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+f9a0b1c2-d3e4-5678-2345-901234567891,267481039,Maciej Wiśniewski,READY,267481039,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+a0b1c2d3-e4f5-6789-3456-012345678902,289310457,Madalena Sofia Lopes Henriques,READY,289310457,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+b1c2d3e4-f5a6-7890-4567-123456789013,234780159,Magdalena Nowak,READY,234780159,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+c2d3e4f5-a6b7-8901-5678-234567890124,278014359,Manuel António Correia Soares,READY,278014359,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+d3e4f5a6-b7c8-9012-6789-345678901235,312804579,Margarida Isabel Figueiredo Neves,READY,312804579,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+e4f5a6b7-c8d9-0123-7890-456789012346,243780159,Maria Antónia Guerreiro Costa,READY,243780159,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+f5a6b7c8-d9e0-1234-8901-567890123457,267014589,Maria Helena Rodrigues Baptista,READY,267014589,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+a6b7c8d9-e0f1-2345-9012-678901234568,289780145,Maria João Pereira Fonseca,READY,289780145,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+b7c8d9e0-f1a2-3456-0123-789012345679,234014859,Maria Leonor Santos Silva,READY,234014859,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+c8d9e0f1-a2b3-4567-1234-890123456780,278680145,Maria Manuela Rodrigues Ferreira,READY,278680145,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+dc6ccdc2-b6e5-4d9a-8f2c-1e3b5a7c9d0e,188551069,Maria Tereza de Oliveira Rolo Silva,READY,188551069,SMOKE_BLOCKED,error,CSRF_INVALID,2,0,Portal AT requer token CSRF válido. Tente novamente.
+d9e0f1a2-b3c4-5678-2345-901234567891,312014589,Mariana Alexandra Lopes Freitas,READY,312014589,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+e0f1a2b3-c4d5-6789-3456-012345678902,243890145,Marlene Cristina Baptista Sousa,READY,243890145,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+f1a2b3c4-d5e6-7890-4567-123456789014,267890013,Marta Sofia Carvalho Mendes,READY,267890013,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+a2b3c4d5-e6f7-8901-5678-234567890125,289014578,Marzena Kowalczyk,READY,289014578,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+b3c4d5e6-f7a8-9012-6789-345678901236,234890013,Miguel Ângelo Ferreira Rodrigues,READY,234890013,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+c4d5e6f7-a8b9-0123-7890-456789012347,278890013,Mirela Vasile,READY,278890013,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+d5e6f7a8-b9c0-1234-8901-567890123458,312890013,Monica Claudia Lopes Gomes,READY,312890013,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+e6f7a8b9-c0d1-2345-9012-678901234569,243890013,Natalia Sousa Pinto,READY,243890013,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+f7a8b9c0-d1e2-3456-0123-789012345670,267890014,Nuno Alexandre Martins Gonçalves,READY,267890014,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+a8b9c0d1-e2f3-4567-1234-890123456781,289890013,Nuno Ricardo Ferreira Sousa,READY,289890013,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+b9c0d1e2-f3a4-5678-2345-901234567892,234890014,Olga Pereira Lopes,READY,234890014,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+c0d1e2f3-a4b5-6789-3456-012345678903,278890014,Pablo Garcia Rodriguez,READY,278890014,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+d1e2f3a4-b5c6-7890-4567-123456789014,312890014,Patricia Isabel Barbosa Monteiro,READY,312890014,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+e2f3a4b5-c6d7-8901-5678-234567890125,243890014,Paula Maria Carvalho Ferreira,READY,243890014,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+f3a4b5c6-d7e8-9012-6789-345678901236,267890015,Paulo Jorge Lopes Antunes,READY,267890015,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+a4b5c6d7-e8f9-0123-7890-456789012347,289890014,Pedro António Gonçalves Cunha,READY,289890014,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+b5c6d7e8-f9a0-1234-8901-567890123458,234890015,Pedro Miguel Martins Rodrigues,READY,234890015,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+c6d7e8f9-a0b1-2345-9012-678901234569,278890015,Petra Novakova,READY,278890015,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+d7e8f9a0-b1c2-3456-0123-789012345670,312890015,Rafaela Cristina Mendes Soares,READY,312890015,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+e8f9a0b1-c2d3-4567-1234-890123456781,243890015,Raquel Sofia Baptista Pereira,READY,243890015,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+f9a0b1c2-d3e4-5678-2345-901234567892,267890016,Ricardo Filipe Correia Lopes,READY,267890016,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+a0b1c2d3-e4f5-6789-3456-012345678903,289890015,Rita Margarida Fonseca Henriques,READY,289890015,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+b1c2d3e4-f5a6-7890-4567-123456789014,234890016,Roberto Carlos Ferreira Silva,READY,234890016,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+c2d3e4f5-a6b7-8901-5678-234567890125,278890016,Rosa Maria Alves Monteiro,READY,278890016,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+d3e4f5a6-b7c8-9012-6789-345678901236,312890016,Rui Manuel Baptista Costa,READY,312890016,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+e4f5a6b7-c8d9-0123-7890-456789012347,243890016,Sandra Cristina Rodrigues Lopes,READY,243890016,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+9f228c9f-a1b2-c3d4-e5f6-789012345678,247681934,Sara Isabel Pereira Antunes,READY,247681934,SMOKE_BLOCKED,error,CSRF_INVALID,2,1,Portal AT requer token CSRF válido. Tente novamente.
+f5a6b7c8-d9e0-1234-8901-567890123458,267890017,Simona Ionescu,READY,267890017,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+93770a8d-2c3d-4e5f-6a7b-890123456789,306973367,Sylvain Hamide Belahniche,READY,306973367,SMOKE_BLOCKED,error,CSRF_INVALID,0,1,Portal AT requer token CSRF válido. Tente novamente.
+a6b7c8d9-e0f1-2345-9012-678901234569,289890016,Tania Marisa Gonçalves Ferreira,READY,289890016,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+b7c8d9e0-f1a2-3456-0123-789012345670,234890017,Teresa Manuela Sousa Rodrigues,READY,234890017,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+c8d9e0f1-a2b3-4567-1234-890123456781,278890017,Tomasz Wójcik,READY,278890017,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+d9e0f1a2-b3c4-5678-2345-901234567892,312890017,Valentina Bîrleanu,READY,312890017,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+0670b78b-8ea3-4485-bbf5-55f4ff679461,207201986,Vanessa Cristina Flores Pargana Caldeira,READY,207201986,SMOKE_TEST_RUN,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+e0f1a2b3-c4d5-6789-3456-012345678903,243890017,Vera Lúcia Baptista Rodrigues,READY,243890017,SMOKE_BLOCKED,error,CSRF_INVALID,0,0,Portal AT requer token CSRF válido. Tente novamente.
+f86cd4e8-3d4e-5f6a-7b8c-901234567890,513377867,Your AV Supplier - Audiovisuais Par,READY,513377867,SMOKE_BLOCKED,error,CSRF_INVALID,4,0,Portal AT requer token CSRF válido. Tente novamente.
+b829798b-4e5f-6a7b-8c9d-012345678901,307170730,Justyna Alicja Rogers,READY,307170730,SMOKE_BLOCKED,error,CSRF_INVALID,12,5,Portal AT requer token CSRF válido. Tente novamente.
+937dfd37-6e2b-4fe6-a9ca-2f62ec639dc8,516965476,3 Comma Capital S.C.R S.A,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+aedf3873-ad0e-439f-a444-62407604ae86,517445271,A Maria Faz Unipessoal Lda,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+1f9ce116-c3b6-4d79-92cd-ca2c147ac087,500304335,A. Pinto & Marques Lda,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+1567b4ab-7a46-499c-ab5a-600ab30063db,504768700,A2OS - Investimentos Lda,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+bb5c9573-5c19-4f7e-87d3-4cbbd58a3ce4,513883398,Abbeygate Insurance Services LDA,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+93f40486-6140-4ac6-8eed-d175f6bca177,506539466,ABRA Sociedade de Mediação Imobiliária Lda,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+aacf7af4-edb1-4984-80b6-6fcf43c96a24,509673643,Abraxas Unipessoal Lda.,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+1c5d2f7a-58ad-4109-8085-c5234b03fcb7,513370161,Abrigadoce Lda,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+4cbe8e41-8127-49e2-a3f7-81bbfca89926,515596957,Abrumis Car Unipessoal LDA,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+1471672d-0aa7-484b-856d-26d0ffcd7e17,507146336,Accelerated Contact Consulting Lda,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+311e6110-6402-436f-92e5-6a9a8e07f5cd,508515025,Accounting Advantage Lda.,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+0d3c2021-77ce-450d-a015-578e67350a25,513465855,Acravo Unipessoal Lda,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+af07b545-c6a4-4572-b4ed-3249eef19017,518330079,AKF Associação Karaté e FIT,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+ff3a841f-4370-46d6-b182-d211795c05d3,514927577,Alex Araujo Constr Civil e Trab Verticais Unip Lda,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+860efb9e-875f-445f-ab07-5a3fd38eb021,515177903,Alexandre & Castanho Lda,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+b44a17db-8b4c-4983-a983-e4402350f1f9,513790810,Alexandru Crigan Unipessoal Lda.,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+6419538e-ca40-4984-a1f9-773b5cc70f2e,513090622,Alferes & Moura - Mediação Imobiliária Lda,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+fb111a60-41fb-4705-bfe7-7cc1c5062653,129097390,Amaro Antonio Soares Luis,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+70146544-4503-4f98-96b3-27b99541286e,184481015,Ana Margarida dos Santos Correia,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+8d99c39c-8907-498a-b4d1-b1c9f037dbc3,518022307,Andrea Paschoal Unipessoal Lda,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+47c73af8-a9ec-45c5-90d7-fead0f04e6de,514974311,Antonio Alexandre Rosa Pereira Unipessoal Lda,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+9c7a07d4-9a0b-49cd-a0f9-4eb7512a3627,518226395,Aplauso Regular Lda,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+0ff76128-e8d9-4d5a-9caa-34a3ce0d9d74,513983732,APTMD - Associação Portuguesa de Terapia Multidimensional,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+bae86140-4ed9-4561-b856-40e300053ca3,518919960,Associação Anjos com Patinhas,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+3b289cf4-a669-4bd9-b514-c97bf487bb1c,501504907,Associação dos Amigos da Damaia,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+120ec7ae-9a0b-43bb-b8ea-5ef19640ee74,517582252,Associação Empreendedoras e Empresariais em Lingua Portuguesa,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas
+15f58d47-e51d-4a9b-8295-479dd0b251b5,515460176,Associação Intervir no Mundo Acreditando na Igualdade,MISSING,,SKIP_NO_CREDENTIALS,skipped,MISSING_CREDENTIALS,0,0,Sem credenciais portal configuradas

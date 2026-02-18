@@ -4,6 +4,9 @@ import { useAuth } from './useAuth';
 import { useProfile } from './useProfile';
 import { toast } from 'sonner';
 import { useDuplicateCheck, DuplicateCheckResult } from './useDuplicateCheck';
+import { detectMimeType } from '@/lib/mime';
+import { normalizeSupplierTaxId } from '@/lib/taxId';
+import { deriveFiscalPeriodFromDocumentDate, normalizeDocumentDate } from '@/lib/fiscalPeriod';
 
 interface ParsedSalesInvoice {
   supplier_nif: string; // Our NIF (the seller)
@@ -127,7 +130,8 @@ export function useSalesInvoiceUpload(options: UseSalesInvoiceUploadOptions = {}
       const { error: uploadError } = await supabase.storage
         .from('invoices')
         .upload(filePath, file, {
-          contentType: file.type || 'image/jpeg',
+          // Some environments provide an empty/incorrect `file.type` for valid PDFs.
+          contentType: detectMimeType({ type: file.type, name: fileName }) || 'application/octet-stream',
           upsert: false
         });
 
@@ -220,7 +224,7 @@ export function useSalesInvoiceUpload(options: UseSalesInvoiceUploadOptions = {}
       const { data, error } = await supabase.functions.invoke('extract-invoice-data', {
         body: { 
           fileData: base64, 
-          mimeType: file.type,
+          mimeType: detectMimeType(file),
           userId: user.id 
         }
       });
@@ -231,19 +235,31 @@ export function useSalesInvoiceUpload(options: UseSalesInvoiceUploadOptions = {}
         return null;
       }
 
-      if (!data.success) {
-        toast.error(data.error || 'Não foi possível extrair dados da factura');
+      if (!data?.data) {
+        toast.error(data?.error || 'Não foi possível extrair dados da factura');
         return null;
+      }
+      if (!data.success) {
+        toast.warning(data.error || 'Extração com avisos - verificar dados');
       }
 
       const extracted = data.data;
+      const normalizedDate = normalizeDocumentDate(extracted.document_date);
+      if (!normalizedDate) {
+        toast.error('Data do documento inválida ou não reconhecida');
+        return null;
+      }
       
       return {
-        supplier_nif: extracted.supplier_nif,
+        supplier_nif: normalizeSupplierTaxId({
+          taxId: extracted.supplier_nif,
+          supplierName: extracted.supplier_name,
+          documentNumber: extracted.document_number,
+        }),
         customer_nif: extracted.customer_nif || null,
         customer_name: extracted.customer_name,
         document_type: extracted.document_type || null,
-        document_date: extracted.document_date,
+        document_date: normalizedDate,
         document_number: extracted.document_number || null,
         atcud: extracted.atcud || null,
         base_reduced: extracted.base_reduced || null,
@@ -256,7 +272,7 @@ export function useSalesInvoiceUpload(options: UseSalesInvoiceUploadOptions = {}
         total_vat: extracted.total_vat || null,
         total_amount: extracted.total_amount,
         fiscal_region: extracted.fiscal_region || 'PT',
-        fiscal_period: extracted.fiscal_period || new Date().toISOString().slice(0, 7).replace('-', ''),
+        fiscal_period: deriveFiscalPeriodFromDocumentDate(normalizedDate) || new Date().toISOString().slice(0, 7).replace('-', ''),
         qr_raw: extracted.qr_content || undefined,
       } as ParsedSalesInvoice;
 

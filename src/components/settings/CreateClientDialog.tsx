@@ -31,6 +31,8 @@ const createClientSchema = z.object({
     return result.valid;
   }, { message: 'NIF invalido - verifique o digito de controlo' }),
   email: z.string().email('Email invalido'),
+  phone: z.string().optional(),
+  address: z.string().optional(),
 });
 
 type CreateClientForm = z.infer<typeof createClientSchema>;
@@ -52,6 +54,8 @@ export function CreateClientDialog({ open, onOpenChange, onSuccess }: CreateClie
       full_name: '',
       nif: '',
       email: '',
+      phone: '',
+      address: '',
     },
   });
 
@@ -237,6 +241,33 @@ export function CreateClientDialog({ open, onOpenChange, onSuccess }: CreateClie
                 )}
               />
 
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Telefone</FormLabel>
+                    <FormControl>
+                      <Input type="tel" placeholder="+351 912 345 678" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Morada</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Rua, Código Postal, Cidade" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <div className="flex justify-end gap-2 pt-4">
                 <Button type="button" variant="outline" onClick={handleClose}>

@@ -113,11 +113,16 @@ async function processDocument(
         throw new Error('No data extracted from document');
       }
 
-      // Add fiscal_year and set defaults
+      // Add fiscal_year and set defaults for required fields
       const completeData: WithholdingFormData = {
-        fiscal_year: fiscalYear,
-        location_code: extracted.location_code || 'C', // Default to Continental if not specified
         ...extracted,
+        fiscal_year: fiscalYear,
+        location_code: extracted.location_code || 'C', // Default to Continental
+        payment_date: extracted.payment_date || new Date().toISOString().split('T')[0], // Default to today
+        income_category: extracted.income_category || 'B', // Default to self-employed
+        gross_amount: extracted.gross_amount || 0,
+        withholding_amount: extracted.withholding_amount || 0,
+        beneficiary_nif: extracted.beneficiary_nif || '',
       };
 
       onProgress(item.id, { ...item, status: 'processing', progress: 80 });
@@ -220,9 +225,10 @@ function calculateConfidence(data: any): { confidence: number; warnings: string[
     confidence *= 0.90;
     warnings.push('⚠️ Data de pagamento não encontrada');
   } else {
-    // Validate date is reasonable (between 2020 and 2027)
+    // Validate date is reasonable (between 2020 and current year + 1)
     const paymentYear = new Date(data.payment_date).getFullYear();
-    if (paymentYear < 2020 || paymentYear > 2027) {
+    const currentYear = new Date().getFullYear();
+    if (paymentYear < 2020 || paymentYear > currentYear + 1) {
       confidence *= 0.85;
       warnings.push('⚠️ Data de pagamento parece incorreta');
     }
@@ -288,8 +294,13 @@ async function fileToBase64(file: File): Promise<string> {
     };
 
     reader.onload = () => {
-      const base64 = (reader.result as string).split(',')[1];
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(',')[1];
       cleanup();
+      if (!base64) {
+        reject(new Error('Failed to extract base64 data from file'));
+        return;
+      }
       resolve(base64);
     };
 

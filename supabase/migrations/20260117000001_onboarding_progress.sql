@@ -1,4 +1,7 @@
--- Create table for tracking user onboarding progress
+-- DUPLICATE: user_onboarding_progress already created in 20260116155600
+-- This migration had a conflicting schema (step_id vs completed_steps).
+-- Made idempotent - all operations use IF NOT EXISTS / DROP IF EXISTS.
+
 CREATE TABLE IF NOT EXISTS public.user_onboarding_progress (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users NOT NULL,
@@ -8,27 +11,20 @@ CREATE TABLE IF NOT EXISTS public.user_onboarding_progress (
   UNIQUE(user_id, step_id)
 );
 
--- Create index for faster lookups
 CREATE INDEX IF NOT EXISTS idx_onboarding_user ON public.user_onboarding_progress(user_id);
 
--- Enable Row Level Security
 ALTER TABLE public.user_onboarding_progress ENABLE ROW LEVEL SECURITY;
 
--- Policy: Users can only see and manage their own onboarding progress
+DROP POLICY IF EXISTS "Users can view their own onboarding progress" ON public.user_onboarding_progress;
 CREATE POLICY "Users can view their own onboarding progress"
-  ON public.user_onboarding_progress
-  FOR SELECT
-  USING (auth.uid() = user_id);
+  ON public.user_onboarding_progress FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own onboarding progress" ON public.user_onboarding_progress;
 CREATE POLICY "Users can insert their own onboarding progress"
-  ON public.user_onboarding_progress
-  FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  ON public.user_onboarding_progress FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own onboarding progress" ON public.user_onboarding_progress;
 CREATE POLICY "Users can update their own onboarding progress"
-  ON public.user_onboarding_progress
-  FOR UPDATE
-  USING (auth.uid() = user_id);
+  ON public.user_onboarding_progress FOR UPDATE USING (auth.uid() = user_id);
 
--- Grant permissions
 GRANT SELECT, INSERT, UPDATE ON public.user_onboarding_progress TO authenticated;

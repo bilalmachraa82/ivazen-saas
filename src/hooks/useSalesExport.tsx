@@ -53,22 +53,23 @@ interface SalesExportData {
   notes: string;
 }
 
-export function useSalesExport() {
+export function useSalesExport(clientId?: string | null) {
   const { user } = useAuth();
+  const effectiveClientId = clientId || user?.id;
   const [selectedPeriod, setSelectedPeriod] = useState<string>('');
   const [exportFormat, setExportFormat] = useState<'xlsx' | 'csv'>('xlsx');
   const [isExporting, setIsExporting] = useState(false);
 
   // Fetch validated sales invoices for the selected period
   const { data: invoices, isLoading } = useQuery({
-    queryKey: ['export-sales-invoices', user?.id, selectedPeriod],
+    queryKey: ['export-sales-invoices', effectiveClientId, selectedPeriod],
     queryFn: async () => {
-      if (!selectedPeriod || !user?.id) return [];
+      if (!selectedPeriod || !effectiveClientId) return [];
 
       const { data, error } = await supabase
         .from('sales_invoices')
         .select('*')
-        .eq('client_id', user.id)
+        .eq('client_id', effectiveClientId)
         .eq('status', 'validated')
         .eq('fiscal_period', selectedPeriod)
         .order('document_date', { ascending: true });
@@ -76,26 +77,26 @@ export function useSalesExport() {
       if (error) throw error;
       return data as SalesInvoice[];
     },
-    enabled: !!selectedPeriod && !!user?.id,
+    enabled: !!selectedPeriod && !!effectiveClientId,
   });
 
   // Fetch all validated sales invoices for period summary
   const { data: allInvoices } = useQuery({
-    queryKey: ['all-sales-invoices', user?.id],
+    queryKey: ['all-sales-invoices', effectiveClientId],
     queryFn: async () => {
-      if (!user?.id) return [];
+      if (!effectiveClientId) return [];
 
       const { data, error } = await supabase
         .from('sales_invoices')
         .select('*')
-        .eq('client_id', user.id)
+        .eq('client_id', effectiveClientId)
         .eq('status', 'validated')
         .order('document_date', { ascending: false });
 
       if (error) throw error;
       return data as SalesInvoice[];
     },
-    enabled: !!user?.id,
+    enabled: !!effectiveClientId,
   });
 
   // Calculate period summaries

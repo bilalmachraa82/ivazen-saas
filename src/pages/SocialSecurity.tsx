@@ -74,6 +74,7 @@ import { SubmissionGuide } from '@/components/social-security/SubmissionGuide';
 import { RevenueCharts } from '@/components/social-security/RevenueCharts';
 import { SubmissionSuccessDialog } from '@/components/social-security/SubmissionSuccessDialog';
 import { ZenEmptyState } from '@/components/zen';
+import { ClientSearchSelector } from '@/components/ui/client-search-selector';
 
 export default function SocialSecurity() {
   const navigate = useNavigate();
@@ -315,18 +316,13 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                   <Users className="h-5 w-5 text-primary" />
                   <Label>Cliente:</Label>
                 </div>
-                <Select value={selectedClientId} onValueChange={setSelectedClientId}>
-                  <SelectTrigger className="w-full sm:w-[300px]">
-                    <SelectValue placeholder="Seleccione um cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.company_name || client.full_name} {client.nif ? `(${client.nif})` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <ClientSearchSelector
+                  clients={clients}
+                  selectedClientId={selectedClientId}
+                  onSelect={setSelectedClientId}
+                  placeholder="Seleccione um cliente"
+                  className="w-full sm:w-[300px]"
+                />
                 <Select value={quarter} onValueChange={setQuarter}>
                   <SelectTrigger className="w-full sm:w-[200px]">
                     <SelectValue />

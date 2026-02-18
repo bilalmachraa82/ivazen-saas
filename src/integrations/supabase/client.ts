@@ -5,13 +5,25 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+const isTestEnv = import.meta.env.MODE === 'test' || Boolean((import.meta.env as any).VITEST);
+
+// Minimal in-memory storage for tests (avoids auth auto-refresh timers and localStorage issues in jsdom).
+const memoryStorage = (() => {
+  const store = new Map<string, string>();
+  return {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => { store.set(key, value); },
+    removeItem: (key: string) => { store.delete(key); },
+  } as any;
+})();
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
+    storage: (!isTestEnv && typeof localStorage !== 'undefined') ? localStorage : memoryStorage,
+    persistSession: !isTestEnv,
+    autoRefreshToken: !isTestEnv,
   }
 });

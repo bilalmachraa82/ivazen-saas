@@ -78,7 +78,10 @@ export function BulkReviewTable({ items, onRemove, selectedClientId, selectedYea
     });
   };
 
-  // Bulk approve selected items
+  // Small delay helper to avoid rate limiting
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  // Bulk approve selected items - processes ALL selected with small delays to avoid rate limiting
   const handleBulkApprove = async () => {
     const itemsToApprove = items.filter(item => selected.has(item.id));
 
@@ -105,21 +108,32 @@ export function BulkReviewTable({ items, onRemove, selectedClientId, selectedYea
 
     let successCount = 0;
     let errorCount = 0;
+    const totalToApprove = itemsToApprove.length;
 
-    for (const item of itemsToApprove) {
+    // Process ALL documents with small delay between each to avoid rate limiting
+    for (let i = 0; i < itemsToApprove.length; i++) {
+      const item = itemsToApprove[i];
       if (item.extractedData) {
         try {
           // Ensure the fiscal year from the form is used
+          // location_code defaults to 'C' (Continental) if not extracted
           const dataToInsert = {
             ...item.extractedData,
             fiscal_year: selectedYear,
+            location_code: item.extractedData?.location_code || 'C',
           };
           await addWithholding(dataToInsert);
           successCount++;
           onRemove(item.id); // Remove from bulk upload queue after approval
+
+          // Small delay every 5 documents to avoid rate limiting (100ms)
+          if ((i + 1) % 5 === 0 && i < itemsToApprove.length - 1) {
+            await delay(100);
+          }
         } catch (error: any) {
           console.error('Error approving document:', error);
           errorCount++;
+          // Continue with next document even if one fails
         }
       }
     }
@@ -130,7 +144,7 @@ export function BulkReviewTable({ items, onRemove, selectedClientId, selectedYea
     if (successCount > 0) {
       toast({
         title: 'Aprovação concluída',
-        description: `${successCount} documento(s) adicionado(s) ao Modelo 10${errorCount > 0 ? `, ${errorCount} falharam` : ''}`,
+        description: `${successCount}/${totalToApprove} documento(s) adicionado(s) ao Modelo 10${errorCount > 0 ? ` (${errorCount} falharam)` : ''}`,
       });
     }
 

@@ -17,8 +17,6 @@ import {
 } from '@/components/ui/popover';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { saveLastClient, getLastClientId, isClientValid } from '@/lib/clientStorage';
-import { toast } from 'sonner';
 
 export interface Client {
   id: string;
@@ -120,35 +118,7 @@ export function ClientSelector({
     }
   }, [open]);
 
-  // Restore last selected client on mount
-  useEffect(() => {
-    if (clients.length > 0 && !selectedClientId) {
-      const lastClientId = getLastClientId();
-
-      // Check if last client is still valid
-      if (lastClientId && isClientValid(lastClientId, clients.map(c => c.id))) {
-        const lastClient = clients.find(c => c.id === lastClientId);
-        if (lastClient) {
-          onSelectClient(lastClientId);
-          toast.success(`Cliente restaurado: ${lastClient.company_name || lastClient.full_name}`, {
-            description: 'Ultimo cliente selecionado',
-            duration: 3000,
-          });
-        }
-      }
-    }
-  }, [clients, selectedClientId, onSelectClient]);
-
-  // Save selected client whenever it changes
-  useEffect(() => {
-    if (selectedClient) {
-      saveLastClient({
-        id: selectedClient.id,
-        name: selectedClient.company_name || selectedClient.full_name,
-        nif: selectedClient.nif || '',
-      });
-    }
-  }, [selectedClient]);
+  // localStorage persistence is now handled by SelectedClientContext
 
   const handleSelect = useCallback((clientId: string) => {
     onSelectClient(clientId);
