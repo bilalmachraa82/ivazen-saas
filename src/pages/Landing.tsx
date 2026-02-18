@@ -34,14 +34,14 @@ import {
   Laptop,
   Quote,
   Lock,
-   MessageCircle,
-   Wifi,
-   WifiOff,
-   Copy,
-   History,
-   CloudUpload,
-   Receipt,
-   Map
+  MessageCircle,
+  Wifi,
+  WifiOff,
+  Copy,
+  History,
+  CloudUpload,
+  Receipt,
+  Map
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -50,7 +50,8 @@ const ICON_STYLE = { strokeWidth: 1.5 } as const;
 import { AnimateOnScroll } from "@/hooks/useScrollAnimation";
 
 // Import components
-import logoIcon from "@/assets/logo-icon.png";
+import infographicWorkflow from "@/assets/infographic-workflow.png";
+import heroDashboard from "@/assets/hero-dashboard.png";
 import { HeroMockup } from "@/components/landing/HeroMockup";
 import { StepVisual } from "@/components/landing/StepVisual";
 import { VideoDemo } from "@/components/landing/VideoDemo";
@@ -66,110 +67,110 @@ const Landing = () => {
     }
   }, [user, navigate]);
 
-   // Organize features in 4 pillars: Captura, Classificação, Declarações, Gestão Pro
-   const featurePillars = [
+  // Organize features in 4 pillars: Captura, Classificação, Declarações, Gestão Pro
+  const featurePillars = [
     {
-       pillar: "Captura",
-       description: "Digitalize documentos de múltiplas formas",
-       color: "from-blue-500 to-cyan-500",
-       items: [
-         {
-           icon: QrCode,
-           title: "QR Code Português",
-           description: "Leitura instantânea do QR code de facturas PT com extracção automática."
-         },
-         {
-           icon: FileCode,
-           title: "SAFT-PT & CSV",
-           description: "Importa ficheiros SAFT-PT (XML) ou CSV do Portal das Finanças."
-         },
-         {
-           icon: CloudUpload,
-           title: "Bulk Import (100+)",
-           description: "Processamento em lote de até 500 documentos com fila inteligente."
-         },
-         {
-           icon: Wifi,
-           title: "PWA Offline",
-           description: "Funciona offline com sincronização automática quando voltar online."
-         }
-       ]
+      pillar: "Captura",
+      description: "Digitalize documentos de múltiplas formas",
+      color: "from-blue-500 to-cyan-500",
+      items: [
+        {
+          icon: QrCode,
+          title: "QR Code Português",
+          description: "Leitura instantânea do QR code de facturas PT com extracção automática."
+        },
+        {
+          icon: FileCode,
+          title: "SAFT-PT & CSV",
+          description: "Importa ficheiros SAFT-PT (XML) ou CSV do Portal das Finanças."
+        },
+        {
+          icon: CloudUpload,
+          title: "Bulk Import (100+)",
+          description: "Processamento em lote de até 500 documentos com fila inteligente."
+        },
+        {
+          icon: Wifi,
+          title: "PWA Offline",
+          description: "Funciona offline com sincronização automática quando voltar online."
+        }
+      ]
     },
     {
-       pillar: "Classificação",
-       description: "IA que aprende e se adapta ao seu negócio",
-       color: "from-violet-500 to-purple-500",
-       items: [
-         {
-           icon: Brain,
-           title: "IA Few-Shot Learning",
-           description: "Classificação que aprende com cada correcção e guarda preferências."
-         },
-         {
-           icon: Copy,
-           title: "Compras vs Vendas",
-           description: "Detecção automática do tipo de documento com validação cruzada."
-         },
-         {
-           icon: ShieldCheck,
-           title: "Detecção Duplicados",
-           description: "Verificação automática de documentos duplicados antes de guardar."
-         },
-         {
-           icon: Map,
-           title: "Taxas Regionais",
-           description: "Açores 16%, Madeira 22%, Continente 23% — aplicação automática."
-         }
-       ]
+      pillar: "Classificação",
+      description: "IA que aprende e se adapta ao seu negócio",
+      color: "from-violet-500 to-purple-500",
+      items: [
+        {
+          icon: Brain,
+          title: "IA Few-Shot Learning",
+          description: "Classificação que aprende com cada correcção e guarda preferências."
+        },
+        {
+          icon: Copy,
+          title: "Compras vs Vendas",
+          description: "Detecção automática do tipo de documento com validação cruzada."
+        },
+        {
+          icon: ShieldCheck,
+          title: "Detecção Duplicados",
+          description: "Verificação automática de documentos duplicados antes de guardar."
+        },
+        {
+          icon: Map,
+          title: "Taxas Regionais",
+          description: "Açores 16%, Madeira 22%, Continente 23% — aplicação automática."
+        }
+      ]
     },
     {
-       pillar: "Declarações",
-       description: "Cumpra todas as obrigações fiscais",
-       color: "from-emerald-500 to-green-500",
-       items: [
-         {
-           icon: Calculator,
-           title: "Calculadora IVA",
-           description: "Isenção Art.53º, adicionar/retirar IVA, e cálculo de IVA a entregar."
-         },
-         {
-           icon: Receipt,
-           title: "Modelo 10",
-           description: "Declaração de retenções na fonte com export PDF/CSV oficial AT."
-         },
-         {
-           icon: BarChart3,
-           title: "Segurança Social",
-           description: "Cálculo de contribuições trimestrais com gráficos de evolução."
-         }
-       ]
+      pillar: "Declarações",
+      description: "Cumpra todas as obrigações fiscais",
+      color: "from-emerald-500 to-green-500",
+      items: [
+        {
+          icon: Calculator,
+          title: "Calculadora IVA",
+          description: "Isenção Art.53º, adicionar/retirar IVA, e cálculo de IVA a entregar."
+        },
+        {
+          icon: Receipt,
+          title: "Modelo 10",
+          description: "Declaração de retenções na fonte com export PDF/CSV oficial AT."
+        },
+        {
+          icon: BarChart3,
+          title: "Segurança Social",
+          description: "Cálculo de contribuições trimestrais com gráficos de evolução."
+        }
+      ]
     },
     {
-       pillar: "Gestão Pro",
-       description: "Para contabilistas e equipas",
-       color: "from-orange-500 to-amber-500",
-       items: [
-         {
-           icon: Users,
-           title: "Multi-Cliente",
-           description: "Gerir múltiplos clientes numa única interface com troca rápida."
-         },
-         {
-           icon: History,
-           title: "Histórico Auditável",
-           description: "Audit trail completo de todas as alterações com timestamps."
-         },
-         {
-           icon: BarChart3,
-           title: "Analytics & Métricas",
-           description: "Precisão da IA, taxa de correcções e evolução ao longo do tempo."
-         }
-       ]
+      pillar: "Gestão Pro",
+      description: "Para contabilistas e equipas",
+      color: "from-orange-500 to-amber-500",
+      items: [
+        {
+          icon: Users,
+          title: "Multi-Cliente",
+          description: "Gerir múltiplos clientes numa única interface com troca rápida."
+        },
+        {
+          icon: History,
+          title: "Histórico Auditável",
+          description: "Audit trail completo de todas as alterações com timestamps."
+        },
+        {
+          icon: BarChart3,
+          title: "Analytics & Métricas",
+          description: "Precisão da IA, taxa de correcções e evolução ao longo do tempo."
+        }
+      ]
     }
   ];
-   
-   // Flat features for backward compatibility with existing UI
-   const features = featurePillars.flatMap(p => p.items);
+
+  // Flat features for backward compatibility with existing UI
+  const features = featurePillars.flatMap(p => p.items);
 
   const stats = [
     { value: "70%", label: "Menos tempo por factura" },
@@ -263,7 +264,7 @@ const Landing = () => {
     },
     {
       question: "Como posso obter acesso?",
-      answer: "O IVAzen é uma ferramenta exclusiva para clientes da Accounting Advantage. Contacte-nos para saber mais sobre como podemos ajudar na gestão do seu IVA."
+      answer: "Crie uma conta gratuita em segundos e comece a usar imediatamente. O plano Grátis inclui 50 facturas/mês. Para funcionalidades avançadas como Modelo 10, multi-cliente e bulk import, faça upgrade para o plano Pro."
     }
   ];
 
@@ -275,9 +276,69 @@ const Landing = () => {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const pricing = [
+    {
+      name: "Grátis",
+      price: "€0",
+      period: "/mês",
+      description: "Para experimentar sem compromisso",
+      color: "from-slate-500 to-slate-600",
+      cta: "Começar Grátis",
+      ctaVariant: "outline" as const,
+      features: [
+        "Até 50 facturas/mês",
+        "QR Code PT + PDF",
+        "Classificação IA básica",
+        "Calculadora IVA",
+        "1 utilizador"
+      ],
+      highlight: false
+    },
+    {
+      name: "Pro",
+      price: "€29",
+      period: "/mês",
+      description: "Para contabilistas e TOC",
+      color: "from-primary to-accent",
+      cta: "Começar Pro",
+      ctaVariant: "default" as const,
+      features: [
+        "Facturas ilimitadas",
+        "Bulk import (500+ docs)",
+        "IA Few-Shot Learning",
+        "Modelo 10 completo",
+        "Multi-cliente (10 clientes)",
+        "Segurança Social",
+        "eFatura sync",
+        "Export SAFT-PT / CSV",
+        "Suporte prioritário"
+      ],
+      highlight: true
+    },
+    {
+      name: "Enterprise",
+      price: "Sob consulta",
+      period: "",
+      description: "Para gabinetes de contabilidade",
+      color: "from-violet-500 to-purple-600",
+      cta: "Falar com a Equipa",
+      ctaVariant: "outline" as const,
+      features: [
+        "Clientes ilimitados",
+        "AT Sync automático",
+        "API de integração",
+        "SLA garantido",
+        "Onboarding dedicado",
+        "Faturação personalizada"
+      ],
+      highlight: false
+    }
+  ];
+
   const navLinks = [
     { href: "#features", label: "Funcionalidades" },
     { href: "#how-it-works", label: "Como Funciona" },
+    { href: "#pricing", label: "Preços" },
     { href: "#faq", label: "FAQ" }
   ];
 
@@ -302,20 +363,20 @@ const Landing = () => {
                 <span className="text-[10px] text-muted-foreground">by Accounting Advantage</span>
               </div>
             </div>
-            
+
             {/* Desktop navigation */}
             <div className="hidden items-center gap-8 md:flex">
               {navLinks.map((link) => (
-                <a 
+                <a
                   key={link.href}
-                  href={link.href} 
+                  href={link.href}
                   className="underline-grow text-sm text-muted-foreground transition-all duration-300 hover:text-primary"
                 >
                   <span>{link.label}</span>
                 </a>
               ))}
             </div>
-            
+
             <div className="flex items-center gap-2">
               <ThemeToggle />
               <Button asChild variant="ghost" size="sm" className="hidden hover:text-primary sm:inline-flex transition-all duration-300 hover:bg-primary/10 elastic-scale">
@@ -327,11 +388,11 @@ const Landing = () => {
                   <ArrowRight className="ml-1 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                 </Link>
               </Button>
-              
+
               {/* Mobile menu button */}
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="md:hidden"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 aria-label={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
@@ -345,19 +406,18 @@ const Landing = () => {
             </div>
           </nav>
         </div>
-        
+
         {/* Mobile menu */}
-        <div 
-          className={`overflow-hidden border-t border-primary/10 glass-card transition-all duration-300 ease-in-out md:hidden ${
-            mobileMenuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
-          }`}
+        <div
+          className={`overflow-hidden border-t border-primary/10 glass-card transition-all duration-300 ease-in-out md:hidden ${mobileMenuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+            }`}
         >
           <div className="container mx-auto px-4 py-4">
             <div className="flex flex-col gap-4">
               {navLinks.map((link) => (
-                <a 
+                <a
                   key={link.href}
-                  href={link.href} 
+                  href={link.href}
                   className="rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
                   onClick={handleNavClick}
                 >
@@ -387,7 +447,7 @@ const Landing = () => {
         <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-primary/15 blur-3xl animate-premium-float" />
         <div className="absolute -right-32 top-1/4 h-80 w-80 rounded-full bg-accent/15 blur-3xl animate-premium-float" style={{ animationDelay: '2s' }} />
         <div className="absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-pink-400/10 blur-3xl animate-premium-pulse" />
-        
+
         <div className="container relative mx-auto px-4 py-16 md:py-24 lg:py-32">
           <div className="grid items-center gap-12 lg:grid-cols-2">
             {/* Text content */}
@@ -398,35 +458,35 @@ const Landing = () => {
                   Powered by Accounting Advantage
                 </div>
                 <h1 className="mb-6 text-4xl font-display font-bold tracking-tight md:text-5xl lg:text-6xl">
-                  Gestão de IVA inteligente{" "}
+                  Poupe{" "}
                   <span className="bg-gradient-to-r from-primary via-pink-400 to-accent bg-clip-text text-transparent animate-gradient bg-[length:200%_auto]">
-                    para clientes Accounting Advantage
+                    70% do tempo
                   </span>
+                  {" "}em gestão fiscal
                 </h1>
                 <p className="mx-auto mb-8 max-w-xl text-lg text-muted-foreground lg:mx-0">
-                  Ferramenta exclusiva para clientes. Digitalize facturas, classifique automaticamente com IA 
-                  e prepare a sua declaração de IVA em minutos.
+                  O IVAzen automatiza a classificação de facturas com IA, gera o Modelo 10, calcula a Segurança Social e exporta em formato AT — tudo em segundos, não horas.
                 </p>
                 <div className="flex flex-col items-center gap-4 sm:flex-row lg:justify-start">
                   <Button asChild size="lg" className="premium-button gap-2 px-8 shadow-glow-lg elastic-scale click-bounce group">
-                    <Link to="/auth">
-                      Aceder à Plataforma
+                    <Link to="/auth?tab=signup">
+                      Começar Grátis
                       <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                     </Link>
                   </Button>
                   <Button asChild size="lg" className="border-2 border-primary bg-primary/10 text-primary font-semibold hover:bg-primary/20 hover:border-primary transition-all duration-500 gap-2 elastic-scale click-bounce group hover:shadow-glow">
-                    <Link to="/contact">
-                      <Phone className="h-4 w-4 transition-transform duration-300 group-hover:rotate-12" />
-                      Contactar
-                    </Link>
+                    <a href="#pricing">
+                      Ver Preços
+                      <ChevronRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                    </a>
                   </Button>
                 </div>
-                
+
                 {/* Trust badges - Glass */}
                 <div className="mt-10 flex flex-wrap items-center justify-center gap-4 lg:justify-start stagger-children">
                   {trustBadges.map((badge, index) => (
-                    <div 
-                      key={index} 
+                    <div
+                      key={index}
                       className="flex items-center gap-2 rounded-full glass-card-hover border-primary/20 px-4 py-2 shadow-sm transition-all duration-500 hover:shadow-glow hover:-translate-y-1 elastic-scale group"
                     >
                       <badge.icon className="h-4 w-4 text-primary transition-transform duration-300 group-hover:scale-110" />
@@ -436,10 +496,17 @@ const Landing = () => {
                 </div>
               </div>
             </AnimateOnScroll>
-            
-            {/* Hero mockup - Premium UI */}
+
+            {/* Hero image - Dashboard */}
             <AnimateOnScroll animation="fade-up" delay={200} initiallyVisible>
-              <HeroMockup />
+              <div className="relative overflow-hidden rounded-2xl shadow-glow-lg">
+                <img
+                  src={heroDashboard}
+                  alt="IVAzen Dashboard — classificação automática de facturas com IA"
+                  className="w-full rounded-2xl object-cover"
+                  loading="eager"
+                />
+              </div>
             </AnimateOnScroll>
           </div>
         </div>
@@ -477,42 +544,42 @@ const Landing = () => {
               Ferramentas poderosas, interface zen. Feito a pensar no trabalhador independente português.
             </p>
           </AnimateOnScroll>
-           
-           {/* 4 Pillar Grid */}
-           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
-             {featurePillars.map((pillar, pillarIndex) => (
-               <AnimateOnScroll key={pillar.pillar} animation="fade-up" delay={pillarIndex * 100}>
-                 <div className="space-y-4">
-                   {/* Pillar Header */}
-                   <div className="text-center">
-                     <div className={`inline-flex items-center gap-2 rounded-full bg-gradient-to-r ${pillar.color} px-4 py-1.5 text-sm font-semibold text-white shadow-lg`}>
-                       {pillar.pillar}
-                     </div>
-                     <p className="mt-2 text-xs text-muted-foreground">{pillar.description}</p>
-                   </div>
-                   
-                   {/* Pillar Features */}
-                   <div className="space-y-3">
-                     {pillar.items.map((feature, index) => (
-                       <Card key={index} className="glass-card-hover group border-primary/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-glow">
-                         <CardContent className="p-4">
-                           <div className="flex items-start gap-3">
-                             <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${pillar.color} text-white shadow-sm transition-transform duration-300 group-hover:scale-110`}>
-                               <feature.icon className="h-4 w-4" />
-                             </div>
-                             <div className="min-w-0">
-                               <h3 className="text-sm font-semibold group-hover:text-primary transition-colors">{feature.title}</h3>
-                               <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">{feature.description}</p>
-                             </div>
-                           </div>
-                         </CardContent>
-                       </Card>
-                     ))}
-                   </div>
-                 </div>
-               </AnimateOnScroll>
-             ))}
-           </div>
+
+          {/* 4 Pillar Grid */}
+          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+            {featurePillars.map((pillar, pillarIndex) => (
+              <AnimateOnScroll key={pillar.pillar} animation="fade-up" delay={pillarIndex * 100}>
+                <div className="space-y-4">
+                  {/* Pillar Header */}
+                  <div className="text-center">
+                    <div className={`inline-flex items-center gap-2 rounded-full bg-gradient-to-r ${pillar.color} px-4 py-1.5 text-sm font-semibold text-white shadow-lg`}>
+                      {pillar.pillar}
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">{pillar.description}</p>
+                  </div>
+
+                  {/* Pillar Features */}
+                  <div className="space-y-3">
+                    {pillar.items.map((feature, index) => (
+                      <Card key={index} className="glass-card-hover group border-primary/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-glow">
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-3">
+                            <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${pillar.color} text-white shadow-sm transition-transform duration-300 group-hover:scale-110`}>
+                              <feature.icon className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <h3 className="text-sm font-semibold group-hover:text-primary transition-colors">{feature.title}</h3>
+                              <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">{feature.description}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              </AnimateOnScroll>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -773,8 +840,8 @@ const Landing = () => {
           <AnimateOnScroll animation="fade-up" delay={200} className="mx-auto max-w-3xl">
             <Accordion type="single" collapsible className="space-y-4">
               {faqs.map((faq, index) => (
-                <AccordionItem 
-                  key={index} 
+                <AccordionItem
+                  key={index}
                   value={`item-${index}`}
                   className="rounded-xl glass-card-hover border-primary/10 px-6 shadow-sm transition-all duration-500 data-[state=open]:shadow-glow-lg data-[state=open]:border-primary/40 data-[state=open]:-translate-y-1 hover:border-primary/20"
                 >
@@ -791,32 +858,124 @@ const Landing = () => {
         </div>
       </section>
 
+      {/* Infographic Section */}
+      <section className="py-20 md:py-28 bg-gradient-to-b from-primary/5 to-transparent">
+        <div className="container mx-auto px-4">
+          <AnimateOnScroll animation="fade-up" className="mx-auto mb-12 max-w-2xl text-center">
+            <h2 className="mb-4 text-3xl font-display font-bold md:text-4xl">
+              O fluxo completo{" "}
+              <span className="bg-gradient-to-r from-primary via-pink-400 to-accent bg-clip-text text-transparent">
+                em 4 passos
+              </span>
+            </h2>
+            <p className="text-lg text-muted-foreground">
+              Do documento físico ao ficheiro oficial AT — sem complicações.
+            </p>
+          </AnimateOnScroll>
+          <AnimateOnScroll animation="fade-up" delay={200}>
+            <div className="mx-auto max-w-5xl overflow-hidden rounded-2xl shadow-glow-lg ring-1 ring-primary/20">
+              <img
+                src={infographicWorkflow}
+                alt="Fluxo de trabalho IVAzen: Captura → IA Classifica → Declarações → Exporta"
+                className="w-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          </AnimateOnScroll>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section id="pricing" className="relative py-20 md:py-28">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-transparent" />
+        <div className="container relative mx-auto px-4">
+          <AnimateOnScroll animation="fade-up" className="mx-auto mb-12 max-w-2xl text-center">
+            <h2 className="mb-4 text-3xl font-display font-bold md:text-4xl">
+              Preços{" "}
+              <span className="bg-gradient-to-r from-primary via-pink-400 to-accent bg-clip-text text-transparent">
+                transparentes
+              </span>
+            </h2>
+            <p className="text-lg text-muted-foreground">
+              Comece grátis. Escale quando precisar. Sem surpresas.
+            </p>
+          </AnimateOnScroll>
+          <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-3">
+            {pricing.map((plan, index) => (
+              <AnimateOnScroll key={plan.name} animation="fade-up" delay={index * 100}>
+                <div className={`relative flex h-full flex-col rounded-2xl border p-6 transition-all duration-300 hover:-translate-y-2 ${plan.highlight
+                    ? "border-primary/50 glass-card shadow-glow-lg ring-2 ring-primary/30"
+                    : "border-primary/10 glass-card hover:shadow-glow"
+                  }`}>
+                  {plan.highlight && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <span className="rounded-full bg-gradient-to-r from-primary to-accent px-4 py-1 text-xs font-bold text-white shadow-glow">
+                        ⭐ Mais Popular
+                      </span>
+                    </div>
+                  )}
+                  <div className="mb-6">
+                    <div className={`mb-3 inline-flex items-center gap-2 rounded-full bg-gradient-to-r ${plan.color} px-3 py-1 text-xs font-semibold text-white`}>
+                      {plan.name}
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-display font-bold">{plan.price}</span>
+                      <span className="text-muted-foreground">{plan.period}</span>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">{plan.description}</p>
+                  </div>
+                  <ul className="mb-8 flex-1 space-y-3">
+                    {plan.features.map((feature, i) => (
+                      <li key={i} className="flex items-center gap-2 text-sm">
+                        <CheckCircle className="h-4 w-4 flex-shrink-0 text-primary" />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                  <Button
+                    asChild
+                    variant={plan.highlight ? "default" : "outline"}
+                    className={`w-full ${plan.highlight ? "premium-button shadow-glow" : "border-primary/30 hover:border-primary hover:bg-primary/10"
+                      }`}
+                  >
+                    <Link to={plan.name === "Enterprise" ? "/contact" : "/auth?tab=signup"}>
+                      {plan.cta}
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
+              </AnimateOnScroll>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Final CTA - Rose Gradient */}
       <section className="relative overflow-hidden py-20 md:py-28">
         <div className="absolute inset-0 gradient-rose opacity-90" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent" />
         <div className="absolute -left-40 top-1/2 h-80 w-80 -translate-y-1/2 rounded-full bg-white/20 blur-3xl animate-premium-float" />
         <div className="absolute -right-40 top-1/2 h-80 w-80 -translate-y-1/2 rounded-full bg-accent/30 blur-3xl animate-premium-float" style={{ animationDelay: '3s' }} />
-        
+
         <div className="container relative mx-auto px-4">
           <AnimateOnScroll animation="fade-up" className="mx-auto max-w-3xl text-center">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full glass-card border-white/30 px-4 py-2 text-sm text-white">
               <Sparkles className="h-4 w-4 animate-shimmer" />
-              Exclusivo para clientes Accounting Advantage
+              Comece grátis. Sem cartão de crédito.
             </div>
             <h2 className="mb-6 text-3xl font-display font-bold text-white md:text-4xl lg:text-5xl">
-              Pronto para simplificar{" "}
+              Pronto para recuperar{" "}
               <span className="text-white/90">
-                a sua gestão de IVA?
+                horas da sua semana?
               </span>
             </h2>
             <p className="mx-auto mb-8 max-w-xl text-lg text-white/80">
-              Aceda à plataforma e descubra como a IA pode transformar a forma como gere as suas facturas.
+              Junte-se a contabilistas que já poupam 70% do tempo em gestão fiscal. Comece grátis hoje.
             </p>
             <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Button asChild size="lg" className="gap-2 px-8 bg-white text-primary hover:bg-white/90 shadow-glow-lg hover-scale">
-                <Link to="/auth">
-                  Aceder Agora
+                <Link to="/auth?tab=signup">
+                  Criar Conta Grátis
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
@@ -850,17 +1009,18 @@ const Landing = () => {
                 Gestão de IVA simplificada para trabalhadores independentes portugueses.
               </p>
             </div>
-            
+
             {/* Links */}
             <div>
               <h4 className="mb-4 font-semibold">Produto</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><a href="#features" className="story-link transition-colors hover:text-primary"><span>Funcionalidades</span></a></li>
                 <li><a href="#how-it-works" className="story-link transition-colors hover:text-primary"><span>Como Funciona</span></a></li>
+                <li><a href="#pricing" className="story-link transition-colors hover:text-primary"><span>Preços</span></a></li>
                 <li><a href="#faq" className="story-link transition-colors hover:text-primary"><span>FAQ</span></a></li>
               </ul>
             </div>
-            
+
             {/* Legal */}
             <div>
               <h4 className="mb-4 font-semibold">Legal</h4>
@@ -896,10 +1056,10 @@ const Landing = () => {
               </ul>
             </div>
           </div>
-          
+
           <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-primary/10 pt-8 md:flex-row">
             <p className="text-sm text-muted-foreground">
-              © 2025 IVAzen by Accounting Advantage. Todos os direitos reservados.
+              © 2026 IVAzen by Accounting Advantage. Todos os direitos reservados.
             </p>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <Link to="/privacy" className="story-link transition-colors hover:text-primary"><span>Privacidade</span></Link>

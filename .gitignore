@@ -31,3 +31,4 @@ test-results/
 
 # Supabase CLI temp artifacts
 supabase/.temp/
+.vercel
