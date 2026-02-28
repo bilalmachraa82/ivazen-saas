@@ -5,6 +5,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { getAccessTokenOrThrow, parseEdgeInvokeError } from '@/lib/supabaseFunctionErrors';
 import { toast } from 'sonner';
 
 export interface ATConfig {
@@ -49,6 +50,8 @@ export interface SyncHistoryEntry {
   records_updated: number;
   records_skipped: number;
   records_errors: number;
+  reason_code?: string | null;
+  metadata?: Record<string, unknown> | null;
   status: 'pending' | 'running' | 'success' | 'partial' | 'error';
   error_message?: string;
   created_at: string;
@@ -137,11 +140,14 @@ export function useUploadCertificate() {
       validTo?: string;
       caCertBase64?: string;
     }) => {
+      const accessToken = await getAccessTokenOrThrow(supabase);
+
       const { data, error } = await supabase.functions.invoke('upload-at-certificate', {
         body: params,
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
 
-      if (error) throw error;
+      if (error) throw await parseEdgeInvokeError(error, 'Falha no upload do certificado');
       if (!data.success) throw new Error(data.error || 'Upload failed');
 
       return data;
@@ -165,11 +171,14 @@ export function useImportCredentials() {
 
   return useMutation({
     mutationFn: async (credentials: Array<{ nif: string; portal_password: string; full_name?: string }>) => {
+      const accessToken = await getAccessTokenOrThrow(supabase);
+
       const { data, error } = await supabase.functions.invoke('import-client-credentials', {
         body: { credentials },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
 
-      if (error) throw error;
+      if (error) throw await parseEdgeInvokeError(error, 'Falha a importar credenciais');
       if (!data.success) throw new Error(data.error || 'Import failed');
 
       return data;
@@ -199,11 +208,14 @@ export function useSyncEFatura() {
       startDate?: string;
       endDate?: string;
     }) => {
+      const accessToken = await getAccessTokenOrThrow(supabase);
+
       const { data, error } = await supabase.functions.invoke('sync-efatura', {
         body: params,
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
 
-      if (error) throw error;
+      if (error) throw await parseEdgeInvokeError(error, 'Falha a executar sync AT');
       if (!data.success) throw new Error(data.error || 'Sync failed');
 
       return data;
@@ -212,9 +224,17 @@ export function useSyncEFatura() {
       queryClient.invalidateQueries({ queryKey: ['sync-history'] });
       queryClient.invalidateQueries({ queryKey: ['at-credentials'] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['fiscal-summary-iva'] });
+      queryClient.invalidateQueries({ queryKey: ['fiscal-summary-ss'] });
+      queryClient.invalidateQueries({ queryKey: ['vat-sales'] });
+      queryClient.invalidateQueries({ queryKey: ['annual-sales'] });
+      queryClient.invalidateQueries({ queryKey: ['vat-purchases'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-invoices-ss'] });
       
       toast.success('Sincronização concluída', {
-        description: `${data.count} registos importados`,
+        description: `${
+          data.invoicesProcessed ?? data.inserted ?? data.count ?? 0
+        } registos importados`,
       });
     },
     onError: (error: Error) => {

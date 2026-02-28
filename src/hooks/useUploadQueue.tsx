@@ -36,6 +36,11 @@ export interface QueueStats {
   needs_review_count: number; // Documents processed but NOT saved (needs manual review)
 }
 
+interface UploadToQueueOptions {
+  autoTriggerProcessing?: boolean;
+  showToast?: boolean;
+}
+
 interface DbQueueItem {
   id: string;
   client_id: string;
@@ -86,16 +91,34 @@ export function useUploadQueue(forClientId?: string | null) {
         return;
       }
 
-      const { data, error } = await supabase
-        .from('upload_queue')
-        .select('id, client_id, user_id, file_name, status, extracted_data, confidence, warnings, error_message, retry_count, created_at, started_at, fiscal_year, processed_at')
-        .eq('client_id', effectiveClientId)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: true });
+      const pageSize = 1000;
+      const maxPages = 10; // Supports up to 10k queued items in UI
+      const allRows: DbQueueItem[] = [];
 
-      if (error) throw error;
+      for (let page = 0; page < maxPages; page++) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
 
-      const mappedItems: QueueItem[] = (data as DbQueueItem[] || []).map(item => ({
+        // Query by client_id only — RLS handles visibility
+        // (accountants and admins can see queue items they didn't upload)
+        const { data, error } = await supabase
+          .from('upload_queue')
+          .select('id, client_id, user_id, file_name, status, extracted_data, confidence, warnings, error_message, retry_count, created_at, started_at, fiscal_year, processed_at')
+          .eq('client_id', effectiveClientId)
+          .order('created_at', { ascending: true })
+          .range(from, to);
+
+        if (error) throw error;
+
+        const chunk = (data as DbQueueItem[]) || [];
+        allRows.push(...chunk);
+
+        if (chunk.length < pageSize) {
+          break;
+        }
+      }
+
+      const mappedItems: QueueItem[] = allRows.map(item => ({
         id: item.id,
         file_name: item.file_name,
         fiscal_year: item.fiscal_year ?? new Date().getFullYear(),
@@ -136,6 +159,9 @@ export function useUploadQueue(forClientId?: string | null) {
   // State for processing status
   const [isProcessing, setIsProcessing] = useState(false);
   const processingRef = useRef(false);
+  const autoResumeRef = useRef(false);
+  const lastAutoKickRef = useRef(0);
+  const AUTO_DRAIN_INTERVAL_MS = 60000;
 
   // Internal processing function (can be called silently for auto-processing)
   const triggerProcessingInternal = useCallback(async (showToast = true) => {
@@ -188,8 +214,66 @@ export function useUploadQueue(forClientId?: string | null) {
     await triggerProcessingInternal(true);
   }, [triggerProcessingInternal]);
 
+  // Poll queue while there is active backlog to keep stats/live table in sync.
+  useEffect(() => {
+    if (!user || !stats) return;
+
+    if (stats.pending_count === 0 && stats.processing_count === 0) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void fetchQueue();
+    }, 5000);
+
+    return () => window.clearInterval(intervalId);
+  }, [user, stats, fetchQueue]);
+
+  // Auto-continue processing when backlog remains but no worker is currently active.
+  useEffect(() => {
+    if (!user || !stats) return;
+    if (isUploading || isProcessing || processingRef.current || autoResumeRef.current) return;
+
+    if (stats.pending_count > 0 && stats.processing_count === 0) {
+      autoResumeRef.current = true;
+      lastAutoKickRef.current = Date.now();
+      void triggerProcessingInternal(false).finally(() => {
+        autoResumeRef.current = false;
+      });
+    }
+  }, [user, stats, isUploading, isProcessing, triggerProcessingInternal]);
+
+  // Watchdog: for very large backlogs, keep triggering processing periodically
+  // even if some rows remain "processing" due to interrupted invocations.
+  useEffect(() => {
+    if (!user || !stats) return;
+    if (stats.pending_count <= 0) return;
+
+    const tick = () => {
+      if (isUploading || isProcessing || processingRef.current || autoResumeRef.current) return;
+
+      const now = Date.now();
+      if (now - lastAutoKickRef.current < AUTO_DRAIN_INTERVAL_MS) return;
+
+      autoResumeRef.current = true;
+      lastAutoKickRef.current = now;
+      void triggerProcessingInternal(false).finally(() => {
+        autoResumeRef.current = false;
+      });
+    };
+
+    const intervalId = window.setInterval(tick, 15000);
+    return () => window.clearInterval(intervalId);
+  }, [user, stats, isUploading, isProcessing, triggerProcessingInternal]);
+
   // Upload files to queue
-  const uploadToQueue = useCallback(async (files: File[], _fiscalYear: number) => {
+  const uploadToQueue = useCallback(async (
+    files: File[],
+    _fiscalYear: number,
+    options: UploadToQueueOptions = {}
+  ) => {
+    const { autoTriggerProcessing = true, showToast = true } = options;
+
     if (!user) {
       toast({
         title: 'Erro',
@@ -239,16 +323,18 @@ export function useUploadQueue(forClientId?: string | null) {
 
     await fetchQueue();
 
-    if (uploadedCount > 0) {
+    if (uploadedCount > 0 && showToast) {
       toast({
         title: 'Ficheiros adicionados à fila',
         description: `${uploadedCount} de ${files.length} ficheiros adicionados. A iniciar processamento automático...`,
       });
+    }
 
+    if (uploadedCount > 0 && autoTriggerProcessing) {
       // Auto-trigger processing after upload completes
       // Small delay to allow UI to update
       setTimeout(() => {
-        triggerProcessingInternal();
+        triggerProcessingInternal(showToast);
       }, 500);
     }
 
@@ -266,8 +352,7 @@ export function useUploadQueue(forClientId?: string | null) {
       const { error } = await supabase
         .from('upload_queue')
         .delete()
-        .eq('id', itemId)
-        .eq('user_id', user.id);
+        .eq('id', itemId);
 
       if (error) throw error;
 
@@ -294,7 +379,7 @@ export function useUploadQueue(forClientId?: string | null) {
       const { error } = await supabase
         .from('upload_queue')
         .delete()
-        .eq('user_id', user.id)
+        .eq('client_id', effectiveClientId)
         .in('status', ['completed', 'failed']);
 
       if (error) throw error;
@@ -349,8 +434,7 @@ export function useUploadQueue(forClientId?: string | null) {
       const { error } = await supabase
         .from('upload_queue')
         .update({ status: 'pending', error_message: null })
-        .eq('id', itemId)
-        .eq('user_id', user.id);
+        .eq('id', itemId);
 
       if (error) throw error;
 

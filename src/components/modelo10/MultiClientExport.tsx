@@ -15,6 +15,7 @@ import { TaxWithholding } from '@/hooks/useWithholdings';
 import { toast } from 'sonner';
 import { getCountryName } from '@/lib/countries';
 import { EmailExportButton } from '@/components/ui/email-export-button';
+import { fetchAllByCursor } from '@/lib/supabasePagination';
 
 interface MultiClientExportProps {
   clients: AccountantClient[];
@@ -31,16 +32,32 @@ export function MultiClientExport({ clients, selectedYear }: MultiClientExportPr
     queryKey: ['multi-client-withholdings', selectedClientIds, selectedYear],
     queryFn: async () => {
       if (selectedClientIds.length === 0) return [];
-      
-      const { data, error } = await supabase
-        .from('tax_withholdings')
-        .select('*')
-        .in('client_id', selectedClientIds)
-        .eq('fiscal_year', selectedYear)
-        .order('payment_date', { ascending: false });
-      
-      if (error) throw error;
-      return data as TaxWithholding[];
+
+      return fetchAllByCursor<TaxWithholding>(
+        (cursor, pageSize) => {
+          let query = supabase
+            .from('tax_withholdings')
+            .select('*')
+            .in('client_id', selectedClientIds)
+            .eq('fiscal_year', selectedYear)
+            .order('payment_date', { ascending: false })
+            .order('id', { ascending: false })
+            .limit(pageSize);
+
+          if (cursor) {
+            query = query.or(
+              `payment_date.lt.${cursor.payment_date},and(payment_date.eq.${cursor.payment_date},id.lt.${cursor.id})`
+            );
+          }
+
+          return query.then(r => r);
+        },
+        {
+          pageSize: 1000,
+          maxPages: 100,
+          getCursorKey: (row) => `${row.payment_date}|${row.id}`,
+        }
+      );
     },
     enabled: selectedClientIds.length > 0,
   });

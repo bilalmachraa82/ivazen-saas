@@ -57,7 +57,8 @@ import { ClientSyncStatus, deriveSyncStatus } from '@/components/efatura/ClientS
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { pt } from 'date-fns/locale';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { featureFlags } from '@/lib/featureFlags';
 
 interface ClientWithCredentials {
   id: string;
@@ -69,16 +70,53 @@ interface ClientWithCredentials {
   lastSyncAt: string | null;
   lastSyncStatus: string | null;
   lastSyncError: string | null;
+  latestReasonCode?: string | null;
+  latestReasonMessage?: string | null;
   environment?: string;
+}
+
+interface AccountantClientRpcRow {
+  id: string;
+  full_name: string | null;
+  company_name: string | null;
+  nif: string | null;
+  email: string | null;
+}
+
+interface SyncHistoryRow {
+  client_id: string;
+  reason_code: string | null;
+  error_message: string | null;
 }
 
 type FilterStatus = 'all' | 'configured' | 'pending' | 'error' | 'never';
 
+interface SyncReasonAction {
+  label: string;
+  description: string;
+  ctaLabel?: string;
+  ctaPath?: string;
+  tone: 'success' | 'warning' | 'danger' | 'info';
+}
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object' && 'message' in error) {
+    const maybeMessage = (error as { message?: unknown }).message;
+    if (typeof maybeMessage === 'string') return maybeMessage;
+  }
+  return 'Erro desconhecido';
+};
+
 export default function BulkClientSync() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const syncMutation = useSyncEFatura();
   const bulkSync = useBulkSync();
+  const currentYear = new Date().getFullYear();
+  const allowedFiscalYears = useMemo(() => [currentYear, currentYear - 1], [currentYear]);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
@@ -86,7 +124,7 @@ export default function BulkClientSync() {
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
   const [currentSyncClient, setCurrentSyncClient] = useState<string | null>(null);
-  const [fiscalYear, setFiscalYear] = useState<number>(new Date().getFullYear());
+  const [fiscalYear, setFiscalYear] = useState<number>(currentYear);
 
   // Check if user is accountant
   const { data: isAccountant, isLoading: isLoadingRole } = useQuery({
@@ -132,18 +170,36 @@ export default function BulkClientSync() {
       if (!clientsData || clientsData.length === 0) return [];
 
       // Get AT credentials for all clients
-      const clientIds = clientsData.map((c: any) => c.id);
+      const typedClientsData = clientsData as AccountantClientRpcRow[];
+      const clientIds = typedClientsData.map((c) => c.id);
       const { data: credentials } = await supabase
         .from('at_credentials')
         .select('client_id, last_sync_at, last_sync_status, last_sync_error, environment')
         .in('client_id', clientIds);
 
+      const { data: latestHistory } = await supabase
+        .from('at_sync_history')
+        .select('client_id, reason_code, error_message, created_at')
+        .in('client_id', clientIds)
+        .order('created_at', { ascending: false });
+
       const credentialsMap = new Map(
         (credentials || []).map(c => [c.client_id, c])
       );
+      const historyMap = new Map<string, { reason_code: string | null; error_message: string | null }>();
+      const historyRows = (latestHistory ?? []) as SyncHistoryRow[];
+      historyRows.forEach((row) => {
+        if (!historyMap.has(row.client_id)) {
+          historyMap.set(row.client_id, {
+            reason_code: row.reason_code || null,
+            error_message: row.error_message || null,
+          });
+        }
+      });
 
-      return clientsData.map((client: any): ClientWithCredentials => {
+      return typedClientsData.map((client): ClientWithCredentials => {
         const cred = credentialsMap.get(client.id);
+        const latest = historyMap.get(client.id);
         return {
           id: client.id,
           full_name: client.full_name,
@@ -154,6 +210,8 @@ export default function BulkClientSync() {
           lastSyncAt: cred?.last_sync_at || null,
           lastSyncStatus: cred?.last_sync_status || 'never',
           lastSyncError: cred?.last_sync_error || null,
+          latestReasonCode: latest?.reason_code || null,
+          latestReasonMessage: latest?.error_message || null,
           environment: cred?.environment,
         };
       });
@@ -175,6 +233,91 @@ export default function BulkClientSync() {
       error: clients.filter(c => c.hasCredentials && c.lastSyncStatus === 'error').length,
       never: clients.filter(c => !c.hasCredentials || c.lastSyncStatus === 'never').length,
     };
+  }, [clients]);
+
+  const getReasonAction = (client: ClientWithCredentials): SyncReasonAction => {
+    const reasonCode = client.latestReasonCode || '';
+    const rawError = (client.lastSyncError || client.latestReasonMessage || '').toLowerCase();
+
+    if (!client.hasCredentials) {
+      return {
+        label: 'Sem credenciais',
+        description: 'Importe ou configure credenciais AT para este cliente.',
+        ctaLabel: 'Configurar',
+        ctaPath: '/settings',
+        tone: 'warning',
+      };
+    }
+
+    if (reasonCode === 'AT_AUTH_FAILED' || rawError.includes('autentica')) {
+      return {
+        label: 'Credenciais inválidas',
+        description: 'Atualizar password do Portal AT / subutilizador.',
+        ctaLabel: 'Atualizar password',
+        ctaPath: '/settings',
+        tone: 'danger',
+      };
+    }
+
+    if (reasonCode === 'AT_YEAR_UNAVAILABLE') {
+      return {
+        label: 'Ano indisponível na AT',
+        description: 'A AT não disponibiliza consulta para este ano neste contribuinte.',
+        tone: 'warning',
+      };
+    }
+
+    if (reasonCode === 'AT_SCHEMA_RESPONSE_ERROR') {
+      return {
+        label: 'Resposta AT inconsistente',
+        description: 'Tentar novamente; se persistir, abrir incidente técnico.',
+        ctaLabel: 'Repetir sync',
+        tone: 'warning',
+      };
+    }
+
+    if (reasonCode === 'AT_EMPTY_LIST') {
+      return {
+        label: 'Sem novos documentos',
+        description: 'A sincronização correu sem novos movimentos no período.',
+        tone: 'success',
+      };
+    }
+
+    if (client.lastSyncStatus === 'success') {
+      return {
+        label: 'Sincronizado',
+        description: 'Última sincronização concluída com sucesso.',
+        tone: 'success',
+      };
+    }
+
+    if (client.lastSyncStatus === 'error') {
+      return {
+        label: 'Erro funcional',
+        description: 'Rever detalhes da última sincronização e repetir.',
+        ctaLabel: 'Repetir sync',
+        tone: 'danger',
+      };
+    }
+
+    return {
+      label: 'Aguardando sincronização',
+      description: 'Executar sincronização para validar estado real na AT.',
+      ctaLabel: 'Sincronizar',
+      tone: 'info',
+    };
+  };
+
+  const reasonSummary = useMemo(() => {
+    const counts = new Map<string, number>();
+    (clients || []).forEach((client) => {
+      if (!client.latestReasonCode) return;
+      counts.set(client.latestReasonCode, (counts.get(client.latestReasonCode) || 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .map(([reasonCode, count]) => ({ reasonCode, count }))
+      .sort((a, b) => b.count - a.count);
   }, [clients]);
 
   // Filtered clients
@@ -264,8 +407,8 @@ export default function BulkClientSync() {
             environment: (client.environment as 'test' | 'production') || 'test',
             type: 'ambos',
           });
-        } catch (err: any) {
-          console.error(`Sync error for ${client.nif}:`, err.message);
+        } catch (err: unknown) {
+          console.error(`Sync error for ${client.nif}:`, getErrorMessage(err));
           // Continue with next client
         }
       }
@@ -276,9 +419,9 @@ export default function BulkClientSync() {
       // Refresh data
       queryClient.invalidateQueries({ queryKey: ['bulk-sync-clients'] });
       queryClient.invalidateQueries({ queryKey: ['sync-history'] });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error('Erro na sincronização', {
-        description: error.message,
+        description: getErrorMessage(error),
       });
     } finally {
       setSyncing(false);
@@ -351,40 +494,29 @@ export default function BulkClientSync() {
         </div>
 
         {/* Configuration Checklist */}
-        <ZenCard className={cn(
-          "border-l-4",
-          accountantConfig?.certificate_pfx_base64 && accountantConfig?.at_public_key_base64 && accountantConfig?.subuser_id
-            ? "border-l-green-500"
-            : "border-l-amber-500"
-        )}>
+        {/* API Connector is active — PFX is managed by the VPS, not required in-app */}
+        <ZenCard className="border-l-4 border-l-primary">
           <CardContent className="pt-6">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="space-y-2">
                 <h3 className="font-semibold text-foreground">Configuração para Sincronização</h3>
                 <div className="flex flex-wrap gap-4 text-sm">
+                  {/* API Connector status — replaces PFX requirement */}
                   <div className="flex items-center gap-2">
-                    {accountantConfig?.certificate_pfx_base64 ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    ) : (
-                      <XCircle className="h-4 w-4 text-destructive" />
-                    )}
-                    <span>Certificado PFX</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {accountantConfig?.at_public_key_base64 ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    ) : (
-                      <XCircle className="h-4 w-4 text-destructive" />
-                    )}
-                    <span>Chave Pública AT</span>
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>API Connector AT ativo</span>
+                    <Badge variant="outline">SOAP/mTLS</Badge>
                   </div>
                   <div className="flex items-center gap-2">
                     {accountantConfig?.subuser_id ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <CheckCircle2 className="h-4 w-4 text-primary" />
                     ) : (
-                      <XCircle className="h-4 w-4 text-destructive" />
+                      <AlertTriangle className="h-4 w-4 text-muted-foreground" />
                     )}
                     <span>Sub-utilizador WFA</span>
+                    {accountantConfig?.subuser_id && (
+                      <Badge variant="outline" className="font-mono text-xs">{accountantConfig.subuser_id}</Badge>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">{clients?.filter(c => c.hasCredentials).length || 0}</Badge>
@@ -404,7 +536,7 @@ export default function BulkClientSync() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {[2026, 2025, 2024, 2023].map(year => (
+                    {allowedFiscalYears.map(year => (
                       <SelectItem key={year} value={String(year)}>{year}</SelectItem>
                     ))}
                   </SelectContent>
@@ -413,7 +545,6 @@ export default function BulkClientSync() {
                 <Button 
                   size="lg"
                   disabled={
-                    !accountantConfig?.certificate_pfx_base64 || 
                     bulkSync.isStarting || 
                     bulkSync.isActive ||
                     !clients?.some(c => c.hasCredentials)
@@ -443,18 +574,6 @@ export default function BulkClientSync() {
                 </Button>
               </div>
             </div>
-            
-            {!accountantConfig?.certificate_pfx_base64 && (
-              <Alert variant="destructive" className="mt-4">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  Configure o certificado PFX antes de sincronizar.{' '}
-                  <Link to="/admin/certificates" className="underline font-medium">
-                    Ir para Configuração
-                  </Link>
-                </AlertDescription>
-              </Alert>
-            )}
           </CardContent>
         </ZenCard>
 
@@ -492,6 +611,46 @@ export default function BulkClientSync() {
           </ZenCard>
         </div>
 
+        {/* AT Control Center */}
+        <ZenCard className="border-l-4 border-l-primary">
+          <CardHeader>
+            <CardTitle className="text-base">AT Control Center</CardTitle>
+            <CardDescription>
+              Diagnóstico operacional dos últimos estados de sincronização por cliente
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {reasonSummary.length === 0 ? (
+                <Badge variant="outline">Sem reason codes recentes</Badge>
+              ) : (
+                reasonSummary.slice(0, 6).map((item) => (
+                  <Badge key={item.reasonCode} variant="outline" className="font-mono text-xs">
+                    {item.reasonCode}: {item.count}
+                  </Badge>
+                ))
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {featureFlags.atControlCenterV1 && (
+                <Button variant="default" size="sm" onClick={() => navigate('/at-control-center')}>
+                  Abrir Painel Operacional
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={() => setFilterStatus('error')}>
+                Ver clientes com erro
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => navigate('/settings')}>
+                Atualizar credenciais
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => navigate('/admin/certificates')}>
+                Validar conector/certificado
+              </Button>
+            </div>
+          </CardContent>
+        </ZenCard>
+
         {/* Background Sync Progress */}
         {bulkSync.isActive && bulkSync.progress && (
           <Alert className="border-primary/50 bg-primary/5">
@@ -505,11 +664,11 @@ export default function BulkClientSync() {
             <AlertDescription>
               <Progress value={bulkSync.progressPercent} className="mt-2 mb-2" />
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <span className="text-green-600">{bulkSync.progress.completed} concluídos</span>
-                <span className="text-amber-600">{bulkSync.progress.processing} a processar</span>
-                <span className="text-muted-foreground">{bulkSync.progress.pending} pendentes</span>
+                <span className="font-medium">{bulkSync.progress.completed} concluídos</span>
+                <span>{bulkSync.progress.processing} a processar</span>
+                <span>{bulkSync.progress.pending} pendentes</span>
                 {bulkSync.progress.errors > 0 && (
-                  <span className="text-red-600">{bulkSync.progress.errors} erros</span>
+                  <span className="font-medium text-destructive">{bulkSync.progress.errors} erros</span>
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -575,7 +734,7 @@ export default function BulkClientSync() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {[2025, 2024, 2023, 2022].map(year => (
+                    {allowedFiscalYears.map(year => (
                       <SelectItem key={year} value={String(year)}>{year}</SelectItem>
                     ))}
                   </SelectContent>
@@ -656,13 +815,14 @@ export default function BulkClientSync() {
                     <TableHead>NIF</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead>Última Sincronização</TableHead>
+                    <TableHead>Diagnóstico</TableHead>
                     <TableHead className="text-right">Acções</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredClients.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         {searchTerm || filterStatus !== 'all' 
                           ? 'Nenhum cliente encontrado com os filtros aplicados'
                           : 'Nenhum cliente associado'}
@@ -672,6 +832,7 @@ export default function BulkClientSync() {
                     filteredClients.map((client) => {
                       const status = deriveSyncStatus(client.lastSyncStatus, client.hasCredentials);
                       const isSyncing = currentSyncClient === client.id;
+                      const reasonAction = getReasonAction(client);
 
                       return (
                         <TableRow 
@@ -720,30 +881,54 @@ export default function BulkClientSync() {
                               '—'
                             )}
                           </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <p className="text-xs font-medium">{reasonAction.label}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {reasonAction.description}
+                              </p>
+                              {client.latestReasonCode && (
+                                <Badge variant="outline" className="text-[10px] font-mono">
+                                  {client.latestReasonCode}
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell className="text-right">
-                            {client.hasCredentials ? (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  syncMutation.mutate({
-                                    clientId: client.id,
-                                    environment: (client.environment as 'test' | 'production') || 'test',
-                                    type: 'ambos',
-                                  });
-                                }}
-                                disabled={syncing || syncMutation.isPending}
-                              >
-                                <RefreshCw className={cn(
-                                  "h-4 w-4",
-                                  syncMutation.isPending && "animate-spin"
-                                )} />
-                              </Button>
-                            ) : (
-                              <Badge variant="outline" className="text-xs">
-                                Sem credenciais
-                              </Badge>
-                            )}
+                            <div className="flex items-center justify-end gap-2">
+                              {reasonAction.ctaPath && reasonAction.ctaLabel && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => navigate(reasonAction.ctaPath!)}
+                                >
+                                  {reasonAction.ctaLabel}
+                                </Button>
+                              )}
+                              {client.hasCredentials ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    syncMutation.mutate({
+                                      clientId: client.id,
+                                      environment: (client.environment as 'test' | 'production') || 'test',
+                                      type: 'ambos',
+                                    });
+                                  }}
+                                  disabled={syncing || syncMutation.isPending}
+                                >
+                                  <RefreshCw className={cn(
+                                    "h-4 w-4",
+                                    syncMutation.isPending && "animate-spin"
+                                  )} />
+                                </Button>
+                              ) : (
+                                <Badge variant="outline" className="text-xs">
+                                  Sem credenciais
+                                </Badge>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -789,17 +974,17 @@ export default function BulkClientSync() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <span className="text-green-600">+{entry.records_imported}</span>
+                          <span className="font-medium">+{entry.records_imported}</span>
                           {entry.records_errors > 0 && (
-                            <span className="text-red-600 ml-2">-{entry.records_errors}</span>
+                            <span className="text-destructive ml-2">-{entry.records_errors}</span>
                           )}
                         </TableCell>
                         <TableCell>
                           {entry.status === 'success' && (
-                            <Badge className="bg-green-600">Sucesso</Badge>
+                            <Badge>Sucesso</Badge>
                           )}
                           {entry.status === 'partial' && (
-                            <Badge variant="outline" className="text-amber-600 border-amber-300">Parcial</Badge>
+                            <Badge variant="outline">Parcial</Badge>
                           )}
                           {entry.status === 'error' && (
                             <Badge variant="destructive">Erro</Badge>

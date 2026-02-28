@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const VERSION = '2.1.0';
+const VERSION = '2.2.0'; // Fix PT decimal separator parsing
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -95,6 +95,12 @@ Taxas de Retenção na Fonte (2025):
 - Cat. H: variáveis conforme tabelas de pensões
 - Cat. R: 25% geral para IRC
 
+SEPARADORES DECIMAIS PORTUGUESES (CRÍTICO):
+- O PONTO (.) é separador de MILHARES (ex: "1.234" = mil duzentos e trinta e quatro)
+- A VÍRGULA (,) é separador DECIMAL (ex: "1.234,56" = 1234.56)
+⚠️ "2.758,80" → gross_amount: 2758.80 (CORRECTO). NÃO ler como 27588!
+VALIDAÇÃO: Valores brutos típicos de recibos verdes são entre 100€ e 10.000€.
+
 Terminologia portuguesa (ATENÇÃO):
 IMPORTANTE: A partir de 2024, o Portal das Finanças mudou terminologia:
 - "Base" → "Ilíquido" (ambos significam BRUTO, valor SEM descontos)
@@ -170,9 +176,9 @@ serve(async (req) => {
 
     console.log('Extracting withholding data for user:', user.id);
 
-    const AI_API_KEY = Deno.env.get('AI_API_KEY');
-    if (!AI_API_KEY) {
-      console.error('AI_API_KEY not configured');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      console.error('LOVABLE_API_KEY not configured');
       return new Response(
         JSON.stringify({ error: 'Serviço de IA não configurado' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -183,14 +189,14 @@ serve(async (req) => {
 
     console.log('Calling Lovable AI for withholding extraction...');
 
-    const aiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${AI_API_KEY}`,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gemini-2.5-flash',
+        model: 'google/gemini-2.5-flash',
         messages: [
           {
             role: 'user',

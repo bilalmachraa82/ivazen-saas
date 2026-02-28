@@ -30,6 +30,15 @@ interface SSDeclaration {
   created_at: string;
 }
 
+interface SocialSecurityProfileFields {
+  accounting_regime?: string | null;
+  has_other_employment?: boolean | null;
+  other_employment_salary?: number | string | null;
+  taxable_profit?: number | string | null;
+  ss_contribution_rate?: number | string | null;
+  is_first_year?: boolean | null;
+}
+
 // IAS values by year (Indexante dos Apoios Sociais)
 export const IAS_VALUES: Record<number, number> = {
   2024: 509.26,
@@ -142,8 +151,11 @@ export function calculateContributionRate(
   hasOtherEmployment: boolean,
   otherEmploymentSalary: number,
   monthlyRelevantIncome: number,
-  isFirstYear: boolean
+  isFirstYear: boolean,
+  periodYear = 2025
 ): { rate: number; isExempt: boolean; reason: string } {
+  const limits = getSSLimits(periodYear);
+
   // Exemption: First year of activity
   if (isFirstYear) {
     return { 
@@ -155,8 +167,8 @@ export function calculateContributionRate(
   
   // Exemption: TCO accumulation
   if (hasOtherEmployment && 
-      otherEmploymentSalary >= IAS_2025 && 
-      monthlyRelevantIncome < SS_LIMITS.TCO_EXEMPTION_LIMIT) {
+      otherEmploymentSalary >= limits.IAS && 
+      monthlyRelevantIncome < limits.TCO_EXEMPTION_LIMIT) {
     return { 
       rate: 0, 
       isExempt: true, 
@@ -229,12 +241,14 @@ export function calculateRelevantIncome(entries: RevenueEntry[]): number {
 export function checkTCOExemption(
   hasOtherEmployment: boolean,
   otherEmploymentSalary: number,
-  monthlyRelevantIncome: number
+  monthlyRelevantIncome: number,
+  periodYear = 2025
 ): boolean {
   if (!hasOtherEmployment) return false;
+  const limits = getSSLimits(periodYear);
   
   // Exempt if: has TCO with salary >= 1 IAS AND relevant income < 4 IAS
-  return otherEmploymentSalary >= IAS_2025 && monthlyRelevantIncome < SS_LIMITS.TCO_EXEMPTION_LIMIT;
+  return otherEmploymentSalary >= limits.IAS && monthlyRelevantIncome < limits.TCO_EXEMPTION_LIMIT;
 }
 
 // Helper to get quarter from date
@@ -372,13 +386,16 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
     if (!profile) {
       return { base: 0, amount: 0, isExempt: false, exemptReason: '' };
     }
+    const quarterYear = Number(quarter.split('-')[0] || new Date().getFullYear());
+    const quarterLimits = getSSLimits(quarterYear);
+    const profileFields = profile as unknown as SocialSecurityProfileFields;
 
-    const accountingRegime = (profile as any).accounting_regime || 'simplified';
-    const hasOtherEmployment = (profile as any).has_other_employment || false;
-    const otherEmploymentSalary = Number((profile as any).other_employment_salary) || 0;
-    const taxableProfit = Number((profile as any).taxable_profit) || 0;
-    const contributionRate = Number(profile.ss_contribution_rate) || 21.4;
-    const isFirstYear = profile.is_first_year || false;
+    const accountingRegime = profileFields.accounting_regime || 'simplified';
+    const hasOtherEmployment = profileFields.has_other_employment || false;
+    const otherEmploymentSalary = Number(profileFields.other_employment_salary) || 0;
+    const taxableProfit = Number(profileFields.taxable_profit) || 0;
+    const contributionRate = Number(profileFields.ss_contribution_rate) || 21.4;
+    const isFirstYear = profileFields.is_first_year || false;
 
     // Check first year exemption
     if (isFirstYear) {
@@ -390,14 +407,14 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
     if (accountingRegime === 'organized') {
       // Organized accounting: base = taxable profit / 12 (minimum 1.5 IAS)
       const monthlyBase = taxableProfit / 12;
-      contributionBase = Math.max(monthlyBase, SS_LIMITS.MIN_BASE_ORGANIZED);
-      contributionBase = Math.min(contributionBase, SS_LIMITS.MAX_BASE);
+      contributionBase = Math.max(monthlyBase, quarterLimits.MIN_BASE_ORGANIZED);
+      contributionBase = Math.min(contributionBase, quarterLimits.MAX_BASE);
     } else {
       // Simplified regime: base = 1/3 of relevant quarterly income
       const monthlyRelevantIncome = totals.relevantIncome / 3;
       
       // Check TCO exemption
-      if (checkTCOExemption(hasOtherEmployment, otherEmploymentSalary, monthlyRelevantIncome)) {
+      if (checkTCOExemption(hasOtherEmployment, otherEmploymentSalary, monthlyRelevantIncome, quarterYear)) {
         return { 
           base: 0, 
           amount: 0, 
@@ -406,19 +423,19 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
         };
       }
       
-      contributionBase = Math.min(monthlyRelevantIncome, SS_LIMITS.MAX_BASE);
+      contributionBase = Math.min(monthlyRelevantIncome, quarterLimits.MAX_BASE);
     }
 
     // Calculate contribution amount
     let contributionAmount = contributionBase * (contributionRate / 100);
 
     // Apply minimum contribution rule (20€ if positive but less than 20€)
-    if (contributionAmount > 0 && contributionAmount < SS_LIMITS.MIN_CONTRIBUTION) {
-      contributionAmount = SS_LIMITS.MIN_CONTRIBUTION;
+    if (contributionAmount > 0 && contributionAmount < quarterLimits.MIN_CONTRIBUTION) {
+      contributionAmount = quarterLimits.MIN_CONTRIBUTION;
     }
 
     return { base: contributionBase, amount: contributionAmount, isExempt: false, exemptReason: '' };
-  }, [profile, totals.relevantIncome]);
+  }, [profile, quarter, totals.relevantIncome]);
 
   // Add revenue entry
   const addRevenueMutation = useMutation({

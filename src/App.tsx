@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { SelectedClientProvider } from "@/hooks/useSelectedClient";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import CookieBanner from "@/components/CookieBanner";
 import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
@@ -38,7 +39,9 @@ import ReconciliationAudit from "./pages/ReconciliationAudit";
 import EFaturaSync from "./pages/EFaturaSync";
 import AdminCertificates from "./pages/AdminCertificates";
 import BulkClientSync from "./pages/BulkClientSync";
+import ATControlCenter from "./pages/ATControlCenter";
 import NotFound from "./pages/NotFound";
+import { featureFlags } from "@/lib/featureFlags";
 
 
 const queryClient = new QueryClient();
@@ -86,12 +89,15 @@ const App = () => (
                 <Route path="/glossario" element={<ProtectedRoute><Glossary /></ProtectedRoute>} />
                 <Route path="/efatura" element={<ProtectedRoute requireRole="accountant"><EFaturaSync /></ProtectedRoute>} />
                 <Route path="/bulk-sync" element={<ProtectedRoute requireRole="accountant"><BulkClientSync /></ProtectedRoute>} />
+                {featureFlags.atControlCenterV1 && (
+                  <Route path="/at-control-center" element={<ProtectedRoute requireRole="accountant"><ATControlCenter /></ProtectedRoute>} />
+                )}
                 <Route path="/reconciliation" element={<ProtectedRoute><ReconciliationAudit /></ProtectedRoute>} />
                 <Route path="/admin/certificates" element={<ProtectedRoute requireRole="accountant"><AdminCertificates /></ProtectedRoute>} />
 
                 <Route path="*" element={<NotFound />} />
               </Routes>
-              
+              <CookieBanner />
             </BrowserRouter>
             </SelectedClientProvider>
           </AuthProvider>

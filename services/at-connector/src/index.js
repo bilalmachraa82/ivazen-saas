@@ -13,13 +13,21 @@ const AT_CERT_PEM_PATH = process.env.AT_CERT_PEM_PATH || '';
 const AT_KEY_PEM_PASSPHRASE = process.env.AT_KEY_PEM_PASSPHRASE || '';
 const AT_PUBLIC_CERT_PATH = process.env.AT_PUBLIC_CERT_PATH || '';
 
+const AT_INVOICES_NS = process.env.AT_INVOICES_NS || 'http://factemi.at.min_financas.pt/fatshareInvoices';
+const AT_SOAP_ACTION = process.env.AT_SOAP_ACTION || `${AT_INVOICES_NS}/InvoicesRequest`;
+const AT_USERNAME_FALLBACK_BASE = process.env.AT_USERNAME_FALLBACK_BASE === '1';
+
 const AT_TLS_MIN_VERSION = process.env.AT_TLS_MIN_VERSION || 'TLSv1.2';
 const AT_TLS_CIPHERS = process.env.AT_TLS_CIPHERS || '';
 const AT_TLS_LEGACY_SERVER_CONNECT = process.env.AT_TLS_LEGACY_SERVER_CONNECT === '1';
-const AT_DOCS_PER_PAGE = Math.min(
-  5000,
-  Math.max(1, Number(process.env.AT_DOCS_PER_PAGE || 5000))
-);
+const AT_DOCS_PER_PAGE = Math.min(5000, Math.max(1, Number(process.env.AT_DOCS_PER_PAGE || 5000)));
+
+const AT_ENDPOINTS = {
+  invoiceQuery: {
+    test: process.env.AT_QUERY_ENDPOINT_TEST || 'https://servicos.portaldasfinancas.gov.pt:725/fatshare/ws/fatshareFaturas',
+    production: process.env.AT_QUERY_ENDPOINT_PROD || 'https://servicos.portaldasfinancas.gov.pt:425/fatshare/ws/fatshareFaturas',
+  },
+};
 
 if (!CONNECTOR_TOKEN) {
   console.error('[at-connector] Missing CONNECTOR_TOKEN');
@@ -55,18 +63,10 @@ const atPublicCertBytes = fs.readFileSync(AT_PUBLIC_CERT_PATH);
 const atX509 = new crypto.X509Certificate(atPublicCertBytes);
 const atPublicKey = atX509.publicKey;
 
-const AT_ENDPOINTS = {
-  invoiceQuery: {
-    test: 'https://servicos.portaldasfinancas.gov.pt:725/fatshare/ws/fatshareFaturas',
-    production: 'https://servicos.portaldasfinancas.gov.pt:425/fatshare/ws/fatshareFaturas',
-  },
-};
-
 const secureOptions = AT_TLS_LEGACY_SERVER_CONNECT
   ? crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT
   : 0;
 
-// Global agent: cert identifies the software (producer) and can be reused.
 const soapAgent = new https.Agent({
   keepAlive: true,
   maxSockets: 20,
@@ -83,6 +83,35 @@ function json(res, statusCode, body) {
     'Content-Length': Buffer.byteLength(payload),
   });
   res.end(payload);
+}
+
+function escapeXml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function decodeXmlEntities(s) {
+  return String(s || '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#(x?[0-9a-fA-F]+);/g, (_, entity) => {
+      try {
+        const codePoint = entity.toLowerCase().startsWith('x')
+          ? Number.parseInt(entity.slice(1), 16)
+          : Number.parseInt(entity, 10);
+        if (Number.isNaN(codePoint)) return `&#${entity};`;
+        return String.fromCodePoint(codePoint);
+      } catch {
+        return `&#${entity};`;
+      }
+    });
 }
 
 function readJson(req, maxBytes = 1024 * 1024) {
@@ -102,7 +131,7 @@ function readJson(req, maxBytes = 1024 * 1024) {
       try {
         const raw = Buffer.concat(chunks).toString('utf8');
         resolve(raw ? JSON.parse(raw) : {});
-      } catch (e) {
+      } catch {
         reject(new Error('Invalid JSON'));
       }
     });
@@ -114,7 +143,6 @@ function requireAuth(req) {
   const h = req.headers.authorization || '';
   if (!h.startsWith('Bearer ')) return false;
   const token = h.slice('Bearer '.length);
-  // constant-time compare
   const a = Buffer.from(token);
   const b = Buffer.from(CONNECTOR_TOKEN);
   if (a.length !== b.length) return false;
@@ -136,7 +164,7 @@ function generateWSSecurityHeader(username, password) {
 
   const encNonce = crypto.publicEncrypt(
     { key: atPublicKey, padding: crypto.constants.RSA_PKCS1_PADDING },
-    ks
+    ks,
   ).toString('base64');
 
   return { username, encPassword, encNonce, encCreated };
@@ -145,10 +173,10 @@ function generateWSSecurityHeader(username, password) {
 function buildInvoiceQueryEnvelope(security, params) {
   const bodyParts = [];
   if (params.taxRegistrationNumber) {
-    bodyParts.push(`<fat:TaxRegistrationNumber>${params.taxRegistrationNumber}</fat:TaxRegistrationNumber>`);
+    bodyParts.push(`<fat:TaxRegistrationNumber>${escapeXml(params.taxRegistrationNumber)}</fat:TaxRegistrationNumber>`);
   }
   if (params.customerTaxId) {
-    bodyParts.push(`<fat:CustomerTaxID>${params.customerTaxId}</fat:CustomerTaxID>`);
+    bodyParts.push(`<fat:CustomerTaxID>${escapeXml(params.customerTaxId)}</fat:CustomerTaxID>`);
   }
   bodyParts.push(`<fat:StartDate>${params.startDate}</fat:StartDate>`);
   bodyParts.push(`<fat:EndDate>${params.endDate}</fat:EndDate>`);
@@ -157,9 +185,13 @@ function buildInvoiceQueryEnvelope(security, params) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <S:Envelope xmlns:S="http://schemas.xmlsoap.org/soap/envelope/">
   <S:Header>
-    <wss:Security xmlns:wss="http://schemas.xmlsoap.org/ws/2002/12/secext">
+    <wss:Security
+      xmlns:wss="http://schemas.xmlsoap.org/ws/2002/12/secext"
+      xmlns:at="http://at.pt/wsp/auth"
+      S:actor="http://at.pt/actor/SPA"
+      at:version="2">
       <wss:UsernameToken>
-        <wss:Username>${security.username}</wss:Username>
+        <wss:Username>${escapeXml(security.username)}</wss:Username>
         <wss:Password>${security.encPassword}</wss:Password>
         <wss:Nonce>${security.encNonce}</wss:Nonce>
         <wss:Created>${security.encCreated}</wss:Created>
@@ -167,20 +199,36 @@ function buildInvoiceQueryEnvelope(security, params) {
     </wss:Security>
   </S:Header>
   <S:Body>
-    <fat:InvoicesRequest xmlns:fat="http://at.gov.pt/fatshare/ws/">
+    <fat:InvoicesRequest xmlns:fat="${AT_INVOICES_NS}">
       ${bodyParts.join('\n      ')}
     </fat:InvoicesRequest>
   </S:Body>
 </S:Envelope>`;
 }
 
-function decodeXmlEntities(s) {
-  return s
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
+function parseSoapFaultMessage(xmlText) {
+  const fault = xmlText.match(/<faultstring>([\s\S]*?)<\/faultstring>/i);
+  if (fault) return decodeXmlEntities(fault[1]);
+  const reason = xmlText.match(/<(?:\w+:)?Text>([\s\S]*?)<\/(?:\w+:)?Text>/i);
+  if (reason) return decodeXmlEntities(reason[1]);
+  return null;
+}
+
+function pickFirstTagValue(xml, candidates) {
+  for (const tag of candidates) {
+    const re = new RegExp(`<(?:\\w+:)?${tag}>([\\s\\S]*?)<\\/(?:\\w+:)?${tag}>`, 'i');
+    const m = xml.match(re);
+    if (m && m[1] != null) {
+      const value = decodeXmlEntities(m[1]).trim();
+      if (value !== '') return value;
+    }
+  }
+  return '';
+}
+
+function isLikelyAuthFault(errorMessage) {
+  const m = String(errorMessage || '').toLowerCase();
+  return m.includes('autenticacao') || m.includes('authentication') || m.includes('credenciais');
 }
 
 function parseInvoicesResponse(xmlText) {
@@ -191,30 +239,40 @@ function parseInvoicesResponse(xmlText) {
     page: 1,
     totalDocsSent: 0,
     invoices: [],
+    estadoOperacao: null,
+    desc: '',
     errorMessage: undefined,
   };
 
   if (xmlText.includes(':Fault')) {
-    const m = xmlText.match(/<faultstring>([^<]*)<\/faultstring>/i);
-    out.errorMessage = m ? decodeXmlEntities(m[1]) : 'SOAP Fault';
+    out.errorMessage = parseSoapFaultMessage(xmlText) || 'SOAP Fault';
     return out;
   }
 
   const getTag = (xml, tag) => {
-    const re = new RegExp(`<(?:\\\\w+:)?${tag}>([^<]*)<\\\\/(?:\\\\w+:)?${tag}>`);
+    const re = new RegExp(`<(?:\\w+:)?${tag}>([\\s\\S]*?)<\\/(?:\\w+:)?${tag}>`, 'i');
     const m = xml.match(re);
-    return m ? decodeXmlEntities(m[1]) : '';
+    return m ? decodeXmlEntities(m[1]).trim() : '';
   };
   const getInt = (xml, tag) => Number(getTag(xml, tag)) || 0;
 
-  const estado = getInt(xmlText, 'EstadoOperacao');
-  const desc = getTag(xmlText, 'Desc');
-  if (estado && estado !== 200) {
-    out.errorMessage = desc || `EstadoOperacao ${estado}`;
+  const estadoRaw = pickFirstTagValue(xmlText, ['EstadoOperacao', 'estadoOperacao']);
+  const desc = pickFirstTagValue(xmlText, ['Desc', 'desc']);
+  const estado = Number(estadoRaw) || 0;
+
+  out.estadoOperacao = estadoRaw ? estado : null;
+  out.desc = desc;
+
+  if (estadoRaw && estado !== 200) {
+    out.errorMessage = desc || `EstadoOperacao ${estadoRaw}`;
     return out;
   }
 
-  // Pagination totals
+  if (!estadoRaw && desc && /(erro|inv[áa]lido|invalid|n[ãa]o autorizado|autentica)/i.test(desc)) {
+    out.errorMessage = desc;
+    return out;
+  }
+
   out.totalRecords = getInt(xmlText, 'totalDocs') || getInt(xmlText, 'TotalRecords') || 0;
   out.totalDocsSent = getInt(xmlText, 'totalDocsSent') || 0;
   out.totalPages = getInt(xmlText, 'totalPages') || 1;
@@ -228,6 +286,7 @@ function parseInvoicesResponse(xmlText) {
   for (const m of xmlText.matchAll(invoiceRe)) {
     const invoiceXml = m[1];
     const lineSummary = [];
+
     for (const lm of invoiceXml.matchAll(lineRe)) {
       const lineXml = lm[1];
       const baseAmount =
@@ -235,10 +294,12 @@ function parseInvoicesResponse(xmlText) {
         Number(getTag(lineXml, 'NetAmount')) ||
         Number(getTag(lineXml, 'Amount')) ||
         0;
+
       const taxAmount =
         Number(getTag(lineXml, 'TaxAmount')) ||
         Number(getTag(lineXml, 'TotalTaxAmount')) ||
         0;
+
       lineSummary.push({
         taxCode: getTag(lineXml, 'TaxCode') || 'NOR',
         taxPercentage: Number(getTag(lineXml, 'TaxPercentage')) || 0,
@@ -279,7 +340,8 @@ function requestSoap(urlString, xmlBody) {
     path: url.pathname,
     headers: {
       'Content-Type': 'text/xml; charset=utf-8',
-      'Accept': 'text/xml',
+      Accept: 'text/xml',
+      SOAPAction: AT_SOAP_ACTION,
       'Content-Length': Buffer.byteLength(xmlBody),
       'User-Agent': 'iva-inteligente/at-connector',
     },
@@ -324,9 +386,10 @@ function splitMonthlyRanges(startDate, endDate) {
   const start = parseDateUTC(startDate);
   const end = parseDateUTC(endDate);
   if (!start || !end) return [];
-  const ranges = [];
 
+  const ranges = [];
   let cur = start;
+
   while (cur <= end) {
     const y = cur.getUTCFullYear();
     const m = cur.getUTCMonth();
@@ -360,17 +423,21 @@ async function queryInvoicesSingleMonth({ environment, clientNif, username, pass
 
     const soapResp = await requestSoap(endpoint, envelope);
     if (soapResp.statusCode < 200 || soapResp.statusCode >= 300) {
+      const faultMessage = parseSoapFaultMessage(soapResp.body);
       return {
         success: false,
         totalRecords: 0,
         invoices: [],
-        errorMessage: `HTTP ${soapResp.statusCode}`,
+        errorMessage: faultMessage || `HTTP ${soapResp.statusCode}`,
+        statusCode: soapResp.statusCode,
         rawPreview: soapResp.body.slice(0, 500),
       };
     }
 
     const parsed = parseInvoicesResponse(soapResp.body);
-    if (!parsed.success) return parsed;
+    if (!parsed.success) {
+      return { ...parsed, rawPreview: soapResp.body.slice(0, 500) };
+    }
 
     totalRecords = parsed.totalRecords || totalRecords;
     totalPages = parsed.totalPages || totalPages;
@@ -388,23 +455,47 @@ async function queryInvoices({ environment, clientNif, username, password, direc
 
   let totalRecords = 0;
   const invoices = [];
+  let activeUsername = username;
+  let fallbackUsed = false;
 
   for (const r of ranges) {
-    const rResp = await queryInvoicesSingleMonth({
+    let rResp = await queryInvoicesSingleMonth({
       environment,
       clientNif,
-      username,
+      username: activeUsername,
       password,
       direction,
       startDate: r.startDate,
       endDate: r.endDate,
     });
+
+    if (!rResp.success && AT_USERNAME_FALLBACK_BASE && activeUsername.includes('/') && isLikelyAuthFault(rResp.errorMessage)) {
+      const baseUsername = activeUsername.split('/')[0];
+      if (baseUsername && baseUsername !== activeUsername) {
+        const retry = await queryInvoicesSingleMonth({
+          environment,
+          clientNif,
+          username: baseUsername,
+          password,
+          direction,
+          startDate: r.startDate,
+          endDate: r.endDate,
+        });
+        if (retry.success) {
+          fallbackUsed = true;
+          activeUsername = baseUsername;
+          rResp = retry;
+        }
+      }
+    }
+
     if (!rResp.success) return rResp;
+
     totalRecords += Number(rResp.totalRecords) || 0;
     invoices.push(...(rResp.invoices || []));
   }
 
-  return { success: true, totalRecords, invoices };
+  return { success: true, totalRecords, invoices, usernameUsed: activeUsername, fallbackUsed };
 }
 
 function isValidDate(s) {
@@ -412,8 +503,20 @@ function isValidDate(s) {
 }
 
 const server = http.createServer(async (req, res) => {
-  if (req.method === 'GET' && req.url === '/health') {
-    return json(res, 200, { ok: true });
+  if (req.method === 'GET' && (req.url === '/health' || req.url === '/healthz')) {
+    return json(res, 200, {
+      status: 'ok',
+      version: '2.0.0',
+      pfx: hasPfxIdentity,
+      pem: hasPemIdentity,
+      atPublicCert: Boolean(AT_PUBLIC_CERT_PATH),
+      endpoints: AT_ENDPOINTS.invoiceQuery,
+      soapAction: AT_SOAP_ACTION,
+      ns: AT_INVOICES_NS,
+      docsPerPage: AT_DOCS_PER_PAGE,
+      usernameFallbackBase: AT_USERNAME_FALLBACK_BASE,
+      ts: new Date().toISOString(),
+    });
   }
 
   if (req.method === 'POST' && req.url === '/v1/invoices') {
@@ -455,8 +558,10 @@ const server = http.createServer(async (req, res) => {
     const wantVendas = type === 'vendas' || type === 'ambos';
 
     const startedAt = Date.now();
+
     try {
       const resp = { success: true };
+
       if (wantCompras) {
         resp.compras = await queryInvoices({
           environment,
@@ -468,6 +573,7 @@ const server = http.createServer(async (req, res) => {
           endDate,
         });
       }
+
       if (wantVendas) {
         resp.vendas = await queryInvoices({
           environment,
@@ -479,6 +585,14 @@ const server = http.createServer(async (req, res) => {
           endDate,
         });
       }
+
+      const all = [resp.compras, resp.vendas].filter(Boolean);
+      if (all.length && all.every((q) => !q.success)) {
+        // Keep success=true so sync-efatura handles structured API failures
+        // and avoids falling back to portal (which causes CSRF errors).
+        resp.error = all[0].errorMessage || 'AT queries failed';
+      }
+
       resp.timingMs = Date.now() - startedAt;
       return json(res, 200, resp);
     } catch (e) {
@@ -487,7 +601,7 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  json(res, 404, { success: false, error: 'Not found' });
+  return json(res, 404, { success: false, error: 'Not found' });
 });
 
 server.listen(PORT, '0.0.0.0', () => {

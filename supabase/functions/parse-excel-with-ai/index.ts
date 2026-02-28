@@ -13,7 +13,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const AI_API_KEY = Deno.env.get("AI_API_KEY");
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
 // System prompt for Excel analysis
 const EXCEL_ANALYSIS_PROMPT = `Você é um assistente especializado em análise de ficheiros Excel portugueses de contabilidade.
@@ -126,9 +126,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!AI_API_KEY) {
+    if (!LOVABLE_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "AI_API_KEY not configured" }),
+        JSON.stringify({ error: "LOVABLE_API_KEY not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -174,14 +174,14 @@ Deno.serve(async (req) => {
     console.log(`Processing Excel: ${fileName}, ${rawData.length} rows, ${sampleRows.length} sample rows`);
 
     // Call Gemini for analysis
-    const aiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${AI_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gemini-2.5-flash",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: EXCEL_ANALYSIS_PROMPT },
           { 

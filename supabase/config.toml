@@ -1,4 +1,4 @@
-project_id = "oqvvtcfvjkghrwaatprx"
+project_id = "dmprkdvkzzjtixlatnlx"
 
 [functions.process-queue]
 verify_jwt = false
@@ -43,7 +43,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.sync-queue-manager]
-verify_jwt = true
+verify_jwt = false
 
 [functions.process-at-sync-queue]
 verify_jwt = false

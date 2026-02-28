@@ -40,7 +40,8 @@ import { getConfidenceStatus, QueueItem as BulkQueueItem } from '@/lib/bulkProce
 
 // Limits for background upload (more generous than real-time)
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const MAX_FILES_PER_BATCH = 500; // Allow up to 500 files
+const MAX_FILES_PER_UPLOAD = 3000; // Unified bulk limit across flows
+const CHUNK_SIZE = 500; // Safe chunk size for queue writes/process bootstrap
 
 interface BackgroundUploadTabProps {
   selectedClientId?: string | null;
@@ -61,7 +62,7 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
     isLoading: isLoadingWithholdings, 
     deleteAllForYear,
     isDeletingAll,
-  } = useWithholdings(selectedClientId);
+  } = useWithholdings(selectedClientId, selectedYear);
   
   // Filter withholdings by selected year
   const withholdingsForYear = withholdings.filter(w => w.fiscal_year === selectedYear);
@@ -133,10 +134,10 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
   // Validate and add files to selection
   const validateAndAddFiles = (files: File[]) => {
     const totalFiles = selectedFiles.length + files.length;
-    if (totalFiles > MAX_FILES_PER_BATCH) {
+    if (totalFiles > MAX_FILES_PER_UPLOAD) {
       toast({
         title: 'Demasiados ficheiros',
-        description: `Máximo de ${MAX_FILES_PER_BATCH} ficheiros por batch`,
+        description: `Máximo de ${MAX_FILES_PER_UPLOAD} ficheiros por envio`,
         variant: 'destructive',
       });
       return;
@@ -177,7 +178,26 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
   const handleUpload = async () => {
     if (selectedFiles.length === 0) return;
 
-    await uploadToQueue(selectedFiles, selectedYear);
+    let uploadedTotal = 0;
+
+    for (let i = 0; i < selectedFiles.length; i += CHUNK_SIZE) {
+      const chunk = selectedFiles.slice(i, i + CHUNK_SIZE);
+      const result = await uploadToQueue(chunk, selectedYear, {
+        autoTriggerProcessing: false,
+        showToast: false,
+      });
+      uploadedTotal += result.uploaded;
+    }
+
+    if (uploadedTotal > 0) {
+      toast({
+        title: 'Ficheiros adicionados à fila',
+        description: `${uploadedTotal} de ${selectedFiles.length} ficheiros adicionados. A iniciar processamento automático...`,
+      });
+
+      await triggerProcessing();
+    }
+
     setSelectedFiles([]);
   };
 
@@ -237,7 +257,7 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
       <div>
         <h2 className="text-2xl font-bold">Upload de Documentos</h2>
         <p className="text-muted-foreground mt-1">
-          Envie até 500 ficheiros de uma vez. Processamento automático com validação IA.
+          Envie até 3.000 ficheiros por envio (processados em lotes automáticos de 500).
         </p>
       </div>
 
@@ -319,6 +339,30 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
         </div>
       )}
 
+      {/* Prominent pending alert */}
+      {stats && stats.pending_count > 0 && (
+        <Alert className="border-yellow-500/50 bg-yellow-50 dark:bg-yellow-950/20">
+          <AlertCircle className="h-4 w-4 text-yellow-600" />
+          <AlertDescription className="flex items-center justify-between">
+            <span className="text-yellow-800 dark:text-yellow-200 font-medium">
+              {stats.pending_count} documento{stats.pending_count !== 1 ? 's' : ''} pendente{stats.pending_count !== 1 ? 's' : ''} na fila
+            </span>
+            <Button
+              size="sm"
+              onClick={triggerProcessing}
+              disabled={isProcessing}
+              className="ml-4"
+            >
+              {isProcessing ? (
+                <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> A processar...</>
+              ) : (
+                <><PlayCircle className="h-4 w-4 mr-1" /> Processar Fila</>
+              )}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Upload Zone */}
       <Card className={isAccountantOwnAccount ? 'opacity-50' : ''}>
         <CardContent className="p-6">
@@ -356,7 +400,7 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
                   : 'Arraste ficheiros ou clique para selecionar'}
             </p>
             <p className="text-sm text-muted-foreground">
-              Suporta PDF, JPG, PNG • Máx. 5MB por ficheiro • Até 500 ficheiros por lote
+              Suporta PDF, JPG, PNG • Máx. 5MB por ficheiro • Até 3.000 por envio
             </p>
           </div>
         </CardContent>

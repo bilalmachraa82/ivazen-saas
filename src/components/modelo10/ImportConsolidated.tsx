@@ -52,7 +52,7 @@ import { BackgroundUploadTab } from './BackgroundUploadTab';
         id: 'documentos',
         label: 'Documentos',
         icon: Upload,
-        description: 'Upload de PDFs ou imagens (até 500) com validação automática'
+        description: 'Upload de PDFs ou imagens (até 3.000) com validação automática'
       }
    ];
  

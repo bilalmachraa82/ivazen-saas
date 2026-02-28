@@ -1,15 +1,28 @@
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
 
-const VERSION = '4.1.1'; // Parallel processing + duplicate prevention + CORS fix
+const VERSION = '5.6.0'; // Phase 3: Safe normalize - no fiscal suffix stripping
 
-// Normalize document reference to prevent duplicates from prefix/suffix variations
-function normalizeDocumentReference(ref: string): string {
+// ── OUTCOME CODES ──
+// SAVED              – extracted & inserted into tax_withholdings
+// SKIPPED_DUPLICATE  – record already exists (client+nif+ref+year)
+// SKIPPED_CANCELLED  – document classified as anulado with strong evidence
+// NEEDS_REVIEW       – processed but not saved (low confidence, arithmetic mismatch, etc.)
+// FAILED             – unrecoverable error after max retries
+// NOT_INVOICE        – listagem / screenshot, not a single document
+
+// Normalize document reference to prevent duplicates from prefix/suffix variations.
+// IMPORTANT: Do NOT strip numeric suffixes from fiscal references (e.g. ATSIRE01FR/33).
+// Only strip copy markers from filename fallbacks.
+function normalizeDocumentReference(ref: string, isFilenameFallback = false): string {
   if (!ref) return ref;
   
-  // Remove common Portuguese document type prefixes
-  // FR = Fatura/Recibo, FT = Fatura, RG = Recibo, NC = Nota de Crédito, ND = Nota de Débito
-  const prefixes = ['FR ', 'FT ', 'RG ', 'NC ', 'ND ', 'R ', 'F '];
   let normalized = ref.trim();
+  
+  // Strip angle brackets (some AI extractions wrap references in <...>)
+  normalized = normalized.replace(/^</, '').replace(/>$/, '').trim();
+  
+  // Remove common Portuguese document type prefixes
+  const prefixes = ['FR ', 'FT ', 'RG ', 'NC ', 'ND ', 'R ', 'F '];
   
   for (const prefix of prefixes) {
     if (normalized.toUpperCase().startsWith(prefix)) {
@@ -18,8 +31,13 @@ function normalizeDocumentReference(ref: string): string {
     }
   }
   
-  // Remove copy suffixes like -1, -2 (indicating duplicate uploads)
-  normalized = normalized.replace(/-\d+$/, '');
+  // Only remove copy suffixes from FILENAME fallbacks (e.g. "recibo (1).pdf" → "recibo.pdf")
+  // Never strip from AI-extracted fiscal references (they may legitimately end in numbers)
+  if (isFilenameFallback) {
+    normalized = normalized.replace(/\s*\(\d+\)\s*$/, '');   // " (1)" suffix
+    normalized = normalized.replace(/-c[oó]pia\d*$/i, '');    // "-cópia", "-copia2"
+    normalized = normalized.replace(/-copy\d*$/i, '');         // "-copy", "-copy2"
+  }
   
   return normalized.trim();
 }
@@ -30,13 +48,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// Configuration - OPTIMIZED for parallel processing
+// Configuration
 const CONFIG = {
-  BATCH_SIZE: 15,             // Items to fetch per batch
-  PARALLEL_WORKERS: 5,        // Process 5 items concurrently (major speedup!)
-  MAX_RETRIES: 3,             // Max retry attempts per item
-  DELAY_BETWEEN_BATCHES_MS: 100, // Small delay between parallel batches
-  MAX_TOTAL_ITEMS: 200,       // Safety limit per invocation
+  BATCH_SIZE: 15,
+  PARALLEL_WORKERS: 5,
+  MAX_RETRIES: 3,
+  DELAY_BETWEEN_BATCHES_MS: 100,
+  MAX_TOTAL_ITEMS: 200,
 };
 
 const EXTRACTION_PROMPT = `Analisa esta imagem de um documento fiscal português e extrai os dados em formato JSON.
@@ -53,15 +71,14 @@ Se o documento for uma LISTAGEM ou TABELA com múltiplos documentos:
 Neste caso, responde APENAS com:
 {"not_invoice": true, "reason": "Listagem de documentos - não é uma factura individual", "confidence": 0}
 
-2. DOCUMENTOS ANULADOS (REJEITAR):
-Se o documento tiver indicação de estar anulado, cancelado ou revogado:
-- Marca de água "ANULADO", "CANCELADO", "REVOGADO"
-- Campo "Estado" ou "Status" com valor "Anulado"
-- Carimbo ou texto "ANULADO" em qualquer parte
-- Documento riscado ou com indicação de anulação
+2. DOCUMENTOS ANULADOS:
+Se o documento contiver marcas visuais claras de anulação (carimbo "ANULADO", marca de água "CANCELADO",
+riscos diagonais sobre todo o documento), devolve os dados extraídos normalmente MAS adiciona:
+  "possibly_cancelled": true
+  "cancellation_evidence": "descrição breve da evidência visual"
 
-Neste caso, responde APENAS com:
-{"anulado": true, "confidence": 100}
+Se NÃO houver marcas visuais claras de anulação, NÃO coloques possibly_cancelled.
+EXTRAI SEMPRE todos os campos financeiros independentemente de anulação.
 
 3. CÓPIAS E SEGUNDAS VIAS (PROCESSAR NORMALMENTE):
 ⚠️ NÃO consideres como anulado:
@@ -118,6 +135,21 @@ Exemplos de cálculo:
 - Líquido 750€, taxa 25% → Bruto = 750/0.75 = 1000€, Retenção = 250€
 - Líquido 720€, taxa 28% → Bruto = 720/0.72 = 1000€, Retenção = 280€
 
+=== SEPARADORES DECIMAIS PORTUGUESES (CRÍTICO) ===
+Em documentos portugueses:
+- O PONTO (.) é separador de MILHARES (ex: "1.234" = mil duzentos e trinta e quatro)
+- A VÍRGULA (,) é separador DECIMAL (ex: "1.234,56" = 1234.56)
+
+⚠️ ERROS COMUNS A EVITAR:
+- "2.758,80" → gross_amount: 2758.80 (CORRECTO)
+- "2.758,80" → gross_amount: 27588.0 (ERRADO! Não ignorar o ponto!)
+- "23.456,45" → gross_amount: 23456.45 (CORRECTO)
+- "23.456,45" → gross_amount: 234564.5 (ERRADO!)
+
+VALIDAÇÃO: Para recibos verdes portugueses, valores brutos típicos são entre 100€ e 10.000€.
+Valores acima de 10.000€ são RAROS e devem ser verificados duas vezes.
+Se o gross_amount > 10.000 e a withholding_rate é 23%, confirma que leste os separadores correctamente.
+
 === TAXAS DE RETENÇÃO POR CATEGORIA ===
 Categoria B (Trabalho Independente):
 - 23% - Taxa geral (2025) para profissões do Art. 151º CIRS
@@ -165,6 +197,51 @@ interface QueueItem {
   user_id: string;
   retry_count: number;
   status: string;
+  extracted_data?: Record<string, unknown> | null;
+}
+
+/**
+ * SANITY CHECK: Detect catastrophic decimal errors ONLY.
+ * Only auto-correct when there is STRONG arithmetic proof (gross*rate/100 ≈ wh within ±1€).
+ * For smaller mismatches, mark NEEDS_REVIEW instead of auto-correcting.
+ */
+// deno-lint-ignore no-explicit-any
+function applySanityChecks(data: Record<string, any>): { data: Record<string, any>; corrections: string[]; needsReview: boolean } {
+  const corrections: string[] = [];
+  let needsReview = false;
+  let gross = Number(data.gross_amount) || 0;
+  let wh = Number(data.withholding_amount) || 0;
+  const rate = Number(data.withholding_rate) || 0;
+
+  // Check 1: Gross suspiciously high (> 50,000€) — try scale correction with STRONG proof
+  if (gross > 50000 && rate > 0) {
+    for (const factor of [100, 1000]) {
+      const grossFixed = gross / factor;
+      const whFixed = wh / factor;
+      const expectedWh = grossFixed * rate / 100;
+      if (Math.abs(expectedWh - whFixed) < 1) {
+        corrections.push(`CORRECÇÃO DECIMAL: gross ${gross} → ${grossFixed}, withholding ${wh} → ${whFixed} (erro escala ${factor}x)`);
+        data.gross_amount = grossFixed;
+        data.withholding_amount = whFixed;
+        gross = grossFixed;
+        wh = whFixed;
+        break;
+      }
+    }
+  }
+
+  // Check 2: Arithmetic validation — gross * rate/100 ≈ withholding
+  // Do NOT auto-correct; just flag for review if delta > 1€
+  if (rate > 0 && gross > 0 && wh > 0) {
+    const expectedWh = gross * rate / 100;
+    const delta = Math.abs(expectedWh - wh);
+    if (delta > 1) {
+      corrections.push(`ALERTA ARITMÉTICO: esperado ${expectedWh.toFixed(2)}€ retenção, extraído ${wh.toFixed(2)}€ (delta ${delta.toFixed(2)}€)`);
+      needsReview = true;
+    }
+  }
+
+  return { data, corrections, needsReview };
 }
 
 // Calculate confidence based on extracted data
@@ -173,7 +250,6 @@ function calculateConfidence(data: Record<string, any>): { confidence: number; w
   const warnings: string[] = [];
   let confidence = 100;
 
-  // Required fields
   if (!data.beneficiary_nif || String(data.beneficiary_nif).length !== 9) {
     warnings.push('NIF inválido ou não encontrado');
     confidence -= 40;
@@ -189,7 +265,6 @@ function calculateConfidence(data: Record<string, any>): { confidence: number; w
     confidence -= 15;
   }
 
-  // Optional but recommended fields
   if (!data.beneficiary_name) {
     warnings.push('Nome do beneficiário não encontrado');
     confidence -= 5;
@@ -200,7 +275,6 @@ function calculateConfidence(data: Record<string, any>): { confidence: number; w
     confidence -= 5;
   }
 
-  // Category validation
   const validCategories = ['A', 'B', 'E', 'F', 'G', 'H', 'R'];
   if (!data.income_category || !validCategories.includes(String(data.income_category))) {
     warnings.push('Categoria de rendimento não identificada');
@@ -218,7 +292,7 @@ async function processItem(
   item: QueueItem,
   supabase: SupabaseClient,
   apiKey: string
-): Promise<{ status: string; error?: string }> {
+): Promise<{ status: string; outcomeCode: string; error?: string }> {
   try {
     // Mark as processing
     await supabase
@@ -229,20 +303,20 @@ async function processItem(
       })
       .eq('id', item.id);
 
+    // ── ALWAYS do fresh AI extraction (recovery path disabled by default) ──
     const fileData = item.file_data;
     if (!fileData) {
       throw new Error('No file data found');
     }
 
-    // Call AI for extraction
-    const aiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gemini-2.5-flash',
+        model: 'google/gemini-2.5-flash',
         messages: [
           {
             role: 'user',
@@ -258,7 +332,6 @@ async function processItem(
 
     if (!aiResponse.ok) {
       if (aiResponse.status === 429) {
-        // Rate limited - put back to pending
         await supabase
           .from('upload_queue')
           .update({
@@ -268,7 +341,7 @@ async function processItem(
             error_message: 'Rate limited - will retry'
           })
           .eq('id', item.id);
-        return { status: 'rate_limited' };
+        return { status: 'rate_limited', outcomeCode: 'RATE_LIMITED' };
       }
       throw new Error(`AI API error: ${aiResponse.status}`);
     }
@@ -287,9 +360,10 @@ async function processItem(
     if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3);
     jsonStr = jsonStr.trim();
 
-    const extractedData = JSON.parse(jsonStr);
+    // deno-lint-ignore no-explicit-any
+    const extractedData: Record<string, any> = JSON.parse(jsonStr);
 
-    // Check if document is not a valid invoice
+    // ── NOT_INVOICE ──
     if (extractedData.not_invoice === true) {
       await supabase
         .from('upload_queue')
@@ -300,145 +374,173 @@ async function processItem(
           confidence: 0,
           warnings: ['Não é uma factura - ignorado automaticamente'],
           error_message: extractedData.reason || 'Documento não é uma factura individual',
+          outcome_code: 'NOT_INVOICE',
         })
         .eq('id', item.id);
-      return { status: 'completed', error: 'Não é factura' };
+      return { status: 'completed', outcomeCode: 'NOT_INVOICE' };
     }
 
-    // Check if document was cancelled
-    if (extractedData.anulado === true) {
+    // ── SKIPPED_CANCELLED ──
+    // If AI returns possibly_cancelled WITH cancellation_evidence AND has valid data,
+    // mark as SKIPPED_CANCELLED — do NOT insert into tax_withholdings
+    if (extractedData.possibly_cancelled === true && extractedData.cancellation_evidence && extractedData.beneficiary_nif) {
+      const rawRef = extractedData.document_reference || item.file_name;
+      const isFileFallback = !extractedData.document_reference;
+      const normRef = normalizeDocumentReference(String(rawRef), isFileFallback);
       await supabase
         .from('upload_queue')
         .update({
           status: 'completed',
           processed_at: new Date().toISOString(),
           extracted_data: extractedData,
-          confidence: 0,
-          warnings: ['Documento anulado - ignorado automaticamente'],
-          error_message: 'Documento anulado',
+          confidence: extractedData.confidence || 0,
+          warnings: [`Documento anulado com evidência: ${extractedData.cancellation_evidence}`],
+          error_message: null,
+          outcome_code: 'SKIPPED_CANCELLED',
+          normalized_doc_ref: normRef,
         })
         .eq('id', item.id);
-      return { status: 'completed', error: 'Documento anulado' };
+      console.log(`[process-queue v${VERSION}] SKIPPED_CANCELLED: ${item.id} (${extractedData.cancellation_evidence})`);
+      return { status: 'completed', outcomeCode: 'SKIPPED_CANCELLED' };
     }
 
-    // Calculate confidence and warnings
-    const { confidence, warnings } = calculateConfidence(extractedData);
+    // ── No data extracted (anulado without NIF) ──
+    if (!extractedData.beneficiary_nif && !extractedData.gross_amount) {
+      await supabase
+        .from('upload_queue')
+        .update({
+          status: 'needs_review',
+          processed_at: new Date().toISOString(),
+          extracted_data: extractedData,
+          confidence: 0,
+          warnings: ['AI não conseguiu extrair dados financeiros'],
+          error_message: 'NEEDS_REVIEW: Dados insuficientes',
+          outcome_code: 'NEEDS_REVIEW',
+        })
+        .eq('id', item.id);
+      return { status: 'needs_review', outcomeCode: 'NEEDS_REVIEW' };
+    }
 
-    // Get fiscal year
+    // ── SANITY CHECKS ──
+    const { data: sanitizedData, corrections, needsReview: arithmeticNeedsReview } = applySanityChecks(extractedData);
+    if (corrections.length > 0) {
+      console.log(`[process-queue v${VERSION}] Sanity for ${item.id}:`, corrections);
+      Object.assign(extractedData, sanitizedData);
+    }
+
+    // ── CONFIDENCE ──
+    const { confidence, warnings } = calculateConfidence(extractedData);
+    warnings.push(...corrections);
+
     const paymentYear = extractedData.payment_date 
-      ? parseInt(extractedData.payment_date.split('-')[0]) 
+      ? parseInt(String(extractedData.payment_date).split('-')[0]) 
       : new Date().getFullYear();
 
-    // Update queue item
+    const canSave = confidence > 0 && extractedData.beneficiary_nif && extractedData.gross_amount;
+
+    // If arithmetic validation failed, mark as NEEDS_REVIEW — do NOT insert into tax_withholdings
+    if (arithmeticNeedsReview && canSave) {
+      const rawRef = extractedData.document_reference || item.file_name;
+      const isFileFallback = !extractedData.document_reference;
+      const normRef = normalizeDocumentReference(String(rawRef), isFileFallback);
+      await supabase
+        .from('upload_queue')
+        .update({
+          status: 'needs_review',
+          processed_at: new Date().toISOString(),
+          extracted_data: extractedData,
+          confidence,
+          warnings: [...warnings, '⚠️ Discrepância aritmética - requer revisão manual'],
+          error_message: 'NEEDS_REVIEW: Falha validação aritmética',
+          outcome_code: 'NEEDS_REVIEW',
+          normalized_doc_ref: normRef,
+          fiscal_year: paymentYear,
+        })
+        .eq('id', item.id);
+      
+      // NO upsert — accountant must review and manually approve
+      console.log(`[process-queue v${VERSION}] NEEDS_REVIEW (no upsert): ${item.id} ref=${normRef}`);
+      return { status: 'needs_review', outcomeCode: 'NEEDS_REVIEW' };
+    }
+
+    if (!canSave) {
+      const rejectionReasons: string[] = [];
+      if (confidence === 0) rejectionReasons.push('Falha na validação crítica');
+      if (!extractedData.beneficiary_nif) rejectionReasons.push('NIF não encontrado');
+      if (!extractedData.gross_amount) rejectionReasons.push('Valor bruto não encontrado');
+
+      await supabase
+        .from('upload_queue')
+        .update({
+          status: 'needs_review',
+          processed_at: new Date().toISOString(),
+          extracted_data: extractedData,
+          confidence,
+          warnings: [...warnings, `⚠️ NÃO guardado: ${rejectionReasons.join(', ')}`],
+          error_message: `NEEDS_REVIEW: ${rejectionReasons.join(', ')}`,
+          outcome_code: 'NEEDS_REVIEW',
+        })
+        .eq('id', item.id);
+      return { status: 'needs_review', outcomeCode: 'NEEDS_REVIEW' };
+    }
+
+    // ── DEDUPE CHECK (with client_id) ──
+    const targetClientId = item.client_id || item.user_id;
+    const rawReference = extractedData.document_reference || item.file_name;
+    const isFileFallback = !extractedData.document_reference;
+    const docReference = normalizeDocumentReference(String(rawReference), isFileFallback);
+
+    console.log(`[process-queue v${VERSION}] Normalized ref: "${rawReference}" → "${docReference}"`);
+
+    const { data: existingRecord } = await supabase
+      .from('tax_withholdings')
+      .select('id, document_reference')
+      .eq('client_id', targetClientId)
+      .eq('beneficiary_nif', extractedData.beneficiary_nif)
+      .eq('document_reference', docReference)
+      .eq('fiscal_year', paymentYear)
+      .maybeSingle();
+
+    if (existingRecord) {
+      // ── SKIPPED_DUPLICATE ──
+      await supabase
+        .from('upload_queue')
+        .update({
+          status: 'completed',
+          processed_at: new Date().toISOString(),
+          extracted_data: extractedData,
+          confidence,
+          warnings: [...warnings, `Duplicado semântico de ${docReference} (NIF ${extractedData.beneficiary_nif})`],
+          error_message: null,
+          outcome_code: 'SKIPPED_DUPLICATE',
+          normalized_doc_ref: docReference,
+          fiscal_year: paymentYear,
+        })
+        .eq('id', item.id);
+      console.log(`[process-queue v${VERSION}] SKIPPED_DUPLICATE: ${item.id} → ${docReference}`);
+      return { status: 'completed', outcomeCode: 'SKIPPED_DUPLICATE' };
+    }
+
+    // ── UPSERT (SAVED) ──
+    await upsertWithholding(supabase, extractedData, targetClientId, docReference, paymentYear);
+
     await supabase
       .from('upload_queue')
       .update({
         status: 'completed',
         processed_at: new Date().toISOString(),
         extracted_data: extractedData,
-        confidence: confidence,
-        warnings: warnings,
-        fiscal_year: paymentYear,
+        confidence,
+        warnings: warnings.length > 0 ? warnings : null,
         error_message: null,
+        outcome_code: 'SAVED',
+        normalized_doc_ref: docReference,
+        fiscal_year: paymentYear,
       })
       .eq('id', item.id);
 
-    // Create tax_withholding if valid
-    const targetClientId = item.client_id || item.user_id;
-    const canSave = confidence > 0 && extractedData.beneficiary_nif && extractedData.gross_amount;
+    return { status: 'completed', outcomeCode: 'SAVED' };
 
-    if (canSave) {
-      // NORMALIZE document reference to prevent duplicates from prefix variations
-      const rawReference = extractedData.document_reference || item.file_name;
-      const docReference = normalizeDocumentReference(rawReference);
-      
-      console.log(`[process-queue] Normalized ref: "${rawReference}" → "${docReference}"`);
-      
-      // Check for semantic duplicate (same NIF + date + similar amount)
-      // This catches duplicates even when document references are completely different
-      const { data: existingByContent } = await supabase
-        .from('tax_withholdings')
-        .select('id, document_reference, gross_amount')
-        .eq('client_id', targetClientId)
-        .eq('beneficiary_nif', extractedData.beneficiary_nif)
-        .eq('payment_date', extractedData.payment_date)
-        .eq('fiscal_year', paymentYear)
-        .maybeSingle();
-
-      if (existingByContent) {
-        // Check if amounts match (within 1€ tolerance for rounding differences)
-        const amountDiff = Math.abs(
-          Number(existingByContent.gross_amount) - Number(extractedData.gross_amount)
-        );
-        
-        if (amountDiff < 1) {
-          console.log(`[process-queue] Semantic duplicate found: ${existingByContent.document_reference} ≈ ${docReference}`);
-          
-          // Update queue item as skipped
-          await supabase
-            .from('upload_queue')
-            .update({
-              status: 'completed',
-              processed_at: new Date().toISOString(),
-              warnings: [...warnings, `Documento duplicado detectado - já existe registo com mesma data/valor (ref: ${existingByContent.document_reference})`],
-              error_message: 'Duplicado semântico - ignorado',
-            })
-            .eq('id', item.id);
-          
-          return { status: 'completed', error: 'Duplicado semântico' };
-        }
-      }
-      
-      const { error: upsertError } = await supabase
-        .from('tax_withholdings')
-        .upsert(
-          {
-            client_id: targetClientId,
-            beneficiary_nif: extractedData.beneficiary_nif,
-            beneficiary_name: extractedData.beneficiary_name || null,
-            beneficiary_address: extractedData.beneficiary_address || null,
-            income_category: extractedData.income_category || 'B',
-            gross_amount: extractedData.gross_amount,
-            exempt_amount: extractedData.exempt_amount || 0,
-            dispensed_amount: extractedData.dispensed_amount || 0,
-            withholding_rate: extractedData.withholding_rate || null,
-            withholding_amount: extractedData.withholding_amount || 0,
-            payment_date: extractedData.payment_date || new Date().toISOString().split('T')[0],
-            document_reference: docReference,
-            fiscal_year: paymentYear,
-            location_code: 'C',
-            status: 'draft',
-          },
-          {
-            onConflict: 'beneficiary_nif,document_reference,fiscal_year',
-            ignoreDuplicates: false,
-          }
-        );
-
-      if (upsertError) {
-        console.error(`Error upserting withholding for ${item.id}:`, upsertError);
-        throw new Error(`Upsert failed: ${upsertError.message}`);
-      }
-
-      return { status: 'completed' };
-    } else {
-      // Document processed but NOT saved
-      const rejectionReasons: string[] = [];
-      if (confidence === 0) rejectionReasons.push('Falha na validação crítica');
-      if (!extractedData.beneficiary_nif) rejectionReasons.push('NIF do beneficiário não encontrado');
-      if (!extractedData.gross_amount) rejectionReasons.push('Valor bruto não encontrado ou inválido');
-
-      await supabase
-        .from('upload_queue')
-        .update({
-          status: 'needs_review',
-          error_message: `Documento processado mas NÃO guardado: ${rejectionReasons.join(', ')}`,
-          warnings: [...warnings, `⚠️ ATENÇÃO: Este documento NÃO foi guardado no Modelo 10 porque: ${rejectionReasons.join(', ')}`],
-        })
-        .eq('id', item.id);
-
-      return { status: 'needs_review', error: rejectionReasons.join(', ') };
-    }
   } catch (error: unknown) {
     console.error(`Error processing item ${item.id}:`, error);
 
@@ -453,13 +555,48 @@ async function processItem(
         processed_at: isFinalFailure ? new Date().toISOString() : null,
         started_at: null,
         retry_count: newRetryCount,
+        outcome_code: isFinalFailure ? 'FAILED' : null,
       })
       .eq('id', item.id);
 
     return { 
       status: isFinalFailure ? 'failed' : 'pending', 
+      outcomeCode: isFinalFailure ? 'FAILED' : 'PENDING',
       error: error instanceof Error ? error.message : 'Unknown error' 
     };
+  }
+}
+
+// deno-lint-ignore no-explicit-any
+async function upsertWithholding(supabase: SupabaseClient, data: Record<string, any>, clientId: string, docReference: string, fiscalYear: number) {
+  const { error: upsertError } = await supabase
+    .from('tax_withholdings')
+    .upsert(
+      {
+        client_id: clientId,
+        beneficiary_nif: data.beneficiary_nif,
+        beneficiary_name: data.beneficiary_name || null,
+        beneficiary_address: data.beneficiary_address || null,
+        income_category: data.income_category || 'B',
+        gross_amount: data.gross_amount,
+        exempt_amount: data.exempt_amount || 0,
+        dispensed_amount: data.dispensed_amount || 0,
+        withholding_rate: data.withholding_rate || null,
+        withholding_amount: data.withholding_amount || 0,
+        payment_date: data.payment_date || new Date().toISOString().split('T')[0],
+        document_reference: docReference,
+        fiscal_year: fiscalYear,
+        location_code: 'C',
+        status: 'draft',
+      },
+      {
+        onConflict: 'client_id,beneficiary_nif,document_reference,fiscal_year',
+        ignoreDuplicates: true,
+      }
+    );
+
+  if (upsertError) {
+    throw new Error(`Upsert failed: ${upsertError.message}`);
   }
 }
 
@@ -494,7 +631,10 @@ async function processQueueInBackground(
   
   const results = {
     processed: 0,
-    completed: 0,
+    saved: 0,
+    duplicates: 0,
+    cancelled: 0,
+    needsReview: 0,
     failed: 0,
     rateLimited: 0,
   };
@@ -506,7 +646,6 @@ async function processQueueInBackground(
   const startTime = Date.now();
 
   while (totalProcessed < CONFIG.MAX_TOTAL_ITEMS) {
-    // Get next batch
     const { data: pendingItems, error: fetchError } = await supabase
       .from('upload_queue')
       .select('*')
@@ -524,40 +663,38 @@ async function processQueueInBackground(
       break;
     }
 
-    console.log(`Processing batch of ${pendingItems.length} items in parallel (total so far: ${totalProcessed})`);
+    console.log(`Processing batch of ${pendingItems.length} items (total so far: ${totalProcessed})`);
 
-    // Split into parallel chunks
     const chunks = chunkArray(pendingItems as QueueItem[], CONFIG.PARALLEL_WORKERS);
     
     for (const chunk of chunks) {
       if (consecutiveRateLimits >= 5) {
         console.log('Too many rate limits, stopping');
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.log(`[process-queue v${VERSION}] Stopped after ${elapsed}s:`, results);
-        return;
+        break;
       }
 
-      // Process chunk items IN PARALLEL
       const chunkResults = await Promise.all(
         chunk.map(item => processItem(item, supabase, apiKey))
       );
 
-      // Aggregate results
       let rateLimitedInChunk = 0;
       for (const result of chunkResults) {
         if (result.status === 'rate_limited') {
           rateLimitedInChunk++;
           results.rateLimited++;
-        } else if (result.status === 'completed' || result.status === 'needs_review') {
-          results.completed++;
-        } else if (result.status === 'failed') {
-          results.failed++;
+        } else {
+          switch (result.outcomeCode) {
+            case 'SAVED': results.saved++; break;
+            case 'SKIPPED_DUPLICATE': results.duplicates++; break;
+            case 'SKIPPED_CANCELLED': results.cancelled++; break;
+            case 'NEEDS_REVIEW': results.needsReview++; break;
+            case 'FAILED': results.failed++; break;
+          }
         }
         results.processed++;
         totalProcessed++;
       }
 
-      // If most of the chunk was rate limited, back off
       if (rateLimitedInChunk >= chunk.length / 2) {
         consecutiveRateLimits++;
         await delay(2000);
@@ -565,13 +702,12 @@ async function processQueueInBackground(
         consecutiveRateLimits = 0;
       }
 
-      // Small delay between parallel batches
       await delay(CONFIG.DELAY_BETWEEN_BATCHES_MS);
     }
   }
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-  console.log(`[process-queue v${VERSION}] Parallel processing complete in ${elapsed}s:`, results);
+  console.log(`[process-queue v${VERSION}] Complete in ${elapsed}s:`, results);
 }
 
 // Declare EdgeRuntime for TypeScript
@@ -586,7 +722,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Require auth (preflight OPTIONS has no auth, so verify_jwt is disabled in config.toml)
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
@@ -595,12 +730,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Initialize backend clients
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Verify user identity using the provided JWT
     const userSupabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
       auth: { persistSession: false },
@@ -614,39 +747,30 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Service client for DB operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { persistSession: false },
     });
 
-    const AI_API_KEY = Deno.env.get('AI_API_KEY');
-    if (!AI_API_KEY) {
-      throw new Error('AI_API_KEY not configured');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    // Get count of pending items for the response
     const { count: pendingCount } = await supabase
       .from('upload_queue')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'pending');
 
-    // Generate job ID
     const jobId = crypto.randomUUID();
 
-    // Start background processing using EdgeRuntime.waitUntil
-    // This allows the response to return immediately while processing continues
-    const processingPromise = processQueueInBackground(supabase, AI_API_KEY);
+    const processingPromise = processQueueInBackground(supabase, LOVABLE_API_KEY);
     
     if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
       EdgeRuntime.waitUntil(processingPromise);
-      console.log(`[process-queue v${VERSION}] Background processing started via waitUntil`);
     } else {
-      // Fallback: Just start the promise (but response may timeout)
-      console.log(`[process-queue v${VERSION}] EdgeRuntime.waitUntil not available, using fallback`);
       processingPromise.catch(err => console.error('Background processing error:', err));
     }
 
-    // Return immediately with job info
     return new Response(
       JSON.stringify({
         success: true,

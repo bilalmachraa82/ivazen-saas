@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
+import { fetchAllByCursor } from '@/lib/supabasePagination';
 
 export interface TaxWithholding {
   id: string;
@@ -69,35 +70,55 @@ export interface WithholdingLog {
   created_at: string;
 }
 
-export function useWithholdings(forClientId?: string | null) {
+export function useWithholdings(forClientId?: string | null, forYear?: number) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  // Default to 2024 since imported documents are from 2024
-  // User can change to current year (2025/2026) if needed
-  const [selectedYear, setSelectedYear] = useState<number>(2024);
+  // Default to current year; callers can override via forYear
+  const [selectedYear, setSelectedYear] = useState<number>(forYear ?? new Date().getFullYear());
+  
+  // Sync with external year prop when provided
+  const effectiveYear = forYear ?? selectedYear;
 
   // Determine which client ID to use: explicit client ID for accountants, or logged-in user
   const effectiveClientId = forClientId || user?.id;
 
   // Fetch withholdings for selected year
   const { data: withholdings = [], isLoading, refetch } = useQuery({
-    queryKey: ['withholdings', effectiveClientId, selectedYear],
+    queryKey: ['withholdings', effectiveClientId, effectiveYear],
     queryFn: async () => {
       if (!effectiveClientId) return [];
-      
-      const { data, error } = await supabase
-        .from('tax_withholdings')
-        .select('*')
-        .eq('client_id', effectiveClientId)
-        .eq('fiscal_year', selectedYear)
-        .order('payment_date', { ascending: false });
 
-      if (error) {
+      try {
+        const data = await fetchAllByCursor<TaxWithholding>(
+          (cursor, pageSize) => {
+            let query = supabase
+              .from('tax_withholdings')
+              .select('*')
+              .eq('client_id', effectiveClientId)
+              .eq('fiscal_year', effectiveYear)
+              .order('payment_date', { ascending: false })
+              .order('id', { ascending: false })
+              .limit(pageSize);
+
+            if (cursor) {
+              query = query.or(
+                `payment_date.lt.${cursor.payment_date},and(payment_date.eq.${cursor.payment_date},id.lt.${cursor.id})`
+              );
+            }
+
+            return query.then(r => r);
+          },
+          {
+            pageSize: 1000,
+            maxPages: 100,
+            getCursorKey: (row) => `${row.payment_date}|${row.id}`,
+          }
+        );
+        return data;
+      } catch (error) {
         console.error('Error fetching withholdings:', error);
         throw error;
       }
-
-      return data as TaxWithholding[];
     },
     enabled: !!effectiveClientId,
   });

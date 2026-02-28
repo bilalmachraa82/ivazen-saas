@@ -38,6 +38,7 @@ import {
   CheckCircle2,
   ExternalLink,
   FileSpreadsheet,
+  Info,
   Loader2,
   Upload,
   X,
@@ -554,6 +555,14 @@ export function ATRecibosImporter({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Este importador alimenta retenções/Modelo 10 e, via backend, sincroniza receitas para Segurança Social.
+                Não cria automaticamente vendas para cálculo de IVA.
+              </AlertDescription>
+            </Alert>
+
             <div className="space-y-4">
               <div className="flex items-start gap-4">
                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">

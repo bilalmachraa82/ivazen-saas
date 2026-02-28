@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { evaluateEdpFallbackSanity } from './edpSanity';
+import { describe, expect, it } from "vitest";
+import { evaluateEdpFallbackSanity } from "./edpSanity.ts";
 
-describe('evaluateEdpFallbackSanity', () => {
-  it('accepts normal EDP correction (6.13 -> 8.98)', () => {
+describe("evaluateEdpFallbackSanity", () => {
+  it("accepts normal EDP correction (6.13 -> 8.98)", () => {
     const result = evaluateEdpFallbackSanity({
       previousTotalVat: 6.13,
       fullTotal: 8.98,
@@ -13,7 +13,7 @@ describe('evaluateEdpFallbackSanity', () => {
     expect(result.deltaOk).toBe(true);
   });
 
-  it('rejects known overcount spike (6.13 -> 21.37)', () => {
+  it("rejects known overcount spike (6.13 -> 21.37)", () => {
     const result = evaluateEdpFallbackSanity({
       previousTotalVat: 6.13,
       fullTotal: 21.37,
@@ -23,7 +23,7 @@ describe('evaluateEdpFallbackSanity', () => {
     expect(result.ratioOk).toBe(false);
   });
 
-  it('accepts strong but valid correction (4.12 -> 8.64)', () => {
+  it("accepts strong but valid correction (4.12 -> 8.64)", () => {
     const result = evaluateEdpFallbackSanity({
       previousTotalVat: 4.12,
       fullTotal: 8.64,
@@ -31,4 +31,3 @@ describe('evaluateEdpFallbackSanity', () => {
     expect(result.isSane).toBe(true);
   });
 });
-

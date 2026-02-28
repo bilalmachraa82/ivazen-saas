@@ -43,6 +43,25 @@ interface EFaturaAPIConfigProps {
   lastSyncStatus?: string | null;
 }
 
+interface SyncEfaturaResponse {
+  success?: boolean;
+  error?: string;
+  message?: string;
+  missingConfig?: boolean;
+  count?: number;
+  skipped?: number;
+}
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object' && 'message' in error) {
+    const maybeMessage = (error as { message?: unknown }).message;
+    if (typeof maybeMessage === 'string') return maybeMessage;
+  }
+  return 'Erro desconhecido';
+};
+
 export function EFaturaAPIConfig({
   clientId,
   environment,
@@ -92,9 +111,9 @@ export function EFaturaAPIConfig({
       setIsDialogOpen(false);
       setUsername('');
       setPassword('');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error('Erro ao guardar credenciais', {
-        description: error.message
+        description: getErrorMessage(error)
       });
     } finally {
       setIsSaving(false);
@@ -117,12 +136,12 @@ export function EFaturaAPIConfig({
           .from('at_credentials')
           .upsert({
             client_id: effectiveClientId,
-            accountant_id: user.id,
-            encrypted_username: '',
-            encrypted_password: '',
-            environment: 'production',
-            last_sync_status: 'running',
-          } as any, {
+          accountant_id: user.id,
+          encrypted_username: '',
+          encrypted_password: '',
+          environment: 'production',
+          last_sync_status: 'running',
+          }, {
             onConflict: 'client_id'
           });
       }
@@ -145,36 +164,38 @@ export function EFaturaAPIConfig({
       }
 
       // Check for errors returned as 200
-      if (data?.success === false) {
+      const responseData = (data ?? {}) as SyncEfaturaResponse;
+
+      if (responseData.success === false) {
         toast.error('Erro na sincronização', {
-          description: data.error || data.message || 'Verifique as credenciais',
+          description: responseData.error || responseData.message || 'Verifique as credenciais',
           duration: 8000,
         });
         return;
       }
 
       // Check for informational messages (e.g., missing config)
-      if (data?.missingConfig) {
+      if (responseData.missingConfig) {
         toast.warning('Configuração incompleta', {
-          description: data.message,
+          description: responseData.message,
           duration: 8000,
         });
-      } else if (data?.count > 0) {
+      } else if ((responseData.count ?? 0) > 0) {
         toast.success('Sincronização concluída', {
-          description: `${data.count} facturas importadas${data.skipped ? ` (${data.skipped} duplicadas)` : ''}`,
+          description: `${responseData.count} facturas importadas${responseData.skipped ? ` (${responseData.skipped} duplicadas)` : ''}`,
         });
-      } else if (data?.skipped > 0) {
+      } else if ((responseData.skipped ?? 0) > 0) {
         toast.info('Todas as facturas já existem', {
-          description: `${data.skipped} facturas já estavam na base de dados`,
+          description: `${responseData.skipped} facturas já estavam na base de dados`,
         });
       } else {
         toast.info('Nenhuma factura encontrada', {
-          description: data?.message || 'Não foram encontradas facturas no período seleccionado',
+          description: responseData.message || 'Não foram encontradas facturas no período seleccionado',
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error('Erro na sincronização', {
-        description: error.message || 'Verifique as credenciais AT'
+        description: getErrorMessage(error) || 'Verifique as credenciais AT'
       });
     } finally {
       setIsSyncing(false);
@@ -218,8 +239,8 @@ export function EFaturaAPIConfig({
                 {isTest
                   ? 'Certificado pré-configurado (TESTEwebservice)'
                   : hasCertificate
-                    ? 'Certificado configurado - pronto para sincronizar'
-                    : 'Requer certificado de produção da AT'}
+                    ? 'Acesso AT ativo (certificado local ou conector central)'
+                    : 'Configure certificado local ou utilize conector AT central'}
               </CardDescription>
             </div>
           </div>
@@ -331,26 +352,27 @@ export function EFaturaAPIConfig({
                     <DialogTitle>
                       {isTest ? 'Configurar Ambiente de Testes' : 'Configurar Ambiente de Produção'}
                     </DialogTitle>
-                    <DialogDescription>
-                      {isTest
-                        ? 'O certificado de testes já está pré-configurado. Apenas precisa das credenciais do sub-utilizador.'
-                        : 'Para produção, configure o certificado em Administração > Certificados.'}
-                    </DialogDescription>
+                      <DialogDescription>
+                        {isTest
+                          ? 'O certificado de testes já está pré-configurado. Apenas precisa das credenciais do sub-utilizador.'
+                          : 'Em produção, pode usar certificado local (Administração > Certificados) ou conector AT central já ativo.'}
+                      </DialogDescription>
                   </DialogHeader>
 
                   {!isTest ? (
                     <div className="p-4 bg-muted/50 rounded-lg space-y-3">
                       <div className="flex items-center gap-2 text-sm font-medium">
                         <FileKey className="h-4 w-4" />
-                        Configurar Certificado de Produção
+                        Configurar Acesso de Produção
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        O certificado digital e as credenciais do sub-utilizador são geridos numa única página dedicada.
+                        Se usar certificado local, configure PFX e subutilizador nesta página.
+                        Se a sua instalação usar conector AT central, a sincronização pode funcionar sem PFX local.
                       </p>
                       <Button asChild>
                         <a href="/admin/certificates">
                           <Settings className="h-4 w-4 mr-2" />
-                          Ir para Certificados
+                          Gerir Certificados
                         </a>
                       </Button>
                     </div>
@@ -417,13 +439,14 @@ export function EFaturaAPIConfig({
           </div>
         )}
         {!isTest && !hasCertificate && (
-          <div className="text-sm p-3 bg-destructive/10 border border-destructive/30 rounded-lg space-y-2">
-            <div className="flex items-center gap-2 font-medium text-destructive">
+          <div className="text-sm p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg space-y-2">
+            <div className="flex items-center gap-2 font-medium text-amber-700 dark:text-amber-400">
               <Lock className="h-4 w-4" />
-              Certificado Necessário
+              Sem Certificado Local neste Perfil
             </div>
             <p className="text-muted-foreground">
-              Para sincronizar com a AT em produção, configure o certificado digital (PFX) em{' '}
+              Pode sincronizar via conector AT central, se estiver ativo no ambiente.
+              Se não estiver, configure o certificado digital (PFX) em{' '}
               <a href="/admin/certificates" className="text-primary hover:underline">Administração &gt; Certificados</a>.
             </p>
           </div>

@@ -333,6 +333,14 @@ export function EmailNotificationImporter({
             <div className="space-y-4">
               <h3 className="font-medium">Palavras-chave monitorizadas:</h3>
 
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Este importador alimenta retenções/Modelo 10 e sincroniza receitas para Segurança Social.
+                  Não cria automaticamente vendas para cálculo de IVA.
+                </AlertDescription>
+              </Alert>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="p-3 rounded-lg bg-destructive/5 border border-destructive/20">
                   <p className="font-medium text-destructive mb-2">Alta Prioridade</p>

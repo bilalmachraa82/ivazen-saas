@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 
 // File size limit: 5MB per file (reduced to avoid payload limits with base64 encoding)
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
-const MAX_FILES_PER_BATCH = 100; // Increased from 50 for better throughput
+const MAX_FILES_PER_BATCH = 3000; // Unified bulk limit across flows
 
 interface BulkUploadTabProps {
   selectedClientId?: string | null;
@@ -53,7 +53,7 @@ export function BulkUploadTab({ selectedClientId, selectedYear, clientName, isAc
     if (queue.length + files.length > MAX_FILES_PER_BATCH) {
       toast({
         title: 'Demasiados ficheiros',
-        description: `Máximo de ${MAX_FILES_PER_BATCH} ficheiros por batch. Já tem ${queue.length} na fila.`,
+        description: `Máximo de ${MAX_FILES_PER_BATCH} ficheiros por envio. Já tem ${queue.length} na fila.`,
         variant: 'destructive',
       });
       return;
@@ -213,7 +213,7 @@ export function BulkUploadTab({ selectedClientId, selectedYear, clientName, isAc
       <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          <strong>Limites:</strong> Máx. 5MB por ficheiro • Máx. 100 ficheiros por batch •
+          <strong>Limites:</strong> Máx. 5MB por ficheiro • Máx. 3.000 ficheiros por envio •
           Processa 5 docs em simultâneo • Documentos com alta confiança (≥95%) marcados para aprovação automática
         </AlertDescription>
       </Alert>
@@ -255,7 +255,7 @@ export function BulkUploadTab({ selectedClientId, selectedYear, clientName, isAc
                   : 'Arraste ficheiros ou clique para selecionar'}
             </p>
             <p className="text-sm text-muted-foreground">
-              Suporta PDF, JPG, PNG • Máx. 5MB por ficheiro • Máx. 100 ficheiros
+              Suporta PDF, JPG, PNG • Máx. 5MB por ficheiro • Máx. 3.000 ficheiros
             </p>
           </div>
         </CardContent>

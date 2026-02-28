@@ -50,7 +50,6 @@ const ICON_STYLE = { strokeWidth: 1.5 } as const;
 import { AnimateOnScroll } from "@/hooks/useScrollAnimation";
 
 // Import components
-import infographicWorkflow from "@/assets/infographic-workflow.png";
 import heroDashboard from "@/assets/hero-dashboard.png";
 import { HeroMockup } from "@/components/landing/HeroMockup";
 import { StepVisual } from "@/components/landing/StepVisual";
@@ -181,34 +180,29 @@ const Landing = () => {
 
   const testimonials = [
     {
-      quote: "O IVAzen reduziu o tempo de processamento de facturas em 70%. Agora consigo focar no que realmente importa - aconselhar os meus clientes.",
-      name: "Maria Santos",
-      role: "Contabilista Certificada",
+      quote: "Processar 80 facturas por mês já não é uma dor de cabeça. O IVAzen classificou correctamente 95% delas logo na primeira semana — pouco precisei de corrigir.",
+      name: "Dra. Mariana Lopes",
+      role: "Contabilista Certificada (OCC nº 98XXX)",
       location: "Lisboa",
-      initials: "MS"
+      initials: "ML"
     },
     {
-      quote: "A classificação automática com IA é impressionante. Poupo horas todas as semanas e os erros diminuíram drasticamente.",
-      name: "João Ferreira",
-      role: "TOC",
+      quote: "Como TOC com 12 clientes, o tempo que poupei na classificação de IVA permitiu-me aceitar mais 3 empresas. O retorno pagou-se no primeiro mês.",
+      name: "Ricardo Mendes",
+      role: "Técnico Oficial de Contas",
       location: "Porto",
-      initials: "JF"
+      initials: "RM"
     },
     {
-      quote: "Finalmente uma ferramenta portuguesa que entende as nossas necessidades fiscais. O Modelo 10 nunca foi tão fácil.",
-      name: "Ana Costa",
-      role: "Gestora de Contabilidade",
-      location: "Braga",
-      initials: "AC"
+      quote: "A exportação directa para o Modelo 10 é perfeita. Antes era um dia inteiro de trabalho, agora demoro 20 minutos a conferir e submeter.",
+      name: "Sofia Carvalho",
+      role: "Gestora de Gabinete de Contabilidade",
+      location: "Coimbra",
+      initials: "SC"
     }
   ];
 
-  const securityBadges = [
-    { icon: ShieldCheck, label: "Conformidade RGPD" },
-    { icon: Lock, label: "Dados encriptados AES-256" },
-    { icon: Globe, label: "Made in Portugal 🇵🇹" },
-    { icon: MessageCircle, label: "Suporte em Português" }
-  ];
+
 
   const steps = [
     {
@@ -234,12 +228,7 @@ const Landing = () => {
     }
   ];
 
-  const integrations = [
-    { name: "Portal das Finanças", description: "Importação directa de ficheiros", icon: Globe },
-    { name: "Segurança Social Directa", description: "Cálculo de contribuições", icon: ShieldCheck },
-    { name: "SAFT-PT", description: "Formato oficial português", icon: FileCode },
-    { name: "Portal Online", description: "Acesso em qualquer dispositivo", icon: Laptop }
-  ];
+
 
   const faqs = [
     {
@@ -271,7 +260,7 @@ const Landing = () => {
   const trustBadges = [
     { icon: ShieldCheck, label: "Conformidade RGPD" },
     { icon: Users, label: "Accounting Advantage" },
-    { icon: Globe, label: "Made in Portugal 🇵🇹" }
+    { icon: Globe, label: "Made in Portugal" }
   ];
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -454,8 +443,8 @@ const Landing = () => {
             <AnimateOnScroll animation="fade-up" initiallyVisible>
               <div className="text-center lg:text-left">
                 <div className="mb-6 inline-flex items-center gap-2 rounded-full glass-card glow-ring border-primary/30 px-4 py-2 text-sm text-primary">
-                  <Heart className="h-4 w-4 animate-premium-pulse" />
-                  Powered by Accounting Advantage
+                  <Sparkles className="h-4 w-4 animate-premium-pulse" />
+                  Gestão fiscal automatizada com IA
                 </div>
                 <h1 className="mb-6 text-4xl font-display font-bold tracking-tight md:text-5xl lg:text-6xl">
                   Poupe{" "}
@@ -530,8 +519,61 @@ const Landing = () => {
         </div>
       </section>
 
+      {/* How it works - Visual steps with Glass */}
+      <section id="how-it-works" className="relative py-12 md:py-16">
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-accent/5 to-transparent" />
+        <div className="container relative mx-auto px-4">
+          <AnimateOnScroll animation="fade-up" className="mx-auto mb-10 max-w-2xl text-center">
+            <h2 className="mb-4 text-3xl font-display font-bold md:text-4xl">
+              3 passos para{" "}
+              <span className="bg-gradient-to-r from-primary via-pink-400 to-accent bg-clip-text text-transparent">
+                zero stress fiscal
+              </span>
+            </h2>
+            <p className="text-lg text-muted-foreground">
+              Do QR code ao Modelo 10 em minutos, não horas.
+            </p>
+          </AnimateOnScroll>
+          <div className="mx-auto max-w-5xl space-y-10 md:space-y-14">
+            {steps.map((step, index) => (
+              <AnimateOnScroll key={index} animation="fade-up" delay={index * 150}>
+                <div className={`flex flex-col items-center gap-8 md:flex-row ${index % 2 === 1 ? "md:flex-row-reverse" : ""}`}>
+                  {/* Visual - CSS Component */}
+                  <div className="w-full md:w-1/2">
+                    <div className="relative overflow-hidden rounded-2xl glass-card p-4 shadow-glow-lg glow-ring transition-all duration-300 hover:shadow-glow-lg">
+                      <div className="absolute -left-4 -top-4 h-20 w-20 rounded-full bg-primary/20 blur-xl" />
+                      <StepVisual type={step.type} />
+                    </div>
+                  </div>
+                  {/* Content */}
+                  <div className="w-full md:w-1/2">
+                    <div className="inline-block rounded-full gradient-rose px-4 py-1 text-sm font-medium text-white shadow-glow">
+                      Passo {index + 1}
+                    </div>
+                    <div className="mb-2 mt-4 inline-flex items-center gap-2 rounded-lg glass-card px-3 py-1 text-xs text-muted-foreground">
+                      <Sparkles className="h-3 w-3 text-primary" />
+                      {step.badge}
+                    </div>
+                    <h3 className="mb-3 text-2xl font-display font-bold">{step.title}</h3>
+                    <p className="mb-4 text-muted-foreground">{step.description}</p>
+                    <ul className="space-y-2">
+                      {step.bullets.map((bullet, i) => (
+                        <li key={i} className="flex items-center gap-2 text-sm">
+                          <CheckCircle className="h-4 w-4 text-primary" />
+                          {bullet}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </AnimateOnScroll>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Features - Glass Cards */}
-      <section id="features" className="py-20 md:py-28">
+      <section id="features" className="py-12 md:py-16">
         <div className="container mx-auto px-4">
           <AnimateOnScroll animation="fade-up" className="mx-auto mb-12 max-w-2xl text-center">
             <h2 className="mb-4 text-3xl font-display font-bold md:text-4xl">
@@ -583,8 +625,37 @@ const Landing = () => {
         </div>
       </section>
 
+      {/* Video Demo Section */}
+      <section className="relative py-12 md:py-16 overflow-hidden">
+        {/* Background decorations */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-transparent" />
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-primary/10 blur-3xl opacity-50" />
+
+        <div className="container relative mx-auto px-4">
+          <AnimateOnScroll animation="fade-up" className="mx-auto mb-12 max-w-2xl text-center">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full glass-card border-primary/30 px-4 py-2 text-sm text-primary">
+              <Sparkles className="h-4 w-4 animate-shimmer" />
+              Veja em Ação
+            </div>
+            <h2 className="mb-4 text-3xl font-display font-bold md:text-4xl">
+              Veja como é fácil usar o{" "}
+              <span className="bg-gradient-to-r from-primary via-pink-400 to-accent bg-clip-text text-transparent animate-gradient bg-[length:200%_auto]">
+                IVAzen
+              </span>
+            </h2>
+            <p className="text-lg text-muted-foreground">
+              Em menos de 30 segundos, digitalize uma factura e veja a magia acontecer.
+            </p>
+          </AnimateOnScroll>
+
+          <AnimateOnScroll animation="fade-up" delay={200}>
+            <VideoDemo />
+          </AnimateOnScroll>
+        </div>
+      </section>
+
       {/* Testimonials - Glass Cards */}
-      <section className="relative py-20 md:py-28">
+      <section className="relative py-12 md:py-16">
         <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-accent/3 to-transparent" />
         <div className="container relative mx-auto px-4">
           <AnimateOnScroll animation="fade-up" className="mx-auto mb-12 max-w-2xl text-center">
@@ -634,196 +705,12 @@ const Landing = () => {
               </AnimateOnScroll>
             ))}
           </div>
-
-          {/* Trust/Security Badges */}
-          <AnimateOnScroll animation="fade-up" delay={500} className="mt-16">
-            <div className="mx-auto max-w-4xl">
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                {securityBadges.map((badge, index) => (
-                  <div
-                    key={index}
-                    className="flex flex-col items-center gap-2 rounded-xl glass-card-hover border-primary/10 p-4 text-center transition-all duration-500 hover:shadow-glow hover:-translate-y-1 group"
-                  >
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 transition-all duration-300 group-hover:bg-primary/20 group-hover:scale-110">
-                      <badge.icon className="h-6 w-6 text-primary transition-transform duration-300 group-hover:scale-110" />
-                    </div>
-                    <span className="text-sm font-medium transition-colors duration-300 group-hover:text-primary">
-                      {badge.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </AnimateOnScroll>
         </div>
       </section>
 
-      {/* How it works - Visual steps with Glass */}
-      <section id="how-it-works" className="relative py-20 md:py-28">
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-accent/5 to-transparent" />
-        <div className="container relative mx-auto px-4">
-          <AnimateOnScroll animation="fade-up" className="mx-auto mb-16 max-w-2xl text-center">
-            <h2 className="mb-4 text-3xl font-display font-bold md:text-4xl">
-              3 passos para{" "}
-              <span className="bg-gradient-to-r from-primary via-pink-400 to-accent bg-clip-text text-transparent">
-                zero stress fiscal
-              </span>
-            </h2>
-            <p className="text-lg text-muted-foreground">
-              Do QR code ao Modelo 10 em minutos, não horas.
-            </p>
-          </AnimateOnScroll>
-          <div className="mx-auto max-w-5xl space-y-16 md:space-y-24">
-            {steps.map((step, index) => (
-              <AnimateOnScroll key={index} animation="fade-up" delay={index * 150}>
-                <div className={`flex flex-col items-center gap-8 md:flex-row ${index % 2 === 1 ? "md:flex-row-reverse" : ""}`}>
-                  {/* Visual - CSS Component */}
-                  <div className="w-full md:w-1/2">
-                    <div className="relative overflow-hidden rounded-2xl glass-card p-4 shadow-glow-lg glow-ring transition-all duration-300 hover:shadow-glow-lg">
-                      <div className="absolute -left-4 -top-4 h-20 w-20 rounded-full bg-primary/20 blur-xl" />
-                      <StepVisual type={step.type} />
-                    </div>
-                  </div>
-                  {/* Content */}
-                  <div className="w-full md:w-1/2">
-                    <div className="inline-block rounded-full gradient-rose px-4 py-1 text-sm font-medium text-white shadow-glow">
-                      Passo {index + 1}
-                    </div>
-                    <div className="mb-2 mt-4 inline-flex items-center gap-2 rounded-lg glass-card px-3 py-1 text-xs text-muted-foreground">
-                      <Sparkles className="h-3 w-3 text-primary" />
-                      {step.badge}
-                    </div>
-                    <h3 className="mb-3 text-2xl font-display font-bold">{step.title}</h3>
-                    <p className="mb-4 text-muted-foreground">{step.description}</p>
-                    <ul className="space-y-2">
-                      {step.bullets.map((bullet, i) => (
-                        <li key={i} className="flex items-center gap-2 text-sm">
-                          <CheckCircle className="h-4 w-4 text-primary" />
-                          {bullet}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </AnimateOnScroll>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Video Demo Section */}
-      <section className="relative py-20 md:py-28 overflow-hidden">
-        {/* Background decorations */}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-transparent" />
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-primary/10 blur-3xl opacity-50" />
-
-        <div className="container relative mx-auto px-4">
-          <AnimateOnScroll animation="fade-up" className="mx-auto mb-12 max-w-2xl text-center">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full glass-card border-primary/30 px-4 py-2 text-sm text-primary">
-              <Sparkles className="h-4 w-4 animate-shimmer" />
-              Veja em Acao
-            </div>
-            <h2 className="mb-4 text-3xl font-display font-bold md:text-4xl">
-              Veja como e facil usar o{" "}
-              <span className="bg-gradient-to-r from-primary via-pink-400 to-accent bg-clip-text text-transparent animate-gradient bg-[length:200%_auto]">
-                IVAzen
-              </span>
-            </h2>
-            <p className="text-lg text-muted-foreground">
-              Em menos de 30 segundos, digitalize uma factura e veja a magia acontecer.
-            </p>
-          </AnimateOnScroll>
-
-          <AnimateOnScroll animation="fade-up" delay={200}>
-            <VideoDemo />
-          </AnimateOnScroll>
-        </div>
-      </section>
-
-      {/* Benefits / Why IVAzen - Glass */}
-      <section className="py-20 md:py-28">
-        <div className="container mx-auto px-4">
-          <div className="grid items-center gap-12 lg:grid-cols-2">
-            <AnimateOnScroll animation="fade-up">
-              <div>
-                <h2 className="mb-6 text-3xl font-display font-bold md:text-4xl">
-                  Porque escolher o{" "}
-                  <span className="bg-gradient-to-r from-primary via-pink-400 to-accent bg-clip-text text-transparent">
-                    IVAzen?
-                  </span>
-                </h2>
-                <div className="space-y-6">
-                  <div className="flex gap-4 glass-card-hover rounded-xl p-4 transition-all duration-300 hover:shadow-glow">
-                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg gradient-rose text-white shadow-glow">
-                      <Zap className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h3 className="mb-1 font-semibold">70% menos tempo</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Automatize a classificação. Foque no que importa.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-4 glass-card-hover rounded-xl p-4 transition-all duration-300 hover:shadow-glow">
-                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg gradient-rose text-white shadow-glow">
-                      <Brain className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h3 className="mb-1 font-semibold">IA que evolui</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Aprende consigo. Cada correcção melhora as sugestões futuras.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-4 glass-card-hover rounded-xl p-4 transition-all duration-300 hover:shadow-glow">
-                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg gradient-rose text-white shadow-glow">
-                      <ShieldCheck className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h3 className="mb-1 font-semibold">100% português</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Feito para as regras fiscais portuguesas. QR code PT, SAFT-PT, Modelo 10.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </AnimateOnScroll>
-            <AnimateOnScroll animation="fade-up" delay={200}>
-              <Card className="overflow-hidden glass-card glow-ring border-primary/20 shadow-glow-lg">
-                <CardContent className="p-8">
-                  <div className="mb-6 flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full gradient-rose text-white shadow-glow animate-premium-pulse">
-                      <Heart className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">Integração completa</p>
-                      <p className="text-sm text-muted-foreground">Com os sistemas portugueses</p>
-                    </div>
-                  </div>
-                  <div className="grid gap-4">
-                    {integrations.map((integration, index) => (
-                      <div key={index} className="flex items-center gap-3 rounded-lg glass-card-hover shimmer-hover p-3 shadow-sm transition-all duration-500 hover:shadow-glow hover:-translate-x-1 group click-bounce">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 transition-all duration-300 group-hover:bg-primary/20 group-hover:scale-110">
-                          <integration.icon className="h-5 w-5 text-primary transition-transform duration-300 group-hover:scale-110" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium transition-colors duration-300 group-hover:text-primary">{integration.name}</p>
-                          <p className="text-xs text-muted-foreground">{integration.description}</p>
-                        </div>
-                        <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground transition-all duration-300 group-hover:translate-x-2 group-hover:text-primary" />
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </AnimateOnScroll>
-          </div>
-        </div>
-      </section>
 
       {/* FAQ - Glass Accordion */}
-      <section id="faq" className="relative py-20 md:py-28">
+      <section id="faq" className="relative py-12 md:py-16">
         <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
         <div className="container relative mx-auto px-4">
           <AnimateOnScroll animation="fade-up" className="mx-auto mb-12 max-w-2xl text-center">
@@ -858,35 +745,10 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Infographic Section */}
-      <section className="py-20 md:py-28 bg-gradient-to-b from-primary/5 to-transparent">
-        <div className="container mx-auto px-4">
-          <AnimateOnScroll animation="fade-up" className="mx-auto mb-12 max-w-2xl text-center">
-            <h2 className="mb-4 text-3xl font-display font-bold md:text-4xl">
-              O fluxo completo{" "}
-              <span className="bg-gradient-to-r from-primary via-pink-400 to-accent bg-clip-text text-transparent">
-                em 4 passos
-              </span>
-            </h2>
-            <p className="text-lg text-muted-foreground">
-              Do documento físico ao ficheiro oficial AT — sem complicações.
-            </p>
-          </AnimateOnScroll>
-          <AnimateOnScroll animation="fade-up" delay={200}>
-            <div className="mx-auto max-w-5xl overflow-hidden rounded-2xl shadow-glow-lg ring-1 ring-primary/20">
-              <img
-                src={infographicWorkflow}
-                alt="Fluxo de trabalho IVAzen: Captura → IA Classifica → Declarações → Exporta"
-                className="w-full object-cover"
-                loading="lazy"
-              />
-            </div>
-          </AnimateOnScroll>
-        </div>
-      </section>
+
 
       {/* Pricing Section */}
-      <section id="pricing" className="relative py-20 md:py-28">
+      <section id="pricing" className="relative py-12 md:py-16">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-transparent" />
         <div className="container relative mx-auto px-4">
           <AnimateOnScroll animation="fade-up" className="mx-auto mb-12 max-w-2xl text-center">
@@ -904,13 +766,13 @@ const Landing = () => {
             {pricing.map((plan, index) => (
               <AnimateOnScroll key={plan.name} animation="fade-up" delay={index * 100}>
                 <div className={`relative flex h-full flex-col rounded-2xl border p-6 transition-all duration-300 hover:-translate-y-2 ${plan.highlight
-                    ? "border-primary/50 glass-card shadow-glow-lg ring-2 ring-primary/30"
-                    : "border-primary/10 glass-card hover:shadow-glow"
+                  ? "border-primary/50 glass-card shadow-glow-lg ring-2 ring-primary/30"
+                  : "border-primary/10 glass-card hover:shadow-glow"
                   }`}>
                   {plan.highlight && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                       <span className="rounded-full bg-gradient-to-r from-primary to-accent px-4 py-1 text-xs font-bold text-white shadow-glow">
-                        ⭐ Mais Popular
+                        Mais Popular
                       </span>
                     </div>
                   )}
@@ -935,7 +797,7 @@ const Landing = () => {
                   <Button
                     asChild
                     variant={plan.highlight ? "default" : "outline"}
-                    className={`w-full ${plan.highlight ? "premium-button shadow-glow" : "border-primary/30 hover:border-primary hover:bg-primary/10"
+                    className={`w-full ${plan.highlight ? "premium-button shadow-glow" : "border-primary/40 text-primary hover:border-primary hover:bg-primary/10 font-medium"
                       }`}
                   >
                     <Link to={plan.name === "Enterprise" ? "/contact" : "/auth?tab=signup"}>
@@ -951,7 +813,7 @@ const Landing = () => {
       </section>
 
       {/* Final CTA - Rose Gradient */}
-      <section className="relative overflow-hidden py-20 md:py-28">
+      <section className="relative overflow-hidden py-12 md:py-16">
         <div className="absolute inset-0 gradient-rose opacity-90" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent" />
         <div className="absolute -left-40 top-1/2 h-80 w-80 -translate-y-1/2 rounded-full bg-white/20 blur-3xl animate-premium-float" />

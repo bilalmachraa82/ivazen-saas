@@ -298,14 +298,14 @@ async function callLovableAI(params: {
   dataUrl: string;
   temperature?: number;
 }): Promise<string> {
-  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${params.apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gemini-2.5-flash',
+      model: 'google/gemini-2.5-flash',
       messages: [
         {
           role: 'user',
@@ -344,10 +344,32 @@ Deno.serve(async (req) => {
   try {
     console.log('[extract-invoice-data] Request received');
 
-    // NOTE: Auth skipped intentionally. This function only calls the AI gateway
-    // and returns extracted data. It does NOT access the database.
-    // All DB writes happen client-side in bulkInvoiceProcessor.ts with the user's session.
-    // The function has verify_jwt=false in config.toml and is called from authenticated clients only.
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authorization header required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const isServiceRole = token === supabaseServiceRoleKey;
+
+    if (!isServiceRole) {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !user) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     // Parse request body with error handling for large payloads
     let fileData: string;
@@ -386,9 +408,9 @@ Deno.serve(async (req) => {
     console.log('[extract-invoice-data] Extracting invoice data, mime:', mimeType, ', base64 size:', Math.round(base64Content.length / 1024), 'KB');
 
     // Use Lovable AI Gateway
-    const AI_API_KEY = Deno.env.get('AI_API_KEY');
-    if (!AI_API_KEY) {
-      console.error('[extract-invoice-data] AI_API_KEY not configured');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      console.error('[extract-invoice-data] LOVABLE_API_KEY not configured');
       return new Response(
         JSON.stringify({ error: 'Serviço AI não configurado. Contacte o suporte.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -404,7 +426,7 @@ Deno.serve(async (req) => {
     let content: string;
     try {
       content = await callLovableAI({
-        apiKey: AI_API_KEY,
+        apiKey: LOVABLE_API_KEY,
         prompt: EXTRACTION_PROMPT,
         dataUrl,
         temperature: 0.1,
@@ -534,7 +556,7 @@ Deno.serve(async (req) => {
     if (needsSecondPass) {
       try {
         const taxContent = await callLovableAI({
-          apiKey: AI_API_KEY,
+          apiKey: LOVABLE_API_KEY,
           prompt: TAX_ID_ONLY_PROMPT,
           dataUrl,
           temperature: 0.0,
@@ -613,7 +635,7 @@ Deno.serve(async (req) => {
     if (isLikelyEdpInvoice(extractedData)) {
       try {
         const edpContent = await callLovableAI({
-          apiKey: AI_API_KEY,
+          apiKey: LOVABLE_API_KEY,
           prompt: EDP_VAT_COMPONENTS_PROMPT,
           dataUrl,
           temperature: 0.0,

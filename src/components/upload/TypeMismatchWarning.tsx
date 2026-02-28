@@ -3,6 +3,21 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
+const TYPE_STYLES = {
+  purchase: {
+    chipBg: 'bg-indigo-500/20',
+    icon: 'text-indigo-600',
+    text: 'text-indigo-700 dark:text-indigo-300',
+    cta: 'bg-indigo-600 hover:bg-indigo-700',
+  },
+  sales: {
+    chipBg: 'bg-rose-500/20',
+    icon: 'text-rose-600',
+    text: 'text-rose-700 dark:text-rose-300',
+    cta: 'bg-rose-600 hover:bg-rose-700',
+  },
+} as const;
+
 interface TypeMismatchWarningProps {
   selectedType: 'purchase' | 'sales';
   detectedType: 'purchase' | 'sales';
@@ -28,9 +43,8 @@ export function TypeMismatchWarning({
   
   const SelectedIcon = selectedType === 'purchase' ? ShoppingCart : TrendingUp;
   const DetectedIcon = detectedType === 'purchase' ? ShoppingCart : TrendingUp;
-  
-  const selectedColor = selectedType === 'purchase' ? 'indigo' : 'rose';
-  const detectedColor = detectedType === 'purchase' ? 'indigo' : 'rose';
+  const selectedStyle = TYPE_STYLES[selectedType];
+  const detectedStyle = TYPE_STYLES[detectedType];
 
   if (blockUpload) {
     // Blocking mode - requires user to change type, cannot force
@@ -45,16 +59,16 @@ export function TypeMismatchWarning({
           <p className="text-sm">{reason}</p>
           
           <div className="flex items-center gap-3 p-3 bg-background/60 rounded-lg border border-border/50">
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-${selectedColor}-500/20`}>
-              <SelectedIcon className={`h-4 w-4 text-${selectedColor}-600`} />
-              <span className={`text-sm font-medium text-${selectedColor}-700 dark:text-${selectedColor}-300`}>
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${selectedStyle.chipBg}`}>
+              <SelectedIcon className={`h-4 w-4 ${selectedStyle.icon}`} />
+              <span className={`text-sm font-medium ${selectedStyle.text}`}>
                 Seleccionado: {selectedLabel}
               </span>
             </div>
             <span className="text-muted-foreground">≠</span>
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-${detectedColor}-500/20`}>
-              <DetectedIcon className={`h-4 w-4 text-${detectedColor}-600`} />
-              <span className={`text-sm font-medium text-${detectedColor}-700 dark:text-${detectedColor}-300`}>
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${detectedStyle.chipBg}`}>
+              <DetectedIcon className={`h-4 w-4 ${detectedStyle.icon}`} />
+              <span className={`text-sm font-medium ${detectedStyle.text}`}>
                 Detectado: {detectedLabel}
               </span>
             </div>
@@ -64,10 +78,7 @@ export function TypeMismatchWarning({
             <Button 
               onClick={onChangeType}
               disabled={isProcessing}
-              className={detectedType === 'purchase' 
-                ? 'bg-indigo-600 hover:bg-indigo-700' 
-                : 'bg-rose-600 hover:bg-rose-700'
-              }
+              className={detectedStyle.cta}
             >
               <DetectedIcon className="h-4 w-4 mr-2" />
               Corrigir para {detectedLabel} e Continuar

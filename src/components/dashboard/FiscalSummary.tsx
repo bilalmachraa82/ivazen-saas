@@ -54,6 +54,7 @@ export function FiscalSummary({ clientId, year, compact = false }: FiscalSummary
         .from('sales_invoices')
         .select('total_vat')
         .eq('client_id', effectiveClientId)
+        .eq('status', 'validated')
         .gte('document_date', `${fiscalYear}-01-01`)
         .lte('document_date', `${fiscalYear}-12-31`);
 
@@ -131,6 +132,7 @@ export function FiscalSummary({ clientId, year, compact = false }: FiscalSummary
         .from('sales_invoices')
         .select('total_amount, revenue_category')
         .eq('client_id', effectiveClientId)
+        .eq('status', 'validated')
         .gte('document_date', `${fiscalYear}-01-01`)
         .lte('document_date', `${fiscalYear}-12-31`);
 

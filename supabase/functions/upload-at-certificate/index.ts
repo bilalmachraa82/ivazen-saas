@@ -2,7 +2,7 @@
 /**
  * Upload AT Certificate Edge Function
  * Handles PFX certificate upload and ChaveCifraPublicaAT configuration
- * 
+ *
  * Security:
  * - Validates certificate format
  * - Encrypts PFX password before storage
@@ -10,70 +10,73 @@
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
-import forge from "npm:node-forge@1.3.3";
+import forge from "https://esm.sh/node-forge@1.3.3";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 interface UploadCertRequest {
   pfxBase64: string;
   pfxPassword: string;
   atPublicKeyBase64: string;
-  subuserId: string;          // Format: NIF/ID (e.g., "232945993/1")
+  subuserId: string; // Format: NIF/ID (e.g., "232945993/1")
   subuserPassword: string;
-  environment: 'test' | 'production';
-  certificateCN?: string;     // Common Name from certificate
-  validFrom?: string;         // ISO date
-  validTo?: string;           // ISO date
-  caCertBase64?: string;      // Base64 of .p7b (DER), .cer, .crt, or .pem CA chain file
+  environment: "test" | "production";
+  certificateCN?: string; // Common Name from certificate
+  validFrom?: string; // ISO date
+  validTo?: string; // ISO date
+  caCertBase64?: string; // Base64 of .p7b (DER), .cer, .crt, or .pem CA chain file
 }
 
 // Simple encryption using Web Crypto API
 async function encryptSecret(data: string, secret: string): Promise<string> {
   const encoder = new TextEncoder();
-  
+
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  
+
   const keyMaterial = await crypto.subtle.importKey(
-    'raw',
+    "raw",
     encoder.encode(secret),
-    'PBKDF2',
+    "PBKDF2",
     false,
-    ['deriveKey']
+    ["deriveKey"],
   );
-  
+
   const key = await crypto.subtle.deriveKey(
     {
-      name: 'PBKDF2',
+      name: "PBKDF2",
       salt,
       iterations: 100000,
-      hash: 'SHA-256',
+      hash: "SHA-256",
     },
     keyMaterial,
-    { name: 'AES-GCM', length: 256 },
+    { name: "AES-GCM", length: 256 },
     false,
-    ['encrypt']
+    ["encrypt"],
   );
-  
+
   const encrypted = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
+    { name: "AES-GCM", iv },
     key,
-    encoder.encode(data)
+    encoder.encode(data),
   );
-  
+
   const toBase64 = (arr: Uint8Array) => {
-    let binary = '';
+    let binary = "";
     for (let i = 0; i < arr.length; i++) {
       binary += String.fromCharCode(arr[i]);
     }
     return btoa(binary);
   };
-  
-  return `${toBase64(salt)}:${toBase64(iv)}:${toBase64(new Uint8Array(encrypted))}`;
+
+  return `${toBase64(salt)}:${toBase64(iv)}:${
+    toBase64(new Uint8Array(encrypted))
+  }`;
 }
 
 // Validate PFX format (basic check)
@@ -93,7 +96,7 @@ function isValidSubuserId(subuserId: string): boolean {
   // Format: NIF/number (e.g., "232945993/1")
   const match = subuserId.match(/^(\d{9})\/(\d+)$/);
   if (!match) return false;
-  
+
   const nif = match[1];
   const firstDigit = parseInt(nif[0]);
   return [1, 2, 3, 5, 6, 7, 8, 9].includes(firstDigit);
@@ -108,7 +111,7 @@ function parseCACertToChainPem(base64Data: string): string | null {
     const decoded = atob(base64Data);
 
     // Case 1: Already PEM text
-    if (decoded.includes('-----BEGIN CERTIFICATE-----')) {
+    if (decoded.includes("-----BEGIN CERTIFICATE-----")) {
       return decoded;
     }
 
@@ -121,10 +124,12 @@ function parseCACertToChainPem(base64Data: string): string | null {
       const msg = forge.pkcs7.messageFromAsn1(asn1);
       if (msg.certificates && msg.certificates.length > 0) {
         const pems = msg.certificates.map(
-          (cert: forge.pki.Certificate) => forge.pki.certificateToPem(cert)
+          (cert: forge.pki.Certificate) => forge.pki.certificateToPem(cert),
         );
-        console.log(`[upload-at-certificate] Extracted ${pems.length} cert(s) from PKCS#7`);
-        return pems.join('\n');
+        console.log(
+          `[upload-at-certificate] Extracted ${pems.length} cert(s) from PKCS#7`,
+        );
+        return pems.join("\n");
       }
     } catch {
       // Not PKCS#7, try single DER certificate
@@ -134,16 +139,18 @@ function parseCACertToChainPem(base64Data: string): string | null {
     try {
       const asn1 = forge.asn1.fromDer(derBytes);
       const cert = forge.pki.certificateFromAsn1(asn1);
-      console.log('[upload-at-certificate] Parsed single DER certificate');
+      console.log("[upload-at-certificate] Parsed single DER certificate");
       return forge.pki.certificateToPem(cert);
     } catch {
       // Not a valid certificate
     }
 
-    console.error('[upload-at-certificate] Could not parse CA certificate in any known format');
+    console.error(
+      "[upload-at-certificate] Could not parse CA certificate in any known format",
+    );
     return null;
   } catch (err) {
-    console.error('[upload-at-certificate] CA cert parsing failed:', err);
+    console.error("[upload-at-certificate] CA cert parsing failed:", err);
     return null;
   }
 }
@@ -158,18 +165,28 @@ function parseCACertToChainPem(base64Data: string): string | null {
 function validateAndExtractPfxInfo(
   pfxBase64: string,
   pfxPassword: string,
-  expectedCN: string
-): { cn: string | null; validFrom: string | null; validTo: string | null; error?: string } {
+  expectedCN: string,
+): {
+  cn: string | null;
+  validFrom: string | null;
+  validTo: string | null;
+  error?: string;
+} {
   try {
     const derBytes = forge.util.decode64(pfxBase64);
     const asn1 = forge.asn1.fromDer(derBytes);
     const p12 = forge.pkcs12.pkcs12FromAsn1(asn1, false, pfxPassword);
 
     // Private key
-    const keyBagTypes = [forge.pkcs12.oids.pkcs8ShroudedKeyBag, forge.pkcs12.oids.keyBag];
+    const keyBagTypes = [
+      forge.pkcs12.oids.pkcs8ShroudedKeyBag,
+      forge.pkcs12.oids.keyBag,
+    ];
     let privateKey: any = null;
     for (const bagType of keyBagTypes) {
-      const bags = (p12.getBags({ bagType }) as any)?.[bagType] as any[] | undefined;
+      const bags = (p12.getBags({ bagType }) as any)?.[bagType] as
+        | any[]
+        | undefined;
       if (bags && bags.length > 0 && bags[0]?.key) {
         privateKey = bags[0].key;
         break;
@@ -177,18 +194,29 @@ function validateAndExtractPfxInfo(
     }
 
     if (!privateKey) {
-      return { cn: null, validFrom: null, validTo: null, error: 'O PFX não contém chave privada.' };
+      return {
+        cn: null,
+        validFrom: null,
+        validTo: null,
+        error: "O PFX não contém chave privada.",
+      };
     }
 
     const keyModulus = (privateKey as any)?.n?.toString(16);
     if (!keyModulus) {
-      return { cn: null, validFrom: null, validTo: null, error: 'Formato de chave privada inválido (esperado RSA).' };
+      return {
+        cn: null,
+        validFrom: null,
+        validTo: null,
+        error: "Formato de chave privada inválido (esperado RSA).",
+      };
     }
 
     // Certificates: pick the one whose public key matches the private key modulus.
-    const certBags = (p12.getBags({ bagType: forge.pkcs12.oids.certBag }) as any)?.[
-      forge.pkcs12.oids.certBag
-    ] as any[] | undefined;
+    const certBags =
+      (p12.getBags({ bagType: forge.pkcs12.oids.certBag }) as any)?.[
+        forge.pkcs12.oids.certBag
+      ] as any[] | undefined;
     const certBag = certBags?.find((b) => {
       const cert = b?.cert as forge.pki.Certificate | undefined;
       const certModulus = (cert?.publicKey as any)?.n?.toString(16);
@@ -200,74 +228,95 @@ function validateAndExtractPfxInfo(
         cn: null,
         validFrom: null,
         validTo: null,
-        error: 'O PFX é inválido: a chave privada não corresponde a nenhum certificado.',
+        error:
+          "O PFX é inválido: a chave privada não corresponde a nenhum certificado.",
       };
     }
 
     const cert = certBag.cert as forge.pki.Certificate;
-    const cn = cert.subject.getField('CN')?.value || null;
+    const cn = cert.subject.getField("CN")?.value || null;
 
     if (expectedCN && cn && cn !== expectedCN) {
       return {
         cn,
         validFrom: null,
         validTo: null,
-        error: `O PFX contém um certificado com CN diferente. Esperado: ${expectedCN}. Encontrado: ${cn}.`,
+        error:
+          `O PFX contém um certificado com CN diferente. Esperado: ${expectedCN}. Encontrado: ${cn}.`,
       };
     }
 
     return {
       cn,
-      validFrom: cert.validity?.notBefore ? cert.validity.notBefore.toISOString() : null,
-      validTo: cert.validity?.notAfter ? cert.validity.notAfter.toISOString() : null,
+      validFrom: cert.validity?.notBefore
+        ? cert.validity.notBefore.toISOString()
+        : null,
+      validTo: cert.validity?.notAfter
+        ? cert.validity.notAfter.toISOString()
+        : null,
     };
   } catch (err: any) {
-    return { cn: null, validFrom: null, validTo: null, error: 'PFX inválido ou password incorreta.' };
+    return {
+      cn: null,
+      validFrom: null,
+      validTo: null,
+      error: "PFX inválido ou password incorreta.",
+    };
   }
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const authHeader = req.headers.get('Authorization');
+    const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: "Missing authorization header" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
     const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
+      global: { headers: { Authorization: authHeader } },
     });
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get current user
-    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
+    const { data: { user }, error: authError } = await supabaseUser.auth
+      .getUser();
     if (authError || !user) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: "Unauthorized" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     // Check if user is accountant
-    const { data: isAccountant } = await supabaseUser.rpc('has_role', {
+    const { data: isAccountant } = await supabaseUser.rpc("has_role", {
       _user_id: user.id,
-      _role: 'accountant',
+      _role: "accountant",
     });
 
     if (!isAccountant) {
       return new Response(
-        JSON.stringify({ error: 'Only accountants can upload certificates' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: "Only accountants can upload certificates" }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -288,60 +337,97 @@ Deno.serve(async (req: Request) => {
     // Validate inputs
     if (!pfxBase64) {
       return new Response(
-        JSON.stringify({ error: 'PFX certificate is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: "PFX certificate is required" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     if (!isValidPFXBase64(pfxBase64)) {
       return new Response(
-        JSON.stringify({ error: 'Invalid PFX format' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: "Invalid PFX format" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     if (!pfxPassword || pfxPassword.length < 4) {
       return new Response(
-        JSON.stringify({ error: 'PFX password is required (min 4 chars)' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: "PFX password is required (min 4 chars)" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     if (!atPublicKeyBase64) {
       return new Response(
-        JSON.stringify({ error: 'AT public key (ChaveCifraPublicaAT) is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          error: "AT public key (ChaveCifraPublicaAT) is required",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     if (!subuserId || !isValidSubuserId(subuserId)) {
       return new Response(
-        JSON.stringify({ error: 'Invalid subuser ID format. Expected: NIF/number (e.g., 232945993/1)' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          error:
+            "Invalid subuser ID format. Expected: NIF/number (e.g., 232945993/1)",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     if (!subuserPassword) {
       return new Response(
-        JSON.stringify({ error: 'Subuser password is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: "Subuser password is required" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     // Validate PFX contents early (cert/key match + expected CN).
-    const expectedCN = subuserId.split('/')[0];
-    const pfxInfo = validateAndExtractPfxInfo(pfxBase64, pfxPassword, expectedCN);
+    const expectedCN = subuserId.split("/")[0];
+    const pfxInfo = validateAndExtractPfxInfo(
+      pfxBase64,
+      pfxPassword,
+      expectedCN,
+    );
     if (pfxInfo.error) {
       return new Response(
         JSON.stringify({ error: pfxInfo.error }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     // Encrypt sensitive data: prefer dedicated env var, fallback to service role key
-    const encryptionSecret = Deno.env.get('AT_ENCRYPTION_KEY') || supabaseServiceKey.substring(0, 32);
-    const encryptedPfxPassword = await encryptSecret(pfxPassword, encryptionSecret);
-    const encryptedSubuserPassword = await encryptSecret(subuserPassword, encryptionSecret);
+    const encryptionSecret = Deno.env.get("AT_ENCRYPTION_KEY") ||
+      supabaseServiceKey.substring(0, 32);
+    const encryptedPfxPassword = await encryptSecret(
+      pfxPassword,
+      encryptionSecret,
+    );
+    const encryptedSubuserPassword = await encryptSecret(
+      subuserPassword,
+      encryptionSecret,
+    );
 
     // Parse CA certificate if provided (.p7b, .cer, .pem)
     let caChainPem: string | null = null;
@@ -349,17 +435,23 @@ Deno.serve(async (req: Request) => {
       caChainPem = parseCACertToChainPem(caCertBase64);
       if (!caChainPem) {
         return new Response(
-          JSON.stringify({ error: 'Formato de certificado CA inválido. Aceite: .p7b, .cer, .crt, .pem' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({
+            error:
+              "Formato de certificado CA inválido. Aceite: .p7b, .cer, .crt, .pem",
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
         );
       }
     }
 
     // Check if config already exists
     const { data: existing } = await supabaseAdmin
-      .from('accountant_at_config')
-      .select('id')
-      .eq('accountant_id', user.id)
+      .from("accountant_at_config")
+      .select("id")
+      .eq("accountant_id", user.id)
       .limit(1);
 
     const configData = {
@@ -382,24 +474,24 @@ Deno.serve(async (req: Request) => {
     if (existing && existing.length > 0) {
       // Update existing
       const { data, error } = await supabaseAdmin
-        .from('accountant_at_config')
+        .from("accountant_at_config")
         .update(configData)
-        .eq('id', existing[0].id)
+        .eq("id", existing[0].id)
         .select()
         .single();
 
       if (error) throw error;
-      result = { ...data, action: 'updated' };
+      result = { ...data, action: "updated" };
     } else {
       // Insert new
       const { data, error } = await supabaseAdmin
-        .from('accountant_at_config')
+        .from("accountant_at_config")
         .insert(configData)
         .select()
         .single();
 
       if (error) throw error;
-      result = { ...data, action: 'created' };
+      result = { ...data, action: "created" };
     }
 
     // Don't return sensitive data
@@ -418,18 +510,20 @@ Deno.serve(async (req: Request) => {
           updated_at: result.updated_at,
         },
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
-
   } catch (error: any) {
-    console.error('[upload-at-certificate] Error:', error);
-    
+    console.error("[upload-at-certificate] Error:", error);
+
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: error.message,
-        success: false 
+        success: false,
       }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   }
 });

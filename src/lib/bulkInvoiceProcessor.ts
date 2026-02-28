@@ -16,7 +16,7 @@ export const BULK_INVOICE_CONFIG = {
   RETRY_DELAY_MS: 2000,     // 2s between retries (exponential backoff)
   BATCH_DELAY_MS: 1000,     // 1s delay between batches
   MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB max per file
-  MAX_FILES_PER_BATCH: 100,
+  MAX_FILES_PER_BATCH: 3000, // Unified bulk limit across flows
 };
 
 export interface InvoiceQueueItem {
@@ -616,11 +616,6 @@ export function validateBulkFiles(files: FileList | File[]): {
   const invalid: { file: File; reason: string }[] = [];
 
   const fileArray = Array.from(files);
-
-  if (fileArray.length > BULK_INVOICE_CONFIG.MAX_FILES_PER_BATCH) {
-    // Take only first MAX_FILES_PER_BATCH files
-    fileArray.splice(BULK_INVOICE_CONFIG.MAX_FILES_PER_BATCH);
-  }
 
   console.log('[validateBulkFiles] Input:', fileArray.length, 'files');
 

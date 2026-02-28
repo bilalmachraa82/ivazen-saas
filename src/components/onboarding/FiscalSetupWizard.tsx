@@ -6,7 +6,7 @@ import {
   WORKER_TYPES, 
   ACCOUNTING_REGIMES, 
   SS_RATES, 
-  IAS_2025,
+  getIAS,
   CONTRIBUTION_RATES_BY_TYPE,
   RATE_DESCRIPTIONS,
   calculateContributionRate 
@@ -52,6 +52,8 @@ interface CalculatedRate {
 
 export function FiscalSetupWizard({ onComplete, compact = false }: FiscalSetupWizardProps) {
   const { profile, updateSSProfile, isUpdatingSSProfile, updateProfile, isUpdating } = useProfile();
+  const currentYear = new Date().getFullYear();
+  const currentIAS = getIAS(currentYear);
   const [step, setStep] = useState(1);
   const totalSteps = 5; // Added NIF step
   const [manualOverride, setManualOverride] = useState(false);
@@ -424,7 +426,7 @@ export function FiscalSetupWizard({ onComplete, compact = false }: FiscalSetupWi
                   className="bg-background/50"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Usado para calcular a base de incidência (mínimo: 1,5×IAS = {(IAS_2025 * 1.5).toFixed(2)}€)
+                  Usado para calcular a base de incidência (mínimo: 1,5×IAS {currentYear} = {(currentIAS * 1.5).toFixed(2)}€)
                 </p>
               </div>
             )}
@@ -472,7 +474,7 @@ export function FiscalSetupWizard({ onComplete, compact = false }: FiscalSetupWi
                   className="bg-background/50"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Para isenção, o salário deve ser ≥ 1×IAS ({IAS_2025.toFixed(2)}€)
+                  Para isenção, o salário deve ser ≥ 1×IAS {currentYear} ({currentIAS.toFixed(2)}€)
                 </p>
               </div>
             )}

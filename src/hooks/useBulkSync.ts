@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getAccessTokenOrThrow, parseEdgeInvokeError } from '@/lib/supabaseFunctionErrors';
 import { toast } from 'sonner';
 
 export interface SyncBatchProgress {
@@ -41,11 +42,14 @@ export function useBulkSync() {
       clientIds: string[]; 
       fiscalYear?: number;
     }) => {
+      const accessToken = await getAccessTokenOrThrow(supabase);
+
       const { data, error } = await supabase.functions.invoke('sync-queue-manager', {
         body: { clientIds, fiscalYear },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
 
-      if (error) throw error;
+      if (error) throw await parseEdgeInvokeError(error, 'Falha ao iniciar sincronização em lote');
       if (!data?.success) throw new Error(data?.error || 'Failed to start sync');
 
       return data as { batchId: string; totalJobs: number; fiscalYear: number };
@@ -57,9 +61,10 @@ export function useBulkSync() {
         description: `${data.totalJobs} clientes na fila para ${data.fiscalYear}`,
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Erro desconhecido';
       toast.error('Erro ao iniciar sincronização', {
-        description: error.message,
+        description: message,
       });
     },
   });
@@ -121,6 +126,13 @@ export function useBulkSync() {
       // Invalidate related queries
       queryClient.invalidateQueries({ queryKey: ['bulk-sync-clients'] });
       queryClient.invalidateQueries({ queryKey: ['sync-history'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['fiscal-summary-iva'] });
+      queryClient.invalidateQueries({ queryKey: ['fiscal-summary-ss'] });
+      queryClient.invalidateQueries({ queryKey: ['vat-sales'] });
+      queryClient.invalidateQueries({ queryKey: ['annual-sales'] });
+      queryClient.invalidateQueries({ queryKey: ['vat-purchases'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-invoices-ss'] });
     }
   }, [progress, queryClient]);
 

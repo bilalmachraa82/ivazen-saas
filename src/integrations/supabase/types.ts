@@ -239,6 +239,39 @@ export type Database = {
           },
         ]
       }
+      at_sync_automation_runs: {
+        Row: {
+          batches: Json
+          id: string
+          local_time: string
+          notes: string | null
+          run_date: string
+          run_slot: string
+          total_jobs: number
+          triggered_at: string
+        }
+        Insert: {
+          batches?: Json
+          id?: string
+          local_time: string
+          notes?: string | null
+          run_date: string
+          run_slot: string
+          total_jobs?: number
+          triggered_at?: string
+        }
+        Update: {
+          batches?: Json
+          id?: string
+          local_time?: string
+          notes?: string | null
+          run_date?: string
+          run_slot?: string
+          total_jobs?: number
+          triggered_at?: string
+        }
+        Relationships: []
+      }
       at_sync_history: {
         Row: {
           accountant_id: string | null
@@ -251,6 +284,7 @@ export type Database = {
           error_message: string | null
           id: string
           metadata: Json | null
+          reason_code: string | null
           records_errors: number | null
           records_imported: number | null
           records_skipped: number | null
@@ -271,6 +305,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           metadata?: Json | null
+          reason_code?: string | null
           records_errors?: number | null
           records_imported?: number | null
           records_skipped?: number | null
@@ -291,6 +326,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           metadata?: Json | null
+          reason_code?: string | null
           records_errors?: number | null
           records_imported?: number | null
           records_skipped?: number | null
@@ -355,6 +391,233 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      at_sync_override_audit: {
+        Row: {
+          accountant_id: string
+          batch_id: string | null
+          fiscal_year: number
+          id: string
+          override_id: string | null
+          requested_by: string | null
+          source: string
+          used_at: string
+        }
+        Insert: {
+          accountant_id: string
+          batch_id?: string | null
+          fiscal_year: number
+          id?: string
+          override_id?: string | null
+          requested_by?: string | null
+          source?: string
+          used_at?: string
+        }
+        Update: {
+          accountant_id?: string
+          batch_id?: string | null
+          fiscal_year?: number
+          id?: string
+          override_id?: string | null
+          requested_by?: string | null
+          source?: string
+          used_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "at_sync_override_audit_accountant_id_fkey"
+            columns: ["accountant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "at_sync_override_audit_override_id_fkey"
+            columns: ["override_id"]
+            isOneToOne: false
+            referencedRelation: "at_sync_year_overrides"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "at_sync_override_audit_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      at_sync_year_overrides: {
+        Row: {
+          accountant_id: string
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          fiscal_year: number
+          id: string
+          is_active: boolean
+          reason: string
+          updated_at: string
+        }
+        Insert: {
+          accountant_id: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          fiscal_year: number
+          id?: string
+          is_active?: boolean
+          reason: string
+          updated_at?: string
+        }
+        Update: {
+          accountant_id?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          fiscal_year?: number
+          id?: string
+          is_active?: boolean
+          reason?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "at_sync_year_overrides_accountant_id_fkey"
+            columns: ["accountant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "at_sync_year_overrides_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      at_withholding_candidates: {
+        Row: {
+          accountant_id: string
+          beneficiary_name: string | null
+          beneficiary_nif: string
+          client_id: string
+          confidence: number | null
+          confidence_score: number | null
+          created_at: string
+          detected_keys: string[] | null
+          detection_reason: string | null
+          document_reference: string | null
+          fiscal_year: number
+          gross_amount: number
+          id: string
+          income_category: string
+          income_code: string | null
+          notes: string | null
+          payment_date: string
+          promoted_at: string | null
+          promoted_withholding_id: string | null
+          raw_payload: Json | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source_sales_invoice_id: string | null
+          source_sync_history_id: string | null
+          status: string
+          sync_history_id: string | null
+          updated_at: string
+          withholding_amount: number
+          withholding_rate: number | null
+        }
+        Insert: {
+          accountant_id: string
+          beneficiary_name?: string | null
+          beneficiary_nif: string
+          client_id: string
+          confidence?: number | null
+          confidence_score?: number | null
+          created_at?: string
+          detected_keys?: string[] | null
+          detection_reason?: string | null
+          document_reference?: string | null
+          fiscal_year: number
+          gross_amount?: number
+          id?: string
+          income_category: string
+          income_code?: string | null
+          notes?: string | null
+          payment_date: string
+          promoted_at?: string | null
+          promoted_withholding_id?: string | null
+          raw_payload?: Json | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_sales_invoice_id?: string | null
+          source_sync_history_id?: string | null
+          status?: string
+          sync_history_id?: string | null
+          updated_at?: string
+          withholding_amount?: number
+          withholding_rate?: number | null
+        }
+        Update: {
+          accountant_id?: string
+          beneficiary_name?: string | null
+          beneficiary_nif?: string
+          client_id?: string
+          confidence?: number | null
+          confidence_score?: number | null
+          created_at?: string
+          detected_keys?: string[] | null
+          detection_reason?: string | null
+          document_reference?: string | null
+          fiscal_year?: number
+          gross_amount?: number
+          id?: string
+          income_category?: string
+          income_code?: string | null
+          notes?: string | null
+          payment_date?: string
+          promoted_at?: string | null
+          promoted_withholding_id?: string | null
+          raw_payload?: Json | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_sales_invoice_id?: string | null
+          source_sync_history_id?: string | null
+          status?: string
+          sync_history_id?: string | null
+          updated_at?: string
+          withholding_amount?: number
+          withholding_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "at_withholding_candidates_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "at_withholding_candidates_source_sales_invoice_id_fkey"
+            columns: ["source_sales_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "at_withholding_candidates_sync_history_id_fkey"
+            columns: ["sync_history_id"]
+            isOneToOne: false
+            referencedRelation: "at_sync_history"
             referencedColumns: ["id"]
           },
         ]
@@ -608,6 +871,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      internal_webhook_keys: {
+        Row: {
+          created_at: string
+          name: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          name: string
+          token: string
+        }
+        Update: {
+          created_at?: string
+          name?: string
+          token?: string
+        }
+        Relationships: []
       }
       invoice_validation_logs: {
         Row: {
@@ -1028,6 +1309,7 @@ export type Database = {
           notes: string | null
           period_quarter: string
           source: string | null
+          source_withholding_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -1039,6 +1321,7 @@ export type Database = {
           notes?: string | null
           period_quarter: string
           source?: string | null
+          source_withholding_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -1050,6 +1333,7 @@ export type Database = {
           notes?: string | null
           period_quarter?: string
           source?: string | null
+          source_withholding_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -1058,6 +1342,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revenue_entries_source_withholding_id_fkey"
+            columns: ["source_withholding_id"]
+            isOneToOne: true
+            referencedRelation: "tax_withholdings"
             referencedColumns: ["id"]
           },
         ]
@@ -1350,6 +1641,8 @@ export type Database = {
           file_name: string
           fiscal_year: number | null
           id: string
+          normalized_doc_ref: string | null
+          outcome_code: string | null
           processed_at: string | null
           qr_content: string | null
           retry_count: number
@@ -1369,6 +1662,8 @@ export type Database = {
           file_name: string
           fiscal_year?: number | null
           id?: string
+          normalized_doc_ref?: string | null
+          outcome_code?: string | null
           processed_at?: string | null
           qr_content?: string | null
           retry_count?: number
@@ -1388,6 +1683,8 @@ export type Database = {
           file_name?: string
           fiscal_year?: number | null
           id?: string
+          normalized_doc_ref?: string | null
+          outcome_code?: string | null
           processed_at?: string | null
           qr_content?: string | null
           retry_count?: number
@@ -1481,7 +1778,67 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      at_control_center_view: {
+        Row: {
+          accountant_id: string | null
+          client_email: string | null
+          client_id: string | null
+          client_name: string | null
+          client_nif: string | null
+          compras_total: number | null
+          credential_environment: string | null
+          has_credentials: boolean | null
+          jobs_completed: number | null
+          jobs_error: number | null
+          jobs_pending: number | null
+          jobs_processing: number | null
+          last_error_message: string | null
+          last_job_at: string | null
+          last_reason_code: string | null
+          last_sync_at: string | null
+          last_sync_method: string | null
+          last_sync_status: string | null
+          operational_status: string | null
+          vendas_total: number | null
+          withholding_candidates_high_confidence: number | null
+          withholding_candidates_pending: number | null
+          withholding_candidates_rejected: number | null
+          withholdings_total: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_accountants_accountant_id_fkey"
+            columns: ["accountant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_accountants_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      at_sync_health_view: {
+        Row: {
+          client_id: string | null
+          compras_total: number | null
+          error_message: string | null
+          last_sync_at: string | null
+          method: string | null
+          reason_code: string | null
+          records_errors: number | null
+          records_imported: number | null
+          records_skipped: number | null
+          status: string | null
+          sync_method: string | null
+          vendas_total: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       approve_accountant_request: {
@@ -1495,6 +1852,10 @@ export type Database = {
           p_is_primary?: boolean
         }
         Returns: boolean
+      }
+      backfill_sales_invoices_from_invoices: {
+        Args: { p_created_after?: string }
+        Returns: number
       }
       get_accountant_clients: {
         Args: { accountant_uuid: string }
@@ -1512,6 +1873,48 @@ export type Database = {
           validated_invoices: number
         }[]
       }
+      get_at_control_center: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_reason?: string
+          p_search?: string
+          p_status?: string
+        }
+        Returns: {
+          accountant_id: string | null
+          client_email: string | null
+          client_id: string | null
+          client_name: string | null
+          client_nif: string | null
+          compras_total: number | null
+          credential_environment: string | null
+          has_credentials: boolean | null
+          jobs_completed: number | null
+          jobs_error: number | null
+          jobs_pending: number | null
+          jobs_processing: number | null
+          last_error_message: string | null
+          last_job_at: string | null
+          last_reason_code: string | null
+          last_sync_at: string | null
+          last_sync_method: string | null
+          last_sync_status: string | null
+          operational_status: string | null
+          vendas_total: number | null
+          withholding_candidates_high_confidence: number | null
+          withholding_candidates_pending: number | null
+          withholding_candidates_rejected: number | null
+          withholdings_total: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "at_control_center_view"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_at_control_center_stats: { Args: never; Returns: Json }
       get_client_accountants: {
         Args: { client_uuid: string }
         Returns: {
@@ -1581,6 +1984,18 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_at_sync_year_override_active: {
+        Args: { p_accountant_id: string; p_fiscal_year: number }
+        Returns: boolean
+      }
+      map_withholding_income_to_revenue_category: {
+        Args: { p_income_category: string }
+        Returns: string
+      }
+      promote_withholding_candidates: {
+        Args: { p_client_id: string; p_ids?: string[]; p_mode?: string }
+        Returns: Json
+      }
       reject_accountant_request: {
         Args: { p_admin_notes: string; request_id: string }
         Returns: boolean
@@ -1591,6 +2006,7 @@ export type Database = {
         Returns: boolean
       }
       remove_my_accountant: { Args: never; Returns: boolean }
+      run_scheduled_at_sync: { Args: { p_force?: boolean }; Returns: Json }
       search_available_clients: {
         Args: { search_term: string }
         Returns: {
@@ -1605,6 +2021,14 @@ export type Database = {
         }[]
       }
       sync_profile_emails: { Args: never; Returns: undefined }
+      sync_revenue_entries_from_withholdings: {
+        Args: { p_client_id?: string; p_fiscal_year?: number }
+        Returns: number
+      }
+      sync_revenue_entry_from_withholding: {
+        Args: { p_withholding_id: string }
+        Returns: undefined
+      }
       update_ai_metrics: {
         Args: {
           p_supplier_name?: string

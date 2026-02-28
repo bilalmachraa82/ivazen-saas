@@ -3,24 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    
+
     <title>IVAzen - Gestão IVA Sem Stress</title>
     <meta name="description" content="Gestão de IVA sem stress. Classificação automática de facturas com IA, QR code português e exportação para contabilidade. Tranquilidade fiscal para empresários e contabilistas." />
     <meta name="author" content="IVAzen" />
     <meta name="keywords" content="IVA, facturas, contabilidade, Portugal, classificação automática, IA, declaração periódica, gestão fiscal, QR code" />
-    
+
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#db5087" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="IVAzen" />
-    
+
     <!-- PWA Links -->
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
-    
+
     <!-- Open Graph -->
     <meta property="og:title" content="IVAzen - Gestão IVA Sem Stress" />
     <meta property="og:description" content="Gestão de IVA sem stress. Classificação automática de facturas com IA para contabilistas e empresas em Portugal." />
@@ -33,10 +33,46 @@
     <meta name="twitter:title" content="IVAzen - Gestão IVA Sem Stress" />
     <meta name="twitter:description" content="Gestão de IVA sem stress. Classificação automática de facturas com IA para contabilistas e empresas." />
     <meta name="twitter:image" content="/icon-512.png" />
+
+    <!-- Plausible Analytics (privacy-friendly, no cookies, RGPD-compliant) -->
+    <script defer data-domain="ivazen.aiparati.pt" src="https://plausible.io/js/script.js"></script>
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "IVAzen",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "url": "https://ivazen.aiparati.pt",
+      "description": "Gestão de IVA sem stress. Classificação automática de facturas com IA para contabilistas e empresas em Portugal.",
+      "offers": {
+        "@type": "AggregateOffer",
+        "lowPrice": "0",
+        "highPrice": "29",
+        "priceCurrency": "EUR",
+        "offerCount": "3"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "AiParaTi",
+        "url": "https://aiparati.pt"
+      },
+      "inLanguage": "pt-PT"
+    }
+    </script>
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Loading skeleton shown while JS bundle loads -->
+      <div id="app-loader" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0a0a0b;flex-direction:column;gap:16px;">
+        <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#db5087,#e879a8);animation:pulse 1.5s ease-in-out infinite;"></div>
+        <div style="font-family:system-ui,sans-serif;font-size:14px;color:#888;letter-spacing:0.5px;">IVAzen</div>
+        <style>@keyframes pulse{0%,100%{opacity:.6;transform:scale(.95)}50%{opacity:1;transform:scale(1.05)}}</style>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

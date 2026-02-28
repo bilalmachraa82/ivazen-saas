@@ -139,7 +139,7 @@ export function BulkInvoiceUpload({ selectedClientId, clientName }: BulkInvoiceU
     if (queue.length + files.length > BULK_INVOICE_CONFIG.MAX_FILES_PER_BATCH) {
       toast({
         title: 'Demasiados ficheiros',
-        description: `Maximo de ${BULK_INVOICE_CONFIG.MAX_FILES_PER_BATCH} ficheiros por batch. Ja tem ${queue.length} na fila.`,
+        description: `Maximo de ${BULK_INVOICE_CONFIG.MAX_FILES_PER_BATCH} ficheiros por envio. Ja tem ${queue.length} na fila.`,
         variant: 'destructive',
       });
       return;
@@ -266,7 +266,7 @@ export function BulkInvoiceUpload({ selectedClientId, clientName }: BulkInvoiceU
       <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          <strong>Limites:</strong> Max. 10MB por ficheiro | Max. 100 ficheiros por batch |
+          <strong>Limites:</strong> Max. 10MB por ficheiro | Max. 3.000 ficheiros por envio |
           Processa 2 docs em simultaneo | Faturas guardadas automaticamente
         </AlertDescription>
       </Alert>
@@ -296,7 +296,7 @@ export function BulkInvoiceUpload({ selectedClientId, clientName }: BulkInvoiceU
               {isDragging ? 'Solte os ficheiros aqui' : 'Arraste ficheiros ou clique para selecionar'}
             </p>
             <p className="text-sm text-muted-foreground">
-              Suporta PDF, JPG, PNG | Max. 10MB por ficheiro | Max. 100 ficheiros
+              Suporta PDF, JPG, PNG | Max. 10MB por ficheiro | Max. 3.000 ficheiros
             </p>
             <p className="text-xs text-muted-foreground mt-2">
               Tipo selecionado: <strong>{invoiceType === 'purchase' ? 'Faturas de Compra' : 'Faturas de Venda'}</strong>

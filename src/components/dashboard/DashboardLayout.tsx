@@ -51,6 +51,7 @@ import {
   List,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { featureFlags } from '@/lib/featureFlags';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -83,6 +84,9 @@ const navGroups = [
     icon: FileSpreadsheet,
     items: [
       { href: '/efatura', label: 'e-Fatura (Portal AT)', icon: FileSpreadsheet, tourId: 'nav-efatura' },
+      ...(featureFlags.atControlCenterV1
+        ? [{ href: '/at-control-center', label: 'AT Control Center', icon: ShieldCheck, tourId: 'nav-at-control-center' }]
+        : []),
     ]
   },
   {
@@ -260,6 +264,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     setMobileOpenGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
   };
 
+  const visibleNavGroups = isAccountant
+    ? navGroups
+    : navGroups.filter((group) => group.id !== 'importacao');
+
   return (
     <div className="min-h-screen bg-background">
       {/* Mobile Header */}
@@ -329,7 +337,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
           )}
 
-          {navGroups.map((group) => (
+          {visibleNavGroups.map((group) => (
             <NavGroup
               key={group.id}
               group={group}
@@ -451,7 +459,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
           )}
 
-          {navGroups.map((group) => (
+          {visibleNavGroups.map((group) => (
             <NavGroup
               key={group.id}
               group={group}

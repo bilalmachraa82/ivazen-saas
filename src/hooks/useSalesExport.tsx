@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
+import { fetchAllPages } from '@/lib/supabasePagination';
 
 interface SalesInvoice {
   id: string;
@@ -66,16 +67,18 @@ export function useSalesExport(clientId?: string | null) {
     queryFn: async () => {
       if (!selectedPeriod || !effectiveClientId) return [];
 
-      const { data, error } = await supabase
-        .from('sales_invoices')
-        .select('*')
-        .eq('client_id', effectiveClientId)
-        .eq('status', 'validated')
-        .eq('fiscal_period', selectedPeriod)
-        .order('document_date', { ascending: true });
-
-      if (error) throw error;
-      return data as SalesInvoice[];
+      return fetchAllPages<SalesInvoice>((from, to) =>
+        supabase
+          .from('sales_invoices')
+          .select('*')
+          .eq('client_id', effectiveClientId)
+          .eq('status', 'validated')
+          .eq('fiscal_period', selectedPeriod)
+          .order('document_date', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, to)
+          .then(r => r)
+      );
     },
     enabled: !!selectedPeriod && !!effectiveClientId,
   });
@@ -86,15 +89,17 @@ export function useSalesExport(clientId?: string | null) {
     queryFn: async () => {
       if (!effectiveClientId) return [];
 
-      const { data, error } = await supabase
-        .from('sales_invoices')
-        .select('*')
-        .eq('client_id', effectiveClientId)
-        .eq('status', 'validated')
-        .order('document_date', { ascending: false });
-
-      if (error) throw error;
-      return data as SalesInvoice[];
+      return fetchAllPages<SalesInvoice>((from, to) =>
+        supabase
+          .from('sales_invoices')
+          .select('*')
+          .eq('client_id', effectiveClientId)
+          .eq('status', 'validated')
+          .order('document_date', { ascending: false })
+          .order('id', { ascending: false })
+          .range(from, to)
+          .then(r => r)
+      );
     },
     enabled: !!effectiveClientId,
   });

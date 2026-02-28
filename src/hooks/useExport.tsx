@@ -10,6 +10,11 @@ import {
   type InvoiceRecord,
   type SalesInvoiceRecord,
 } from '@/lib/dpExcelGenerator';
+import { fetchAllPages } from '@/lib/supabasePagination';
+import type { Database } from '@/integrations/supabase/types';
+
+type InvoiceRow = Database['public']['Tables']['invoices']['Row'];
+type SalesInvoiceRow = Database['public']['Tables']['sales_invoices']['Row'];
 
 interface DPFieldSummary {
   field: number;
@@ -65,15 +70,19 @@ export function useExport(clientId?: string) {
     queryKey: ['export-invoices', fiscalPeriods, clientId],
     queryFn: async () => {
       if (fiscalPeriods.length === 0 || !clientId) return [];
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('*')
-        .eq('client_id', clientId)
-        .in('status', ['validated', 'classified'])
-        .in('fiscal_period', fiscalPeriods)
-        .order('document_date', { ascending: true });
-      if (error) throw error;
-      return data || [];
+
+      return fetchAllPages<InvoiceRow>((from, to) =>
+        supabase
+          .from('invoices')
+          .select('*')
+          .eq('client_id', clientId)
+          .in('status', ['validated', 'classified'])
+          .in('fiscal_period', fiscalPeriods)
+          .order('document_date', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, to)
+          .then(r => r)
+      );
     },
     enabled: fiscalPeriods.length > 0 && !!clientId,
   });
@@ -83,15 +92,19 @@ export function useExport(clientId?: string) {
     queryKey: ['export-sales-invoices', fiscalPeriods, clientId],
     queryFn: async () => {
       if (fiscalPeriods.length === 0 || !clientId) return [];
-      const { data, error } = await supabase
-        .from('sales_invoices')
-        .select('*')
-        .eq('client_id', clientId)
-        .in('status', ['validated', 'classified'])
-        .in('fiscal_period', fiscalPeriods)
-        .order('document_date', { ascending: true });
-      if (error) throw error;
-      return data || [];
+
+      return fetchAllPages<SalesInvoiceRow>((from, to) =>
+        supabase
+          .from('sales_invoices')
+          .select('*')
+          .eq('client_id', clientId)
+          .in('status', ['validated', 'classified'])
+          .in('fiscal_period', fiscalPeriods)
+          .order('document_date', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, to)
+          .then(r => r)
+      );
     },
     enabled: fiscalPeriods.length > 0 && !!clientId,
   });

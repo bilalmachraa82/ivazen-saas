@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +21,7 @@ import { ClientSearchSelector } from '@/components/ui/client-search-selector';
 import { useAuth } from '@/hooks/useAuth';
 import { useWithholdings } from '@/hooks/useWithholdings';
 import { useClientManagement } from '@/hooks/useClientManagement';
+import { supabase } from '@/integrations/supabase/client';
 import { FileText, List, BarChart3, Download, PieChart, History, Upload, Users, FileStack, UserPlus, Settings } from 'lucide-react';
 
 export default function Modelo10() {
@@ -73,6 +75,23 @@ export default function Modelo10() {
 
   // Get selected client name
   const selectedClient = clients.find(c => c.id === selectedClientId);
+  const effectiveClientId = isAccountant ? selectedClientId : user?.id;
+
+  const { data: pendingCandidates = 0 } = useQuery({
+    queryKey: ['withholding-candidates-pending', effectiveClientId, selectedYear],
+    queryFn: async () => {
+      if (!effectiveClientId) return 0;
+      const { count, error } = await supabase
+        .from('at_withholding_candidates')
+        .select('id', { head: true, count: 'exact' })
+        .eq('client_id', effectiveClientId)
+        .eq('fiscal_year', selectedYear)
+        .eq('status', 'pending');
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!effectiveClientId,
+  });
 
   if (authLoading) {
     return <ZenLoader text="A carregar..." />;
@@ -186,6 +205,30 @@ export default function Modelo10() {
                   </Button>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {pendingCandidates > 0 && (
+          <Card className="border-amber-500/20 bg-amber-50 dark:bg-amber-950/20">
+            <CardContent className="py-3 px-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                  {pendingCandidates} retenção(ões) em revisão
+                </p>
+                <p className="text-xs text-amber-700/80 dark:text-amber-300/80">
+                  Existem candidatos importados automaticamente que ainda não foram promovidos para o Modelo 10.
+                </p>
+              </div>
+              {isAccountant ? (
+                <Button size="sm" variant="outline" onClick={() => navigate('/at-control-center')}>
+                  Abrir AT Control Center
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => setActiveTab('import')}>
+                  Rever no separador Importar
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}
