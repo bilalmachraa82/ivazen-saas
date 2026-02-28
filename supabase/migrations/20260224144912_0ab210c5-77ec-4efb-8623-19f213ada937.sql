@@ -14,6 +14,7 @@ BEGIN
   ALTER TABLE public.revenue_entries
   ADD CONSTRAINT revenue_entries_source_withholding_id_key UNIQUE (source_withholding_id);
 EXCEPTION
+  WHEN duplicate_table THEN NULL;
   WHEN duplicate_object THEN NULL;
 END $$;
 

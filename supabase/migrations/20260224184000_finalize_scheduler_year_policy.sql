@@ -2,7 +2,7 @@
 -- always queue only current year and previous year.
 -- force/manual bypasses time window but does NOT add older years.
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
 CREATE TABLE IF NOT EXISTS public.internal_webhook_keys (
   name text PRIMARY KEY,
@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS public.internal_webhook_keys (
 );
 
 INSERT INTO public.internal_webhook_keys(name, token)
-SELECT 'process_at_sync_queue', encode(gen_random_bytes(32), 'hex')
+SELECT 'process_at_sync_queue', encode(extensions.gen_random_bytes(32), 'hex')
 WHERE NOT EXISTS (
   SELECT 1
   FROM public.internal_webhook_keys
@@ -40,7 +40,7 @@ DECLARE
   v_total_jobs integer := 0;
   v_batches jsonb := '[]'::jsonb;
   v_request_id bigint;
-  v_process_url text := 'https://oqvvtcfvjkghrwaatprx.supabase.co/functions/v1/process-at-sync-queue';
+  v_process_url text := 'https://dmprkdvkzzjtixlatnlx.supabase.co/functions/v1/process-at-sync-queue';
   v_process_webhook_token text;
   v_notes text := '';
 BEGIN
