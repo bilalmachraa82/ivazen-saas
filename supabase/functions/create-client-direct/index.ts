@@ -257,7 +257,7 @@ serve(async (req) => {
 
     let magicLink = null;
     if (!isPlaceholderEmail) {
-      const siteUrl = Deno.env.get('SITE_URL') || 'https://ivazen.lovable.app';
+      const siteUrl = Deno.env.get('SITE_URL') || 'https://ivazen.aiparati.pt';
       try {
         const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
           type: 'magiclink',

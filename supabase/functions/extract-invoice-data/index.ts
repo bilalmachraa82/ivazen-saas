@@ -292,20 +292,20 @@ function normalizeVatId(value: unknown): string | null {
   return normalized;
 }
 
-async function callLovableAI(params: {
+async function callAI(params: {
   apiKey: string;
   prompt: string;
   dataUrl: string;
   temperature?: number;
 }): Promise<string> {
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${params.apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
+      model: 'gemini-2.5-flash',
       messages: [
         {
           role: 'user',
@@ -407,10 +407,10 @@ Deno.serve(async (req) => {
 
     console.log('[extract-invoice-data] Extracting invoice data, mime:', mimeType, ', base64 size:', Math.round(base64Content.length / 1024), 'KB');
 
-    // Use Lovable AI Gateway
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      console.error('[extract-invoice-data] LOVABLE_API_KEY not configured');
+    // Use OpenRouter AI Gateway
+    const AI_API_KEY = Deno.env.get('AI_API_KEY');
+    if (!AI_API_KEY) {
+      console.error('[extract-invoice-data] AI_API_KEY not configured');
       return new Response(
         JSON.stringify({ error: 'Serviço AI não configurado. Contacte o suporte.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -425,8 +425,8 @@ Deno.serve(async (req) => {
     const dataUrl = `data:${effectiveMime};base64,${base64Data}`;
     let content: string;
     try {
-      content = await callLovableAI({
-        apiKey: LOVABLE_API_KEY,
+      content = await callAI({
+        apiKey: AI_API_KEY,
         prompt: EXTRACTION_PROMPT,
         dataUrl,
         temperature: 0.1,
@@ -434,7 +434,7 @@ Deno.serve(async (req) => {
     } catch (error: unknown) {
       const status = (error as any)?.status as number | undefined;
       const body = (error as any)?.body as string | undefined;
-      console.error('Lovable AI error:', status || 'unknown', body || error);
+      console.error('AI Gateway error:', status || 'unknown', body || error);
 
       if (status === 429) {
         return new Response(
@@ -555,8 +555,8 @@ Deno.serve(async (req) => {
     const needsSecondPass = (!normalizedNif && !normalizedVat) || (normalizedNif && nifChecksumValid === false && !normalizedVat);
     if (needsSecondPass) {
       try {
-        const taxContent = await callLovableAI({
-          apiKey: LOVABLE_API_KEY,
+        const taxContent = await callAI({
+          apiKey: AI_API_KEY,
           prompt: TAX_ID_ONLY_PROMPT,
           dataUrl,
           temperature: 0.0,
@@ -634,8 +634,8 @@ Deno.serve(async (req) => {
     // ============================================================
     if (isLikelyEdpInvoice(extractedData)) {
       try {
-        const edpContent = await callLovableAI({
-          apiKey: LOVABLE_API_KEY,
+        const edpContent = await callAI({
+          apiKey: AI_API_KEY,
           prompt: EDP_VAT_COMPONENTS_PROMPT,
           dataUrl,
           temperature: 0.0,

@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { componentTagger } from "lovable-tagger";
+// lovable-tagger removed — no longer on Lovable platform
 import { VitePWA } from "vite-plugin-pwa";
 import { execSync } from "node:child_process";
 
@@ -39,7 +39,7 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
-      mode === "development" && componentTagger(),
+      // componentTagger removed — no longer on Lovable platform
       VitePWA({
         registerType: "autoUpdate",
         includeAssets: ["favicon.png", "icon-192.png", "icon-512.png", "robots.txt"],
@@ -55,7 +55,7 @@ export default defineConfig(({ mode }) => {
           navigateFallbackDenylist: [/^\/api/],
           runtimeCaching: [
             {
-              urlPattern: /^https:\/\/oqvvtcfvjkghrwaatprx\.supabase\.co\/rest\/.*/i,
+              urlPattern: /^https:\/\/dmprkdvkzzjtixlatnlx\.supabase\.co\/rest\/.*/i,
               handler: "NetworkFirst",
               options: {
                 cacheName: "supabase-api",
@@ -70,7 +70,7 @@ export default defineConfig(({ mode }) => {
               },
             },
             {
-              urlPattern: /^https:\/\/oqvvtcfvjkghrwaatprx\.supabase\.co\/storage\/.*/i,
+              urlPattern: /^https:\/\/dmprkdvkzzjtixlatnlx\.supabase\.co\/storage\/.*/i,
               handler: "CacheFirst",
               options: {
                 cacheName: "supabase-storage",

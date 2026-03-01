@@ -445,24 +445,24 @@ Responde APENAS com um objecto JSON válido no seguinte formato:
 
     console.log('No rule found for supplier', ruleSupplierTaxId, '- calling AI for classification...');
 
-    // Use Lovable AI Gateway
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY not configured');
+    // Use OpenRouter AI Gateway
+    const AI_API_KEY = Deno.env.get('AI_API_KEY');
+    if (!AI_API_KEY) {
+      console.error('AI_API_KEY not configured');
       return new Response(
         JSON.stringify({ error: 'Serviço AI não configurado. Contacte o suporte.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${AI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
+        model: 'gemini-3-flash-preview',
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: userPrompt }
@@ -474,7 +474,7 @@ Responde APENAS com um objecto JSON válido no seguinte formato:
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Lovable AI error:', response.status, errorText);
+      console.error('AI Gateway error:', response.status, errorText);
 
       if (response.status === 429) {
         return new Response(

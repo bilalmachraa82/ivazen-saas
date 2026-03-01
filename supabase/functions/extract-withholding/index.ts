@@ -176,9 +176,9 @@ serve(async (req) => {
 
     console.log('Extracting withholding data for user:', user.id);
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY not configured');
+    const AI_API_KEY = Deno.env.get('AI_API_KEY');
+    if (!AI_API_KEY) {
+      console.error('AI_API_KEY not configured');
       return new Response(
         JSON.stringify({ error: 'Serviço de IA não configurado' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -187,16 +187,16 @@ serve(async (req) => {
 
     const dataUrl = `data:${mimeType || 'image/jpeg'};base64,${fileData}`;
 
-    console.log('Calling Lovable AI for withholding extraction...');
+    console.log('Calling AI for withholding extraction...');
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${AI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gemini-2.5-flash',
         messages: [
           {
             role: 'user',
