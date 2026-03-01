@@ -164,7 +164,7 @@ export function SalesInvoiceTable({ invoices, loading, onSelectInvoice }: SalesI
               return (
                 <TableRow key={invoice.id} className="cursor-pointer hover:bg-muted/50">
                   <TableCell>
-                    {format(new Date(invoice.document_date), 'dd/MM/yyyy', { locale: pt })}
+                    {invoice.document_date ? format(new Date(invoice.document_date), 'dd/MM/yyyy', { locale: pt }) : '—'}
                   </TableCell>
                   <TableCell className="font-medium">
                     {invoice.customer_name || 'N/A'}

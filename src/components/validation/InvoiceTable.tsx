@@ -208,7 +208,7 @@ export function InvoiceTable({ invoices, loading, onSelectInvoice }: InvoiceTabl
             return (
               <TableRow key={invoice.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onSelectInvoice(invoice)}>
                 <TableCell>
-                  {format(new Date(invoice.document_date), 'dd/MM/yyyy', { locale: pt })}
+                  {invoice.document_date ? format(new Date(invoice.document_date), 'dd/MM/yyyy', { locale: pt }) : '—'}
                 </TableCell>
                 <TableCell className="font-medium">
                   {invoice.supplier_name || 'N/A'}

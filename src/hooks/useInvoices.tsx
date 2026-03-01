@@ -447,24 +447,15 @@ export function useInvoices(externalClientId?: string | null) {
     setFilters(value);
   };
 
+  // Single fetch effect — includes search to avoid double-fetch
   useEffect(() => {
     fetchInvoices();
-  }, [user, filters.status, filters.fiscalPeriod, effectiveClientId, page]);
+  }, [user, filters.status, filters.fiscalPeriod, filters.search, effectiveClientId, page]);
 
+  // Reset page when any filter changes
   useEffect(() => {
     setPage(0);
-  }, [filters.status, filters.fiscalPeriod, effectiveClientId]);
-
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (filters.search !== '') {
-        setPage(0);
-        fetchInvoices();
-      }
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
-  }, [filters.search]);
+  }, [filters.status, filters.fiscalPeriod, filters.search, effectiveClientId]);
 
   return {
     invoices,

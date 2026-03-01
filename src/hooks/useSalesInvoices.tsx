@@ -148,24 +148,15 @@ export function useSalesInvoices(externalClientId?: string | null) {
     setFilters(value);
   };
 
-  // Fetch when user, main filters, or page changes
+  // Single fetch effect — includes search to avoid double-fetch
   useEffect(() => {
     fetchInvoices();
-  }, [user, filters.status, filters.fiscalPeriod, effectiveClientId, page]);
+  }, [user, filters.status, filters.fiscalPeriod, filters.search, effectiveClientId, page]);
 
-  // Reset page when non-page filters change
+  // Reset page when any filter changes
   useEffect(() => {
     setPage(0);
-  }, [filters.status, filters.fiscalPeriod, effectiveClientId]);
-
-  // Debounced fetch for search
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setPage(0);
-      fetchInvoices();
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [filters.search]);
+  }, [filters.status, filters.fiscalPeriod, filters.search, effectiveClientId]);
 
   return {
     invoices,

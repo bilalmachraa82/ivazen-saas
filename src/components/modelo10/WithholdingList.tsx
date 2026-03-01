@@ -57,6 +57,7 @@ export function WithholdingList({ withholdings, onDelete, onDeleteAll, onUpdate,
 
       // Month filter
       if (filters.month !== 'all') {
+        if (!w.payment_date) return false;
         const paymentMonth = format(new Date(w.payment_date), 'MM');
         if (paymentMonth !== filters.month) return false;
       }
@@ -264,7 +265,7 @@ export function WithholdingList({ withholdings, onDelete, onDeleteAll, onUpdate,
               {paginatedWithholdings.map((w) => (
                 <TableRow key={w.id}>
                   <TableCell>
-                    {format(new Date(w.payment_date), 'dd/MM/yyyy', { locale: pt })}
+                    {w.payment_date ? format(new Date(w.payment_date), 'dd/MM/yyyy', { locale: pt }) : '—'}
                   </TableCell>
                   <TableCell className="font-medium">
                     {w.beneficiary_name || '-'}

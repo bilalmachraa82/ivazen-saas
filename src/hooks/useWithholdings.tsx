@@ -125,15 +125,14 @@ export function useWithholdings(forClientId?: string | null, forYear?: number) {
 
   // Fetch logs for all withholdings
   const { data: logs = [], refetch: refetchLogs } = useQuery({
-    queryKey: ['withholding-logs', effectiveClientId, selectedYear],
+    queryKey: ['withholding-logs', effectiveClientId, selectedYear, withholdings.map(w => w.id)],
     queryFn: async () => {
       if (!effectiveClientId || withholdings.length === 0) return [];
-      
+
       const withholdingIds = withholdings.map(w => w.id);
-      
-      // Use type assertion since table was just created
-      const { data, error } = await (supabase
-        .from('withholding_logs') as any)
+
+      const { data, error } = await supabase
+        .from('withholding_logs')
         .select('*')
         .in('withholding_id', withholdingIds)
         .order('created_at', { ascending: false })
@@ -158,8 +157,7 @@ export function useWithholdings(forClientId?: string | null, forYear?: number) {
     if (!user?.id) return;
     
     try {
-      // Use type assertion since table was just created and types may not be updated yet
-      await (supabase.from('withholding_logs') as any).insert({
+      await supabase.from('withholding_logs').insert({
         withholding_id: withholdingId,
         user_id: user.id,
         action,
