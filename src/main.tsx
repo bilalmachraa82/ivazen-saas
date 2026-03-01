@@ -1,6 +1,22 @@
 import { createRoot } from "react-dom/client";
+import * as Sentry from "@sentry/react";
 import App from "./App.tsx";
 import "./index.css";
+
+// Sentry error monitoring — only active when DSN is configured
+const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
+if (sentryDsn) {
+  Sentry.init({
+    dsn: sentryDsn,
+    release: typeof __BUILD_COMMIT__ !== "undefined" ? __BUILD_COMMIT__ : undefined,
+    environment: import.meta.env.MODE,
+    integrations: [
+      Sentry.browserTracingIntegration(),
+    ],
+    tracesSampleRate: 0.1,
+    replaysOnErrorSampleRate: 0,
+  });
+}
 
 const REQUIRED_ENV_VARS = [
   'VITE_SUPABASE_URL',

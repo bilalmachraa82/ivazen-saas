@@ -71,9 +71,6 @@ export function useSalesInvoiceUpload(options: UseSalesInvoiceUploadOptions = {}
         return;
       }
 
-      if (data?.success && import.meta.env.DEV) {
-        console.log('Sales invoice categorized:', data.category);
-      }
     } catch (error) {
       console.error('Classify sales category exception:', error);
     } finally {

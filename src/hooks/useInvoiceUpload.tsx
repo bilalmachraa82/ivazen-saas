@@ -133,11 +133,9 @@ export function useInvoiceUpload(options: UseInvoiceUploadOptions = {}) {
   };
 
   const createInvoice = async (
-    parsedData: ParsedInvoice, 
+    parsedData: ParsedInvoice,
     imagePath: string
   ): Promise<UploadResult> => {
-    console.log('[createInvoice] Creating invoice with client_id:', effectiveClientId);
-    
     if (!effectiveClientId) {
       console.error('[createInvoice] ERRO: effectiveClientId é undefined');
       return { success: false, error: 'Cliente não definido' };

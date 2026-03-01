@@ -24,7 +24,6 @@ export function useQRScanner({ onScan, onError, scanInterval = 100 }: UseQRScann
     const checkCamera = async () => {
       try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          console.log('MediaDevices API not available');
           setHasCamera(false);
           setCameraError('API de câmara não disponível neste browser');
           return;
@@ -34,8 +33,7 @@ export function useQRScanner({ onScan, onError, scanInterval = 100 }: UseQRScann
         // So we assume camera exists and handle error on getUserMedia
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        console.log('Video devices found:', videoDevices.length);
-        
+
         // Only set hasCamera to false if we're sure there's no camera
         // On mobile, labels are empty before permission, so we can't be sure
         if (videoDevices.length === 0 && !navigator.userAgent.match(/Mobile|Android|iPhone|iPad/i)) {
@@ -87,7 +85,6 @@ export function useQRScanner({ onScan, onError, scanInterval = 100 }: UseQRScann
         if (code.data !== lastScanRef.current) {
           lastScanRef.current = code.data;
           setQrDetected(true);
-          console.log('QR Code detected:', code.data.substring(0, 50) + '...');
           onScan(code.data);
         }
       } else {
@@ -106,12 +103,10 @@ export function useQRScanner({ onScan, onError, scanInterval = 100 }: UseQRScann
   }, [onScan, scanInterval]);
 
   const startScanning = useCallback(async () => {
-    console.log('Starting camera scan...');
     setCameraError(null);
     
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       const error = new Error('API de câmara não disponível');
-      console.error(error);
       setCameraError(error.message);
       onError?.(error);
       return;
@@ -122,24 +117,20 @@ export function useQRScanner({ onScan, onError, scanInterval = 100 }: UseQRScann
       let stream: MediaStream | null = null;
       
       try {
-        console.log('Requesting rear camera (environment)...');
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { 
+          video: {
             facingMode: { ideal: 'environment' },
             width: { ideal: 1280, min: 640 },
             height: { ideal: 720, min: 480 }
           },
           audio: false
         });
-        console.log('Rear camera acquired');
       } catch (rearError) {
-        console.log('Rear camera failed, trying any camera...', rearError);
         // Fallback to any camera
         stream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: false
         });
-        console.log('Fallback camera acquired');
       }
       
       streamRef.current = stream;
@@ -152,10 +143,9 @@ export function useQRScanner({ onScan, onError, scanInterval = 100 }: UseQRScann
           const video = videoRef.current!;
           
           video.onloadedmetadata = () => {
-            console.log('Video metadata loaded:', video.videoWidth, 'x', video.videoHeight);
             resolve();
           };
-          
+
           video.onerror = (e) => {
             console.error('Video error:', e);
             reject(new Error('Erro ao carregar vídeo'));
@@ -166,7 +156,6 @@ export function useQRScanner({ onScan, onError, scanInterval = 100 }: UseQRScann
         });
         
         await videoRef.current.play();
-        console.log('Video playing');
         setIsScanning(true);
         
         // Create canvas for frame capture
@@ -205,7 +194,6 @@ export function useQRScanner({ onScan, onError, scanInterval = 100 }: UseQRScann
   }, [onError, scanForQR]);
 
   const stopScanning = useCallback(() => {
-    console.log('Stopping camera scan...');
     scanningActiveRef.current = false;
     
     if (animationRef.current) {
@@ -214,10 +202,7 @@ export function useQRScanner({ onScan, onError, scanInterval = 100 }: UseQRScann
     }
     
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => {
-        track.stop();
-        console.log('Track stopped:', track.kind);
-      });
+      streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
     
