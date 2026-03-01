@@ -633,6 +633,7 @@ Deno.serve(async (req: Request) => {
     const token = authHeader.replace("Bearer ", "").trim();
     const isServiceRole = token === supabaseServiceKey;
 
+    let authUser: { id: string } | null = null;
     if (!isServiceRole) {
       const authSupabase = createClient(
         supabaseUrl,
@@ -641,9 +642,9 @@ Deno.serve(async (req: Request) => {
           global: { headers: { Authorization: authHeader } },
         },
       );
-      const { data: { user: authUser }, error: authError } = await authSupabase
+      const { data: { user }, error: authError } = await authSupabase
         .auth.getUser();
-      if (authError || !authUser) {
+      if (authError || !user) {
         return new Response(
           JSON.stringify({ error: "Token inválido ou expirado" }),
           {
@@ -652,6 +653,7 @@ Deno.serve(async (req: Request) => {
           },
         );
       }
+      authUser = user;
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -674,6 +676,31 @@ Deno.serve(async (req: Request) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );
+    }
+
+    // IDOR protection: verify authenticated user has access to this clientId
+    if (!isServiceRole && authUser) {
+      const isOwnAccount = authUser.id === clientId;
+      if (!isOwnAccount) {
+        const { data: relationship } = await supabase
+          .from("client_accountants")
+          .select("accountant_id")
+          .eq("client_id", clientId)
+          .eq("accountant_id", authUser.id)
+          .maybeSingle();
+
+        if (!relationship) {
+          return new Response(
+            JSON.stringify({
+              error: "Acesso não autorizado para este cliente",
+            }),
+            {
+              status: 403,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
+      }
     }
 
     const { data: profile } = await supabase

@@ -295,10 +295,10 @@ serve(async (req) => {
       extractedData.dispensed_amount = extractedData.dispensed_amount ?? 0;
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
+      console.error('[extract-withholding] AI parse failed, raw (truncated):', content?.slice(0, 200));
       return new Response(
-        JSON.stringify({ 
-          error: 'Não foi possível extrair dados do documento',
-          raw_response: content 
+        JSON.stringify({
+          error: 'Não foi possível extrair dados do documento'
         }),
         { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
