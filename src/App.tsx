@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -6,43 +7,58 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/hooks/useAuth";
 import { SelectedClientProvider } from "@/hooks/useSelectedClient";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import CookieBanner from "@/components/CookieBanner";
-import Landing from "./pages/Landing";
-import Dashboard from "./pages/Dashboard";
-import Auth from "./pages/Auth";
-import Upload from "./pages/Upload";
-import Validation from "./pages/Validation";
-import Export from "./pages/Export";
-import Settings from "./pages/Settings";
-import AccountantDashboard from "./pages/AccountantDashboard";
-import AccountantOnboarding from "./pages/AccountantOnboarding";
-import SocialSecurity from "./pages/SocialSecurity";
-import Modelo10 from "./pages/Modelo10";
-import AIMetrics from "./pages/AIMetrics";
-import Install from "./pages/Install";
-import SalesValidation from "./pages/SalesValidation";
-import AdminPartners from "./pages/AdminPartners";
-import AdminUsers from "./pages/AdminUsers";
-import Terms from "./pages/Terms";
-import Privacy from "./pages/Privacy";
-import Contact from "./pages/Contact";
-import Reports from "./pages/Reports";
-import BecomeAccountant from "./pages/BecomeAccountant";
-import AdminAccountants from "./pages/AdminAccountants";
-import VATCalculator from "./pages/VATCalculator";
-import Glossary from "./pages/Glossary";
-import Documents from "./pages/Documents";
-import SuperAdminDashboard from "./pages/SuperAdminDashboard";
-import ReconciliationAudit from "./pages/ReconciliationAudit";
-import EFaturaSync from "./pages/EFaturaSync";
-import AdminCertificates from "./pages/AdminCertificates";
-import BulkClientSync from "./pages/BulkClientSync";
-import ATControlCenter from "./pages/ATControlCenter";
-import NotFound from "./pages/NotFound";
+import PageLoader from "@/components/ui/PageLoader";
+import PageRoute from "@/components/PageRoute";
 import { featureFlags } from "@/lib/featureFlags";
 
+// ---------------------------------------------------------------------------
+// Lazy page imports — each page becomes its own JS chunk (code splitting).
+// Non-page providers/wrappers above stay as static imports.
+// ---------------------------------------------------------------------------
+
+// Public pages
+const Landing            = lazy(() => import('./pages/Landing'));
+const Auth               = lazy(() => import('./pages/Auth'));
+const Install            = lazy(() => import('./pages/Install'));
+const Terms              = lazy(() => import('./pages/Terms'));
+const Privacy            = lazy(() => import('./pages/Privacy'));
+const Contact            = lazy(() => import('./pages/Contact'));
+const NotFound           = lazy(() => import('./pages/NotFound'));
+
+// Protected pages — any authenticated user
+const Dashboard          = lazy(() => import('./pages/Dashboard'));
+const VATCalculator      = lazy(() => import('./pages/VATCalculator'));
+const Upload             = lazy(() => import('./pages/Upload'));
+const Validation         = lazy(() => import('./pages/Validation'));
+const Documents          = lazy(() => import('./pages/Documents'));
+const SalesValidation    = lazy(() => import('./pages/SalesValidation'));
+const Export             = lazy(() => import('./pages/Export'));
+const Settings           = lazy(() => import('./pages/Settings'));
+const SocialSecurity     = lazy(() => import('./pages/SocialSecurity'));
+const Modelo10           = lazy(() => import('./pages/Modelo10'));
+const AIMetrics          = lazy(() => import('./pages/AIMetrics'));
+const Reports            = lazy(() => import('./pages/Reports'));
+const BecomeAccountant   = lazy(() => import('./pages/BecomeAccountant'));
+const Glossary           = lazy(() => import('./pages/Glossary'));
+const ReconciliationAudit = lazy(() => import('./pages/ReconciliationAudit'));
+
+// Protected pages — accountant role
+const AccountantDashboard  = lazy(() => import('./pages/AccountantDashboard'));
+const AccountantOnboarding = lazy(() => import('./pages/AccountantOnboarding'));
+const EFaturaSync          = lazy(() => import('./pages/EFaturaSync'));
+const BulkClientSync       = lazy(() => import('./pages/BulkClientSync'));
+const ATControlCenter      = lazy(() => import('./pages/ATControlCenter'));
+const AdminCertificates    = lazy(() => import('./pages/AdminCertificates'));
+
+// Protected pages — admin role
+const AdminPartners        = lazy(() => import('./pages/AdminPartners'));
+const AdminUsers           = lazy(() => import('./pages/AdminUsers'));
+const AdminAccountants     = lazy(() => import('./pages/AdminAccountants'));
+const SuperAdminDashboard  = lazy(() => import('./pages/SuperAdminDashboard'));
+
+// ---------------------------------------------------------------------------
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,52 +78,125 @@ const App = () => (
         <TooltipProvider>
           <AuthProvider>
             <SelectedClientProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
-                {/* Public routes */}
-                <Route path="/" element={<Landing />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/install" element={<Install />} />
-                <Route path="/terms" element={<Terms />} />
-                <Route path="/privacy" element={<Privacy />} />
-                <Route path="/contact" element={<Contact />} />
-                
-                {/* Protected routes - require authentication */}
-                <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-                <Route path="/iva-calculator" element={<ProtectedRoute><VATCalculator /></ProtectedRoute>} />
-                <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
-                <Route path="/validation" element={<ProtectedRoute><Validation /></ProtectedRoute>} />
-                <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
-                <Route path="/sales" element={<ProtectedRoute><SalesValidation /></ProtectedRoute>} />
-                <Route path="/export" element={<ProtectedRoute><Export /></ProtectedRoute>} />
-                <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-                <Route path="/accountant" element={<ProtectedRoute requireRole="accountant"><AccountantDashboard /></ProtectedRoute>} />
-                <Route path="/accountant/onboarding" element={<ProtectedRoute requireRole="accountant"><AccountantOnboarding /></ProtectedRoute>} />
-                <Route path="/seguranca-social" element={<ProtectedRoute><SocialSecurity /></ProtectedRoute>} />
-                <Route path="/social-security" element={<Navigate to="/seguranca-social" replace />} />
-                <Route path="/modelo-10" element={<ProtectedRoute><Modelo10 /></ProtectedRoute>} />
-                <Route path="/ai-metrics" element={<ProtectedRoute><AIMetrics /></ProtectedRoute>} />
-                <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-                <Route path="/admin/partners" element={<ProtectedRoute requireRole="admin"><AdminPartners /></ProtectedRoute>} />
-                <Route path="/admin/users" element={<ProtectedRoute requireRole="admin"><AdminUsers /></ProtectedRoute>} />
-                <Route path="/admin/accountants" element={<ProtectedRoute requireRole="admin"><AdminAccountants /></ProtectedRoute>} />
-                <Route path="/admin/super" element={<ProtectedRoute requireRole="admin"><SuperAdminDashboard /></ProtectedRoute>} />
-                <Route path="/become-accountant" element={<ProtectedRoute><BecomeAccountant /></ProtectedRoute>} />
-                <Route path="/glossario" element={<ProtectedRoute><Glossary /></ProtectedRoute>} />
-                <Route path="/efatura" element={<ProtectedRoute requireRole="accountant"><EFaturaSync /></ProtectedRoute>} />
-                <Route path="/bulk-sync" element={<ProtectedRoute requireRole="accountant"><BulkClientSync /></ProtectedRoute>} />
-                {featureFlags.atControlCenterV1 && (
-                  <Route path="/at-control-center" element={<ProtectedRoute requireRole="accountant"><ATControlCenter /></ProtectedRoute>} />
-                )}
-                <Route path="/reconciliation" element={<ProtectedRoute><ReconciliationAudit /></ProtectedRoute>} />
-                <Route path="/admin/certificates" element={<ProtectedRoute requireRole="accountant"><AdminCertificates /></ProtectedRoute>} />
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                {/* Top-level Suspense as a safety net for any uncaught lazy boundary */}
+                <Suspense fallback={<PageLoader />}>
+                  <Routes>
+                    {/* ---- Public routes ---- */}
+                    <Route path="/" element={
+                      <ErrorBoundary><Suspense fallback={<PageLoader />}><Landing /></Suspense></ErrorBoundary>
+                    } />
+                    <Route path="/auth" element={
+                      <ErrorBoundary><Suspense fallback={<PageLoader />}><Auth /></Suspense></ErrorBoundary>
+                    } />
+                    <Route path="/install" element={
+                      <ErrorBoundary><Suspense fallback={<PageLoader />}><Install /></Suspense></ErrorBoundary>
+                    } />
+                    <Route path="/terms" element={
+                      <ErrorBoundary><Suspense fallback={<PageLoader />}><Terms /></Suspense></ErrorBoundary>
+                    } />
+                    <Route path="/privacy" element={
+                      <ErrorBoundary><Suspense fallback={<PageLoader />}><Privacy /></Suspense></ErrorBoundary>
+                    } />
+                    <Route path="/contact" element={
+                      <ErrorBoundary><Suspense fallback={<PageLoader />}><Contact /></Suspense></ErrorBoundary>
+                    } />
 
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-              <CookieBanner />
-            </BrowserRouter>
+                    {/* ---- Protected routes — any authenticated user ---- */}
+                    <Route path="/dashboard" element={
+                      <PageRoute><Dashboard /></PageRoute>
+                    } />
+                    <Route path="/iva-calculator" element={
+                      <PageRoute><VATCalculator /></PageRoute>
+                    } />
+                    <Route path="/upload" element={
+                      <PageRoute><Upload /></PageRoute>
+                    } />
+                    <Route path="/validation" element={
+                      <PageRoute><Validation /></PageRoute>
+                    } />
+                    <Route path="/documents" element={
+                      <PageRoute><Documents /></PageRoute>
+                    } />
+                    <Route path="/sales" element={
+                      <PageRoute><SalesValidation /></PageRoute>
+                    } />
+                    <Route path="/export" element={
+                      <PageRoute><Export /></PageRoute>
+                    } />
+                    <Route path="/settings" element={
+                      <PageRoute><Settings /></PageRoute>
+                    } />
+                    <Route path="/seguranca-social" element={
+                      <PageRoute><SocialSecurity /></PageRoute>
+                    } />
+                    {/* Permanent redirect — no lazy loading needed */}
+                    <Route path="/social-security" element={<Navigate to="/seguranca-social" replace />} />
+                    <Route path="/modelo-10" element={
+                      <PageRoute><Modelo10 /></PageRoute>
+                    } />
+                    <Route path="/ai-metrics" element={
+                      <PageRoute><AIMetrics /></PageRoute>
+                    } />
+                    <Route path="/reports" element={
+                      <PageRoute><Reports /></PageRoute>
+                    } />
+                    <Route path="/become-accountant" element={
+                      <PageRoute><BecomeAccountant /></PageRoute>
+                    } />
+                    <Route path="/glossario" element={
+                      <PageRoute><Glossary /></PageRoute>
+                    } />
+                    <Route path="/reconciliation" element={
+                      <PageRoute><ReconciliationAudit /></PageRoute>
+                    } />
+
+                    {/* ---- Protected routes — accountant role ---- */}
+                    <Route path="/accountant" element={
+                      <PageRoute requireRole="accountant"><AccountantDashboard /></PageRoute>
+                    } />
+                    <Route path="/accountant/onboarding" element={
+                      <PageRoute requireRole="accountant"><AccountantOnboarding /></PageRoute>
+                    } />
+                    <Route path="/efatura" element={
+                      <PageRoute requireRole="accountant"><EFaturaSync /></PageRoute>
+                    } />
+                    <Route path="/bulk-sync" element={
+                      <PageRoute requireRole="accountant"><BulkClientSync /></PageRoute>
+                    } />
+                    {featureFlags.atControlCenterV1 && (
+                      <Route path="/at-control-center" element={
+                        <PageRoute requireRole="accountant"><ATControlCenter /></PageRoute>
+                      } />
+                    )}
+                    <Route path="/admin/certificates" element={
+                      <PageRoute requireRole="accountant"><AdminCertificates /></PageRoute>
+                    } />
+
+                    {/* ---- Protected routes — admin role ---- */}
+                    <Route path="/admin/partners" element={
+                      <PageRoute requireRole="admin"><AdminPartners /></PageRoute>
+                    } />
+                    <Route path="/admin/users" element={
+                      <PageRoute requireRole="admin"><AdminUsers /></PageRoute>
+                    } />
+                    <Route path="/admin/accountants" element={
+                      <PageRoute requireRole="admin"><AdminAccountants /></PageRoute>
+                    } />
+                    <Route path="/admin/super" element={
+                      <PageRoute requireRole="admin"><SuperAdminDashboard /></PageRoute>
+                    } />
+
+                    {/* ---- Catch-all ---- */}
+                    <Route path="*" element={
+                      <ErrorBoundary><Suspense fallback={<PageLoader />}><NotFound /></Suspense></ErrorBoundary>
+                    } />
+                  </Routes>
+                </Suspense>
+                <CookieBanner />
+              </BrowserRouter>
             </SelectedClientProvider>
           </AuthProvider>
         </TooltipProvider>

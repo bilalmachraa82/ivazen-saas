@@ -121,7 +121,8 @@ export function useAccountant() {
         .from('invoices')
         .select('*')
         .in('client_id', clientIds)
-        .order('document_date', { ascending: false });
+        .order('document_date', { ascending: false })
+        .limit(200);
 
       if (error) throw error;
       return data as ClientInvoice[];
@@ -161,7 +162,8 @@ export function useAccountant() {
         .from('ss_declarations')
         .select('*')
         .in('client_id', clientIds)
-        .order('period_quarter', { ascending: false });
+        .order('period_quarter', { ascending: false })
+        .limit(50);
 
       if (error) throw error;
       return data as SSDeclaration[];

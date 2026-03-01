@@ -36,12 +36,16 @@ export interface DocumentFilters {
   dateTo: string;
 }
 
+const FETCH_LIMIT = 100;
+const PAGE_SIZE = 50;
+
 export function useAllDocuments() {
   const { user } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [salesInvoices, setSalesInvoices] = useState<SalesInvoice[]>([]);
   const [withholdings, setWithholdings] = useState<TaxWithholding[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
   const [filters, setFilters] = useState<DocumentFilters>({
     type: 'all',
     status: 'all',
@@ -52,25 +56,37 @@ export function useAllDocuments() {
     dateTo: '',
   });
 
+  // Reset page to 0 when filters change
+  const setFiltersAndResetPage = (
+    value: DocumentFilters | ((prev: DocumentFilters) => DocumentFilters),
+  ) => {
+    setPage(0);
+    setFilters(value);
+  };
+
   const fetchAllDocuments = async () => {
     if (!user) return;
 
     setLoading(true);
     try {
-      // Fetch all three document types in parallel
+      // Fetch the most recent 100 rows from each document type in parallel.
+      // Client-side filtering and pagination is applied to the merged result set.
       const [invoicesResult, salesResult, withholdingsResult] = await Promise.all([
         supabase
           .from('invoices')
           .select('*')
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })
+          .limit(FETCH_LIMIT),
         supabase
           .from('sales_invoices')
           .select('*')
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })
+          .limit(FETCH_LIMIT),
         supabase
           .from('tax_withholdings')
           .select('*')
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })
+          .limit(FETCH_LIMIT),
       ]);
 
       if (invoicesResult.error) {
@@ -151,8 +167,8 @@ export function useAllDocuments() {
     }));
   }, [withholdings]);
 
-  // Combine and filter all documents
-  const documents: UnifiedDocument[] = useMemo(() => {
+  // Combine, filter, and sort all documents (before pagination slice)
+  const filteredDocuments: UnifiedDocument[] = useMemo(() => {
     let combined: UnifiedDocument[] = [];
 
     // Filter by document type
@@ -220,6 +236,15 @@ export function useAllDocuments() {
     unifiedWithholdings,
     filters,
   ]);
+
+  const totalCount = filteredDocuments.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  // Client-side pagination slice from the filtered + sorted result set
+  const documents: UnifiedDocument[] = useMemo(() => {
+    const start = page * PAGE_SIZE;
+    return filteredDocuments.slice(start, start + PAGE_SIZE);
+  }, [filteredDocuments, page]);
 
   // Get unique fiscal periods from all documents
   const fiscalPeriods = useMemo(() => {
@@ -293,23 +318,21 @@ export function useAllDocuments() {
     fetchAllDocuments();
   }, [user]);
 
-  // Debounced search
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      // The filtering happens in useMemo, no need to refetch
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [filters.search]);
-
   return {
     documents,
     loading,
     filters,
-    setFilters,
+    setFilters: setFiltersAndResetPage,
     fiscalPeriods,
     allStatuses,
     stats,
     getSignedUrl,
     refetch: fetchAllDocuments,
+    // Pagination (client-side over the server-limited result set)
+    page,
+    setPage,
+    totalCount,
+    totalPages,
+    pageSize: PAGE_SIZE,
   };
 }

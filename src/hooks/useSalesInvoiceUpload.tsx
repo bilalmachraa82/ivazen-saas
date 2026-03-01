@@ -56,8 +56,6 @@ export function useSalesInvoiceUpload(options: UseSalesInvoiceUploadOptions = {}
   // Use forClientId if provided (for accountants), otherwise use current user
   const effectiveClientId = forClientId || user?.id;
 
-  // Log for debugging client association issues
-  console.log('[useSalesInvoiceUpload] forClientId:', forClientId, '| user?.id:', user?.id, '| effectiveClientId:', effectiveClientId);
 
   // Classify sales invoice by revenue category
   const classifySalesCategory = async (invoiceId: string): Promise<void> => {
@@ -73,7 +71,7 @@ export function useSalesInvoiceUpload(options: UseSalesInvoiceUploadOptions = {}
         return;
       }
 
-      if (data?.success) {
+      if (data?.success && import.meta.env.DEV) {
         console.log('Sales invoice categorized:', data.category);
       }
     } catch (error) {
@@ -155,8 +153,6 @@ export function useSalesInvoiceUpload(options: UseSalesInvoiceUploadOptions = {}
     parsedData: ParsedSalesInvoice, 
     imagePath: string
   ): Promise<UploadResult> => {
-    console.log('[createSalesInvoice] Creating sales invoice with client_id:', effectiveClientId);
-    
     if (!effectiveClientId) {
       console.error('[createSalesInvoice] ERRO: effectiveClientId é undefined');
       return { success: false, error: 'Cliente não definido' };

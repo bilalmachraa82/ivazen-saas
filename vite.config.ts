@@ -23,6 +23,16 @@ function getBuildCommit(): string {
   }
 }
 
+// Extract the hostname from the Supabase URL for workbox runtime caching patterns.
+// Falls back to the current project ID if the env var is not set at build time.
+const supabaseHost = (() => {
+  const url = process.env.VITE_SUPABASE_URL;
+  if (url) {
+    try { return new URL(url).host; } catch { /* fall through */ }
+  }
+  return 'dmprkdvkzzjtixlatnlx.supabase.co';
+})();
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const buildCommit = getBuildCommit();
@@ -55,7 +65,7 @@ export default defineConfig(({ mode }) => {
           navigateFallbackDenylist: [/^\/api/],
           runtimeCaching: [
             {
-              urlPattern: /^https:\/\/dmprkdvkzzjtixlatnlx\.supabase\.co\/rest\/.*/i,
+              urlPattern: new RegExp(`^https://${supabaseHost.replace(/\./g, '\\.')}/rest/.*`, 'i'),
               handler: "NetworkFirst",
               options: {
                 cacheName: "supabase-api",
@@ -70,7 +80,7 @@ export default defineConfig(({ mode }) => {
               },
             },
             {
-              urlPattern: /^https:\/\/dmprkdvkzzjtixlatnlx\.supabase\.co\/storage\/.*/i,
+              urlPattern: new RegExp(`^https://${supabaseHost.replace(/\./g, '\\.')}/storage/.*`, 'i'),
               handler: "CacheFirst",
               options: {
                 cacheName: "supabase-storage",

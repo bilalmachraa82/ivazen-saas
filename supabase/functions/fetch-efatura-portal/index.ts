@@ -89,92 +89,6 @@ interface WithholdingExtractionDiagnostics {
   excludedMissingCoreFields: number;
 }
 
-interface CandidateSchemaSupport {
-  tableExists: boolean;
-  hasAccountantId: boolean;
-  hasSyncHistoryId: boolean;
-  hasSourceSyncHistoryId: boolean;
-  hasSourceSalesInvoiceId: boolean;
-  hasConfidenceScore: boolean;
-  hasConfidence: boolean;
-  hasDetectionReason: boolean;
-  hasDetectedKeys: boolean;
-  hasRawPayload: boolean;
-}
-
-function isMissingSchemaError(error: unknown): boolean {
-  const message = String((error as { message?: unknown })?.message || "")
-    .toLowerCase();
-  return (
-    message.includes("column") && message.includes("does not exist")
-  ) || (
-    message.includes("relation") && message.includes("does not exist")
-  );
-}
-
-async function detectCandidateColumn(
-  supabase: any,
-  column: string,
-): Promise<boolean> {
-  const { error } = await supabase
-    .from("at_withholding_candidates")
-    .select(column)
-    .limit(1);
-
-  if (!error) return true;
-  if (isMissingSchemaError(error)) return false;
-
-  console.warn(
-    `[fetch-efatura-portal] Could not verify column "${column}": ${
-      error.message || error
-    }`,
-  );
-  return false;
-}
-
-async function detectCandidateSchemaSupport(
-  supabase: any,
-): Promise<CandidateSchemaSupport> {
-  const { error: tableError } = await supabase
-    .from("at_withholding_candidates")
-    .select("id")
-    .limit(1);
-
-  if (tableError && isMissingSchemaError(tableError)) {
-    return {
-      tableExists: false,
-      hasAccountantId: false,
-      hasSyncHistoryId: false,
-      hasSourceSyncHistoryId: false,
-      hasSourceSalesInvoiceId: false,
-      hasConfidenceScore: false,
-      hasConfidence: false,
-      hasDetectionReason: false,
-      hasDetectedKeys: false,
-      hasRawPayload: false,
-    };
-  }
-
-  return {
-    tableExists: true,
-    hasAccountantId: await detectCandidateColumn(supabase, "accountant_id"),
-    hasSyncHistoryId: await detectCandidateColumn(supabase, "sync_history_id"),
-    hasSourceSyncHistoryId: await detectCandidateColumn(
-      supabase,
-      "source_sync_history_id",
-    ),
-    hasSourceSalesInvoiceId: await detectCandidateColumn(
-      supabase,
-      "source_sales_invoice_id",
-    ),
-    hasConfidenceScore: await detectCandidateColumn(supabase, "confidence_score"),
-    hasConfidence: await detectCandidateColumn(supabase, "confidence"),
-    hasDetectionReason: await detectCandidateColumn(supabase, "detection_reason"),
-    hasDetectedKeys: await detectCandidateColumn(supabase, "detected_keys"),
-    hasRawPayload: await detectCandidateColumn(supabase, "raw_payload"),
-  };
-}
-
 async function resolveCandidateAccountantId(
   supabase: any,
   clientId: string,
@@ -659,7 +573,6 @@ async function upsertWithholdingCandidatesFromPortalInvoices(
   syncId: string | null,
   invoices: PortalInvoice[],
 ): Promise<{
-  schemaReady: boolean;
   candidates: number;
   highConfidence: number;
   pendingReview: number;
@@ -689,48 +602,16 @@ async function upsertWithholdingCandidatesFromPortalInvoices(
     excludedNoRetentionSignal: 0,
     excludedMissingCoreFields: 0,
   };
-  const schema = await detectCandidateSchemaSupport(supabase);
-
-  if (!schema.tableExists) {
-    console.warn(
-      "[fetch-efatura-portal] at_withholding_candidates table not available. Skipping candidates staging.",
-    );
-    return {
-      schemaReady: false,
-      candidates: 0,
-      highConfidence: 0,
-      pendingReview: 0,
-      promoted: 0,
-      inserted: 0,
-      skipped: 0,
-      errors: 0,
-      diagnostics,
-      sampleKeys: [],
-    };
-  }
-
   const resolvedAccountantId = await resolveCandidateAccountantId(
     supabase,
     clientId,
     accountantId,
   );
 
-  if (schema.hasAccountantId && !resolvedAccountantId) {
+  if (!resolvedAccountantId) {
     console.warn(
-      `[fetch-efatura-portal] accountant_id is required by candidates schema but could not be resolved for client ${clientId}.`,
+      `[fetch-efatura-portal] accountant_id could not be resolved for client ${clientId}. Candidates will be inserted without accountant_id.`,
     );
-    return {
-      schemaReady: false,
-      candidates: 0,
-      highConfidence: 0,
-      pendingReview: 0,
-      promoted: 0,
-      inserted: 0,
-      skipped: 0,
-      errors: 0,
-      diagnostics,
-      sampleKeys: [],
-    };
   }
 
   for (const inv of invoices) {
@@ -774,9 +655,7 @@ async function upsertWithholdingCandidatesFromPortalInvoices(
       .limit(1)
       .maybeSingle();
 
-    const lookupColumns = ["id", "status"];
-    if (schema.hasConfidenceScore) lookupColumns.push("confidence_score");
-    else if (schema.hasConfidence) lookupColumns.push("confidence");
+    const lookupColumns = ["id", "status", "confidence_score"];
 
     const { data: existingCandidate, error: existingError } = await supabase
       .from("at_withholding_candidates")
@@ -816,27 +695,19 @@ async function upsertWithholdingCandidatesFromPortalInvoices(
         withholding_amount: candidate.withholdingAmount,
         withholding_rate: candidate.withholdingRate,
         status: statusToPersist,
+        sync_history_id: syncId,
+        source_sync_history_id: syncId,
+        source_sales_invoice_id: salesRow?.id || null,
+        confidence_score: candidate.confidenceScore,
+        confidence: candidate.confidenceScore,
+        detection_reason: candidate.detectionReason,
+        detected_keys: candidate.detectedKeys,
+        raw_payload: candidate.rawPayload,
       };
 
-      if (schema.hasAccountantId && resolvedAccountantId) {
+      if (resolvedAccountantId) {
         updatePayload.accountant_id = resolvedAccountantId;
       }
-      if (schema.hasSyncHistoryId) updatePayload.sync_history_id = syncId;
-      if (schema.hasSourceSyncHistoryId) {
-        updatePayload.source_sync_history_id = syncId;
-      }
-      if (schema.hasSourceSalesInvoiceId) {
-        updatePayload.source_sales_invoice_id = salesRow?.id || null;
-      }
-      if (schema.hasConfidenceScore) {
-        updatePayload.confidence_score = candidate.confidenceScore;
-      }
-      if (schema.hasConfidence) updatePayload.confidence = candidate.confidenceScore;
-      if (schema.hasDetectionReason) {
-        updatePayload.detection_reason = candidate.detectionReason;
-      }
-      if (schema.hasDetectedKeys) updatePayload.detected_keys = candidate.detectedKeys;
-      if (schema.hasRawPayload) updatePayload.raw_payload = candidate.rawPayload;
 
       const { error: updateError } = await supabase
         .from("at_withholding_candidates")
@@ -866,27 +737,19 @@ async function upsertWithholdingCandidatesFromPortalInvoices(
         withholding_amount: candidate.withholdingAmount,
         withholding_rate: candidate.withholdingRate,
         status: "pending",
+        sync_history_id: syncId,
+        source_sync_history_id: syncId,
+        source_sales_invoice_id: salesRow?.id || null,
+        confidence_score: candidate.confidenceScore,
+        confidence: candidate.confidenceScore,
+        detection_reason: candidate.detectionReason,
+        detected_keys: candidate.detectedKeys,
+        raw_payload: candidate.rawPayload,
       };
 
-      if (schema.hasAccountantId && resolvedAccountantId) {
+      if (resolvedAccountantId) {
         insertPayload.accountant_id = resolvedAccountantId;
       }
-      if (schema.hasSyncHistoryId) insertPayload.sync_history_id = syncId;
-      if (schema.hasSourceSyncHistoryId) {
-        insertPayload.source_sync_history_id = syncId;
-      }
-      if (schema.hasSourceSalesInvoiceId) {
-        insertPayload.source_sales_invoice_id = salesRow?.id || null;
-      }
-      if (schema.hasConfidenceScore) {
-        insertPayload.confidence_score = candidate.confidenceScore;
-      }
-      if (schema.hasConfidence) insertPayload.confidence = candidate.confidenceScore;
-      if (schema.hasDetectionReason) {
-        insertPayload.detection_reason = candidate.detectionReason;
-      }
-      if (schema.hasDetectedKeys) insertPayload.detected_keys = candidate.detectedKeys;
-      if (schema.hasRawPayload) insertPayload.raw_payload = candidate.rawPayload;
 
       const { data: insertedCandidate, error: insertError } = await supabase
         .from("at_withholding_candidates")
@@ -944,7 +807,6 @@ async function upsertWithholdingCandidatesFromPortalInvoices(
   }
 
   return {
-    schemaReady: true,
     candidates,
     highConfidence,
     pendingReview,
@@ -2147,35 +2009,15 @@ Deno.serve(async (req: Request) => {
           syncId || null,
           allInvoices,
         );
-        if (!candidateResult.schemaReady) {
-          withholdingsMode = "direct";
-          const fallbackResult = await upsertWithholdingsDirectFromPortalInvoices(
-            supabase,
-            clientId,
-            clientNif,
-            clientName,
-            allInvoices,
-          );
-          withholdingsInserted = fallbackResult.inserted;
-          withholdingsSkipped = fallbackResult.skipped;
-          withholdingsErrors = fallbackResult.errors;
-          withholdingsCandidates = fallbackResult.candidates;
-          withholdingsHighConfidence = fallbackResult.candidates;
-          withholdingsPendingReview = 0;
-          withholdingsPromoted = fallbackResult.inserted;
-          withholdingsSampleKeys = fallbackResult.sampleKeys;
-          withholdingsDiagnostics = fallbackResult.diagnostics;
-        } else {
-          withholdingsInserted = candidateResult.inserted;
-          withholdingsSkipped = candidateResult.skipped;
-          withholdingsErrors = candidateResult.errors;
-          withholdingsCandidates = candidateResult.candidates;
-          withholdingsHighConfidence = candidateResult.highConfidence;
-          withholdingsPendingReview = candidateResult.pendingReview;
-          withholdingsPromoted = candidateResult.promoted;
-          withholdingsSampleKeys = candidateResult.sampleKeys;
-          withholdingsDiagnostics = candidateResult.diagnostics;
-        }
+        withholdingsInserted = candidateResult.inserted;
+        withholdingsSkipped = candidateResult.skipped;
+        withholdingsErrors = candidateResult.errors;
+        withholdingsCandidates = candidateResult.candidates;
+        withholdingsHighConfidence = candidateResult.highConfidence;
+        withholdingsPendingReview = candidateResult.pendingReview;
+        withholdingsPromoted = candidateResult.promoted;
+        withholdingsSampleKeys = candidateResult.sampleKeys;
+        withholdingsDiagnostics = candidateResult.diagnostics;
       } else {
         withholdingsMode = "direct";
         const withholdingResult = await upsertWithholdingsDirectFromPortalInvoices(

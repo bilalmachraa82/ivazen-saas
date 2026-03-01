@@ -13,10 +13,14 @@ export interface SalesInvoiceFilters {
   clientId: string; // For accountants to filter by client
 }
 
+const PAGE_SIZE = 50;
+
 export function useSalesInvoices(externalClientId?: string | null) {
   const { user } = useAuth();
   const [invoices, setInvoices] = useState<SalesInvoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const [filters, setFilters] = useState<SalesInvoiceFilters>({
     status: 'all',
     fiscalPeriod: 'all',
@@ -26,12 +30,15 @@ export function useSalesInvoices(externalClientId?: string | null) {
 
   const effectiveClientId = externalClientId !== undefined ? externalClientId : filters.clientId;
 
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
   const fetchInvoices = useCallback(async () => {
     if (!user) return;
 
     // If externalClientId is explicitly null, don't fetch
     if (externalClientId === null) {
       setInvoices([]);
+      setTotalCount(0);
       setLoading(false);
       return;
     }
@@ -40,8 +47,9 @@ export function useSalesInvoices(externalClientId?: string | null) {
     try {
       let query = supabase
         .from('sales_invoices')
-        .select('*')
-        .order('document_date', { ascending: false });
+        .select('*', { count: 'exact' })
+        .order('document_date', { ascending: false })
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
       if (filters.status !== 'all') {
         query = query.eq('status', filters.status);
@@ -62,17 +70,18 @@ export function useSalesInvoices(externalClientId?: string | null) {
         query = query.eq('client_id', effectiveClientId);
       }
 
-      const { data, error } = await query;
+      const { data, error, count } = await query;
 
       if (error) throw error;
       setInvoices(data || []);
+      setTotalCount(count ?? 0);
     } catch (error) {
       console.error('Error fetching sales invoices:', error);
       toast.error('Erro ao carregar facturas de vendas');
     } finally {
       setLoading(false);
     }
-  }, [user, filters.status, filters.fiscalPeriod, filters.search, effectiveClientId, externalClientId]);
+  }, [user, filters.status, filters.fiscalPeriod, filters.search, effectiveClientId, externalClientId, page]);
 
   const validateInvoice = async (invoiceId: string, category?: string, notes?: string) => {
     try {
@@ -131,14 +140,28 @@ export function useSalesInvoices(externalClientId?: string | null) {
     return Array.from(periods).sort().reverse();
   };
 
-  // Fetch when user or main filters change
+  // Reset page to 0 when filters change (not when page itself changes)
+  const setFiltersAndResetPage = (
+    value: SalesInvoiceFilters | ((prev: SalesInvoiceFilters) => SalesInvoiceFilters),
+  ) => {
+    setPage(0);
+    setFilters(value);
+  };
+
+  // Fetch when user, main filters, or page changes
   useEffect(() => {
     fetchInvoices();
-  }, [user, filters.status, filters.fiscalPeriod, effectiveClientId]);
+  }, [user, filters.status, filters.fiscalPeriod, effectiveClientId, page]);
+
+  // Reset page when non-page filters change
+  useEffect(() => {
+    setPage(0);
+  }, [filters.status, filters.fiscalPeriod, effectiveClientId]);
 
   // Debounced fetch for search
   useEffect(() => {
     const timeout = setTimeout(() => {
+      setPage(0);
       fetchInvoices();
     }, 300);
     return () => clearTimeout(timeout);
@@ -148,10 +171,16 @@ export function useSalesInvoices(externalClientId?: string | null) {
     invoices,
     loading,
     filters,
-    setFilters,
+    setFilters: setFiltersAndResetPage,
     validateInvoice,
     getSignedUrl,
     getFiscalPeriods,
     refetch: fetchInvoices,
+    // Pagination
+    page,
+    setPage,
+    totalCount,
+    totalPages,
+    pageSize: PAGE_SIZE,
   };
 }

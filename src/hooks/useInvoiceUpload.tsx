@@ -63,8 +63,6 @@ export function useInvoiceUpload(options: UseInvoiceUploadOptions = {}) {
   // Use forClientId if provided (for accountants), otherwise use current user
   const effectiveClientId = forClientId || user?.id;
 
-  // Log for debugging client association issues
-  console.log('[useInvoiceUpload] forClientId:', forClientId, '| user?.id:', user?.id, '| effectiveClientId:', effectiveClientId);
 
   const parseQRCode = async (qrContent: string): Promise<ParsedInvoice | null> => {
     setIsParsing(true);

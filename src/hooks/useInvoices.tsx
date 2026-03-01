@@ -98,10 +98,14 @@ function blobToDataUrl(blob: Blob, mimeType: string): Promise<string> {
   });
 }
 
+const PAGE_SIZE = 50;
+
 export function useInvoices(externalClientId?: string | null) {
   const { user } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const [filters, setFilters] = useState<InvoiceFilters>({
     status: 'all',
     fiscalPeriod: 'all',
@@ -112,22 +116,26 @@ export function useInvoices(externalClientId?: string | null) {
   // When externalClientId is provided, it takes precedence over filters.clientId
   const effectiveClientId = externalClientId !== undefined ? externalClientId : filters.clientId;
 
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
   const fetchInvoices = async () => {
     if (!user) return;
 
     // If externalClientId is explicitly null, don't fetch (accountant without client selected)
     if (externalClientId === null) {
       setInvoices([]);
+      setTotalCount(0);
       setLoading(false);
       return;
     }
-    
+
     setLoading(true);
     try {
       let query = supabase
         .from('invoices')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
       if (filters.status !== 'all') {
         query = query.eq('status', filters.status);
@@ -146,10 +154,11 @@ export function useInvoices(externalClientId?: string | null) {
         query = query.eq('client_id', effectiveClientId);
       }
 
-      const { data, error } = await query;
+      const { data, error, count } = await query;
 
       if (error) throw error;
       setInvoices(data || []);
+      setTotalCount(count ?? 0);
     } catch (error) {
       console.error('Error fetching invoices:', error);
       toast.error('Erro ao carregar facturas');
@@ -430,13 +439,26 @@ export function useInvoices(externalClientId?: string | null) {
     return Array.from(periods).sort().reverse();
   };
 
+  // Reset page to 0 when filters change (not when page itself changes)
+  const setFiltersAndResetPage = (
+    value: InvoiceFilters | ((prev: InvoiceFilters) => InvoiceFilters),
+  ) => {
+    setPage(0);
+    setFilters(value);
+  };
+
   useEffect(() => {
     fetchInvoices();
-  }, [user, filters.status, filters.fiscalPeriod, effectiveClientId]);
+  }, [user, filters.status, filters.fiscalPeriod, effectiveClientId, page]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [filters.status, filters.fiscalPeriod, effectiveClientId]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (filters.search !== '') {
+        setPage(0);
         fetchInvoices();
       }
     }, 300);
@@ -448,11 +470,17 @@ export function useInvoices(externalClientId?: string | null) {
     invoices,
     loading,
     filters,
-    setFilters,
+    setFilters: setFiltersAndResetPage,
     validateInvoice,
     reExtractInvoice,
     getSignedUrl,
     getFiscalPeriods,
     refetch: fetchInvoices,
+    // Pagination
+    page,
+    setPage,
+    totalCount,
+    totalPages,
+    pageSize: PAGE_SIZE,
   };
 }

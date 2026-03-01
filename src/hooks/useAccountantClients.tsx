@@ -31,7 +31,7 @@ interface UseAccountantClientsOptions {
 }
 
 export function useAccountantClients(options: UseAccountantClientsOptions = {}) {
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
   const { enabled = true } = options;
   
   const query = useQuery({
@@ -68,7 +68,7 @@ export function useAccountantClients(options: UseAccountantClientsOptions = {}) 
   
   // Computed values
   const clients = query.data || [];
-  const isAccountant = clients.length > 0 || query.isSuccess;
+  const isAccountant = hasRole('accountant');
   
   // Helper to get display name
   const getClientDisplayName = (client: AccountantClient | null): string => {
