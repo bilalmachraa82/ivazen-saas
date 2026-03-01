@@ -26,3 +26,22 @@ test-results/
 
 # Supabase CLI temp artifacts
 supabase/.temp/
+.vercel
+
+# Migration data (sensitive - user data, credentials)
+scripts/migration/csv/
+scripts/migration/users.json
+
+# Temporary test files
+tmp/
+output/
+*.pdf
+*.zip
+*.xls
+*.xlsx
+scripts/__pycache__/
+bun.lockb
+deno.lock
+
+# Lovable artifacts
+.lovable/

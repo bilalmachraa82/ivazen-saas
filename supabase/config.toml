@@ -1,5 +1,19 @@
 project_id = "dmprkdvkzzjtixlatnlx"
 
+[auth]
+site_url = "https://ivazen-saas.vercel.app"
+additional_redirect_urls = [
+  "https://ivazen.aiparati.pt/**",
+  "https://ivazen-saas.vercel.app/**",
+  "https://*.vercel.app/**",
+  "http://localhost:8080/**"
+]
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
 [functions.process-queue]
 verify_jwt = false
 
