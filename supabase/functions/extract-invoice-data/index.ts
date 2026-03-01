@@ -355,7 +355,14 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-    const isServiceRole = token === supabaseServiceRoleKey;
+    let isServiceRole = token === supabaseServiceRoleKey;
+    // Fallback: decode JWT payload to check role claim (gateway may transform token)
+    if (!isServiceRole) {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        isServiceRole = payload.role === "service_role";
+      } catch { /* not a valid JWT */ }
+    }
 
     if (!isServiceRole) {
       const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");

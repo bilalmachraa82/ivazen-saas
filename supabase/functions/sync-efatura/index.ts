@@ -631,7 +631,16 @@ Deno.serve(async (req: Request) => {
 
     // Accept internal service-role calls (from process-at-sync-queue) OR valid user JWTs
     const token = authHeader.replace("Bearer ", "").trim();
-    const isServiceRole = token === supabaseServiceKey;
+    let isServiceRole = token === supabaseServiceKey;
+    // Fallback: decode JWT payload to check role claim (gateway may transform token)
+    if (!isServiceRole) {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        isServiceRole = payload.role === "service_role";
+      } catch {
+        // Not a valid JWT — will be handled by user auth below
+      }
+    }
 
     let authUser: { id: string } | null = null;
     if (!isServiceRole) {
