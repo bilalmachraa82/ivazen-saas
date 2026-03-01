@@ -174,6 +174,15 @@ serve(async (req) => {
       );
     }
 
+    // Reject oversized files (~10MB original = ~13.3MB base64; use 14MB threshold)
+    const MAX_BASE64_BYTES = 14 * 1024 * 1024; // ~10MB file
+    if (fileData.length > MAX_BASE64_BYTES) {
+      return new Response(
+        JSON.stringify({ error: 'Ficheiro demasiado grande. Máximo: 10MB.' }),
+        { status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     console.log('Extracting withholding data for user:', user.id);
 
     const AI_API_KEY = Deno.env.get('AI_API_KEY');

@@ -405,6 +405,15 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Reject oversized files (~10MB original = ~13.3MB base64; use 14MB threshold)
+    const MAX_BASE64_BYTES = 14 * 1024 * 1024; // ~10MB file
+    if (base64Content.length > MAX_BASE64_BYTES) {
+      return new Response(
+        JSON.stringify({ error: 'Ficheiro demasiado grande. Máximo: 10MB.' }),
+        { status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     console.log('[extract-invoice-data] Extracting invoice data, mime:', mimeType, ', base64 size:', Math.round(base64Content.length / 1024), 'KB');
 
     // Use OpenRouter AI Gateway

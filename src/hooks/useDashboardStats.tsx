@@ -38,31 +38,40 @@ export function useDashboardStats(forClientId?: string | null) {
     queryFn: async (): Promise<DashboardStats> => {
       if (!effectiveClientId) return EMPTY_STATS;
 
-      let query = supabase
-        .from('invoices')
-        .select('status, ai_confidence');
+      const [totalRes, pendingRes, validatedRes, lowConfRes] = await Promise.all([
+        supabase
+          .from('invoices')
+          .select('*', { count: 'exact', head: true })
+          .eq('client_id', effectiveClientId),
+        supabase
+          .from('invoices')
+          .select('*', { count: 'exact', head: true })
+          .eq('client_id', effectiveClientId)
+          .in('status', ['pending', 'classified']),
+        supabase
+          .from('invoices')
+          .select('*', { count: 'exact', head: true })
+          .eq('client_id', effectiveClientId)
+          .eq('status', 'validated'),
+        supabase
+          .from('invoices')
+          .select('*', { count: 'exact', head: true })
+          .eq('client_id', effectiveClientId)
+          .lt('ai_confidence', 80)
+          .neq('status', 'validated'),
+      ]);
 
-      if (effectiveClientId) {
-        query = query.eq('client_id', effectiveClientId);
-      }
-
-      const { data: invoices, error } = await query;
-
-      if (error) {
-        console.error('Error fetching stats:', error);
+      if (totalRes.error) {
+        console.error('Error fetching stats:', totalRes.error);
         return EMPTY_STATS;
       }
 
-      if (!invoices || invoices.length === 0) {
-        return EMPTY_STATS;
-      }
-
-      const total = invoices.length;
-      const pending = invoices.filter(i => i.status === 'pending' || i.status === 'classified').length;
-      const validated = invoices.filter(i => i.status === 'validated').length;
-      const lowConfidence = invoices.filter(i => (i.ai_confidence || 0) < 80 && i.status !== 'validated').length;
-
-      return { total, pending, validated, lowConfidence };
+      return {
+        total: totalRes.count ?? 0,
+        pending: pendingRes.count ?? 0,
+        validated: validatedRes.count ?? 0,
+        lowConfidence: lowConfRes.count ?? 0,
+      };
     },
     enabled: !!effectiveClientId,
   });
@@ -99,7 +108,9 @@ export function useDashboardStats(forClientId?: string | null) {
         amount: Number(inv.total_amount),
         status: inv.status as 'pending' | 'validated' | 'classified',
         confidence: inv.ai_confidence || 0,
-        date: new Date(inv.document_date).toLocaleDateString('pt-PT'),
+        date: inv.document_date
+          ? new Date(inv.document_date).toLocaleDateString('pt-PT')
+          : '—',
       }));
     },
     enabled: !!effectiveClientId,
