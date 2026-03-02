@@ -405,11 +405,6 @@ export function useInvoices(externalClientId?: string | null) {
     }
   };
 
-  const getImageUrl = (imagePath: string) => {
-    const { data } = supabase.storage.from('invoices').getPublicUrl(imagePath);
-    return data.publicUrl;
-  };
-
   const getSignedUrl = async (imagePath: string) => {
     const { data, error } = await supabase.storage
       .from('invoices')

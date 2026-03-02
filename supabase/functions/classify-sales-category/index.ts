@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://ivazen-saas.vercel.app',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -153,6 +153,51 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Sales invoice not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Authorization: user must own the client, be the assigned accountant, or be admin.
+    let isAuthorized = invoice.client_id === user.id;
+    if (!isAuthorized) {
+      const { data: userRoleRows, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id);
+      if (roleError) {
+        console.error('Role lookup error:', roleError);
+        return new Response(
+          JSON.stringify({ error: 'Forbidden' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const userRoles = new Set((userRoleRows || []).map((r: { role: string }) => r.role));
+      const isAdmin = userRoles.has('admin');
+      if (isAdmin) {
+        isAuthorized = true;
+      } else {
+        const { data: accountantLink, error: accountantLinkError } = await supabase
+          .from('client_accountants')
+          .select('client_id')
+          .eq('client_id', invoice.client_id)
+          .eq('accountant_id', user.id)
+          .limit(1)
+          .maybeSingle();
+        if (accountantLinkError) {
+          console.error('Client-accountant lookup error:', accountantLinkError);
+          return new Response(
+            JSON.stringify({ error: 'Forbidden' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        isAuthorized = Boolean(accountantLink);
+      }
+    }
+
+    if (!isAuthorized) {
+      return new Response(
+        JSON.stringify({ error: 'Forbidden: no access to this sales invoice' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

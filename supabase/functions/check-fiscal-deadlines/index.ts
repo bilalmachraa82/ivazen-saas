@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://ivazen-saas.vercel.app",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
@@ -98,34 +98,56 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Auth: accept either JWT (user call) or service role key (cron call)
+    // Auth: accept service-role key (cron/internal) or admin JWT.
     const authHeader = req.headers.get('Authorization');
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
-    if (authHeader) {
-      // If there's a Bearer token, verify it's a valid JWT or the service role key
-      const token = authHeader.replace('Bearer ', '');
-      if (token !== serviceRoleKey) {
-        const authSupabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
-          global: { headers: { Authorization: authHeader } }
-        });
-        const { error: authError } = await authSupabase.auth.getUser();
-        if (authError) {
-          return new Response(
-            JSON.stringify({ error: 'Token inválido ou expirado' }),
-            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-      }
-    } else {
+    if (!authHeader) {
       return new Response(
         JSON.stringify({ error: 'Autenticação obrigatória' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const isServiceRole = token === serviceRoleKey;
+    let userId: string | null = null;
+
+    if (!isServiceRole) {
+      const authSupabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
+        global: { headers: { Authorization: authHeader } },
+        auth: { persistSession: false },
+      });
+      const { data: { user }, error: authError } = await authSupabase.auth.getUser();
+      if (authError || !user) {
+        return new Response(
+          JSON.stringify({ error: 'Token inválido ou expirado' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      userId = user.id;
+    }
+
     const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    // Non-service calls must be admin-only.
+    if (!isServiceRole && userId) {
+      const { data: adminRole, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .limit(1)
+        .maybeSingle();
+
+      if (roleError || !adminRole) {
+        return new Response(
+          JSON.stringify({ error: 'Forbidden: admin role required' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     console.log("=== Checking fiscal deadlines ===");
     console.log(`Current time: ${new Date().toISOString()}`);
