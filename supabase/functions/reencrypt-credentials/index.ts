@@ -92,17 +92,11 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Verify the caller is using service-role by decoding the JWT claim
+    // Verify the caller is using the exact service-role secret.
+    // Never trust unsigned/decoded JWT payload claims.
     const authHeader = req.headers.get("Authorization") ?? "";
-    const token = authHeader.replace("Bearer ", "");
-    let isServiceRole = false;
-    try {
-      // JWT payload is the second base64-encoded segment
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      isServiceRole = payload.role === "service_role";
-    } catch {
-      // Not a valid JWT
-    }
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    const isServiceRole = token === supabaseServiceKey;
 
     if (!isServiceRole) {
       return new Response(

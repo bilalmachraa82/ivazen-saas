@@ -1514,13 +1514,6 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const token = authHeader.replace(/^Bearer\s+/i, "").trim();
     let isServiceRole = token === supabaseServiceKey;
-    // Fallback: decode JWT payload to check role claim (gateway may transform token)
-    if (!isServiceRole) {
-      try {
-        const payload = JSON.parse(atob(token.split(".")[1]));
-        isServiceRole = payload.role === "service_role";
-      } catch { /* not a valid JWT */ }
-    }
 
     const {
       clientId,

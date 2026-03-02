@@ -40,11 +40,12 @@ for (const fnName of targets) {
   const src = fs.readFileSync(fnPath, 'utf8');
   const hasAuthHeaderCheck = /Authorization|authorization/.test(src);
   const hasTokenValidation = /auth\.getUser\(|SUPABASE_SERVICE_ROLE_KEY|token\s*===|Unauthorized|Não autorizado|Token inválido/.test(src);
+  const hasInsecureRoleDecode = /atob\(token\.split\(["']\.\s*["']\)\[1\]\)|payload\.role\s*===\s*["']service_role["']/.test(src);
 
-  if (!hasAuthHeaderCheck || !hasTokenValidation) {
+  if (!hasAuthHeaderCheck || !hasTokenValidation || hasInsecureRoleDecode) {
     failures.push({
       fnName,
-      reason: `insufficient manual guard (hasAuthHeaderCheck=${hasAuthHeaderCheck}, hasTokenValidation=${hasTokenValidation})`,
+      reason: `insufficient manual guard (hasAuthHeaderCheck=${hasAuthHeaderCheck}, hasTokenValidation=${hasTokenValidation}, hasInsecureRoleDecode=${hasInsecureRoleDecode})`,
       path: fnPath,
     });
   }
