@@ -16,6 +16,20 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+function constantTimeEquals(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const aa = enc.encode(a);
+  const bb = enc.encode(b);
+  const len = Math.max(aa.length, bb.length);
+  let diff = aa.length ^ bb.length;
+  for (let i = 0; i < len; i++) {
+    const av = i < aa.length ? aa[i] : 0;
+    const bv = i < bb.length ? bb[i] : 0;
+    diff |= av ^ bv;
+  }
+  return diff === 0;
+}
+
 // ── Encryption (same algorithm as import-client-credentials) ──────────────
 
 async function encryptPassword(
@@ -96,7 +110,7 @@ Deno.serve(async (req: Request) => {
     // Never trust unsigned/decoded JWT payload claims.
     const authHeader = req.headers.get("Authorization") ?? "";
     const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-    const isServiceRole = token === supabaseServiceKey;
+    const isServiceRole = constantTimeEquals(token, supabaseServiceKey);
 
     if (!isServiceRole) {
       return new Response(
@@ -124,9 +138,14 @@ Deno.serve(async (req: Request) => {
       { auth: { autoRefreshToken: false, persistSession: false } },
     );
 
-    // ── Encryption secret (same logic as import-client-credentials) ──
-    const encryptionSecret =
-      Deno.env.get("AT_ENCRYPTION_KEY") || supabaseServiceKey.substring(0, 32);
+    // Security hardening: dedicated key is mandatory (no service-role fallback).
+    const encryptionSecret = Deno.env.get("AT_ENCRYPTION_KEY")?.trim() || "";
+    if (!encryptionSecret) {
+      return new Response(
+        JSON.stringify({ error: "Server misconfigured: missing AT_ENCRYPTION_KEY" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     // ── Build NIF → profile lookup ───────────────────────────────────
     const allNifs = credentials.map((c) => c.nif.replace(/\D/g, ""));

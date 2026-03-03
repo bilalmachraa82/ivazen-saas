@@ -20,6 +20,10 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const BATCH_SIZE = 5; // Process 5 clients at a time
 const MAX_RUNTIME_MS = 50000; // 50 seconds max per invocation (leave margin for 60s limit)
+const SYNC_REQUEST_TIMEOUT_MS = Math.max(
+  5000,
+  Number(Deno.env.get("AT_SYNC_REQUEST_TIMEOUT_MS") || 35000),
+);
 
 declare const EdgeRuntime:
   | {
@@ -29,6 +33,34 @@ declare const EdgeRuntime:
 
 function toISODateUTC(d: Date): string {
   return d.toISOString().slice(0, 10);
+}
+
+function constantTimeEquals(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const aa = enc.encode(a);
+  const bb = enc.encode(b);
+  const len = Math.max(aa.length, bb.length);
+  let diff = aa.length ^ bb.length;
+  for (let i = 0; i < len; i++) {
+    const av = i < aa.length ? aa[i] : 0;
+    const bv = i < bb.length ? bb[i] : 0;
+    diff |= av ^ bv;
+  }
+  return diff === 0;
+}
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  timeoutMs: number,
+) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort("timeout"), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 // NOTE: Automatic withholding sync via portal scraping has been removed.
@@ -54,7 +86,7 @@ Deno.serve(async (req) => {
     const webhookToken = (req.headers.get("x-internal-webhook-token") || "")
       .trim();
 
-    let isAuthorized = token === SUPABASE_SERVICE_ROLE_KEY;
+    let isAuthorized = constantTimeEquals(token, SUPABASE_SERVICE_ROLE_KEY);
     if (!isAuthorized && webhookToken) {
       const { data: webhookRow, error: webhookError } = await supabase
         .from("internal_webhook_keys")
@@ -64,7 +96,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (!webhookError && webhookRow?.token) {
-        isAuthorized = webhookToken === webhookRow.token;
+        isAuthorized = constantTimeEquals(webhookToken, webhookRow.token);
       }
     }
 
@@ -194,7 +226,7 @@ Deno.serve(async (req) => {
         const endDate = Number(fy) === currentYear ? today : `${fy}-12-31`;
 
         // Call sync-efatura
-        const syncResponse = await fetch(
+        const syncResponse = await fetchWithTimeout(
           `${SUPABASE_URL}/functions/v1/sync-efatura`,
           {
             method: "POST",
@@ -211,6 +243,7 @@ Deno.serve(async (req) => {
               endDate,
             }),
           },
+          SYNC_REQUEST_TIMEOUT_MS,
         );
 
         if (!syncResponse.ok) {
@@ -290,14 +323,14 @@ Deno.serve(async (req) => {
     if (hasMore) {
       const nextBatchPayload = { batchId };
       const triggerNextBatch = () =>
-        fetch(`${SUPABASE_URL}/functions/v1/process-at-sync-queue`, {
+        fetchWithTimeout(`${SUPABASE_URL}/functions/v1/process-at-sync-queue`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
           },
           body: JSON.stringify(nextBatchPayload),
-        });
+        }, 10000);
 
       console.log(
         `${remainingCount} jobs remaining, triggering next batch...`,

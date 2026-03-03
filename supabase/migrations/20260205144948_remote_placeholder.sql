@@ -1,0 +1,1 @@
+-- Placeholder migration for remote history alignment (20260205144948).

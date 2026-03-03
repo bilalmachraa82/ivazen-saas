@@ -21,6 +21,9 @@ const AT_TLS_MIN_VERSION = process.env.AT_TLS_MIN_VERSION || 'TLSv1.2';
 const AT_TLS_CIPHERS = process.env.AT_TLS_CIPHERS || '';
 const AT_TLS_LEGACY_SERVER_CONNECT = process.env.AT_TLS_LEGACY_SERVER_CONNECT === '1';
 const AT_DOCS_PER_PAGE = Math.min(5000, Math.max(1, Number(process.env.AT_DOCS_PER_PAGE || 5000)));
+const AT_SOAP_TIMEOUT_MS = Math.max(5000, Number(process.env.AT_SOAP_TIMEOUT_MS || 25000));
+const AT_SOAP_MAX_RETRIES = Math.min(4, Math.max(0, Number(process.env.AT_SOAP_MAX_RETRIES || 2)));
+const HEALTH_REQUIRES_AUTH = process.env.HEALTH_REQUIRES_AUTH !== '0';
 
 const AT_ENDPOINTS = {
   invoiceQuery: {
@@ -329,7 +332,19 @@ function parseInvoicesResponse(xmlText) {
   return out;
 }
 
-function requestSoap(urlString, xmlBody) {
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableSoapError(error) {
+  const msg = String(error?.message || '').toLowerCase();
+  return msg.includes('timeout') ||
+    msg.includes('econnreset') ||
+    msg.includes('socket hang up') ||
+    msg.includes('network');
+}
+
+function requestSoapOnce(urlString, xmlBody) {
   const url = new URL(urlString);
 
   const reqOptions = {
@@ -361,9 +376,36 @@ function requestSoap(urlString, xmlBody) {
       });
     });
     req.on('error', reject);
+    req.setTimeout(AT_SOAP_TIMEOUT_MS, () => {
+      req.destroy(new Error(`SOAP timeout after ${AT_SOAP_TIMEOUT_MS}ms`));
+    });
     req.write(xmlBody);
     req.end();
   });
+}
+
+async function requestSoap(urlString, xmlBody) {
+  for (let attempt = 0; attempt <= AT_SOAP_MAX_RETRIES; attempt++) {
+    try {
+      const response = await requestSoapOnce(urlString, xmlBody);
+      if (
+        response.statusCode >= 500 &&
+        attempt < AT_SOAP_MAX_RETRIES
+      ) {
+        await sleep(500 * (attempt + 1));
+        continue;
+      }
+      return response;
+    } catch (error) {
+      if (attempt < AT_SOAP_MAX_RETRIES && isRetryableSoapError(error)) {
+        await sleep(500 * (attempt + 1));
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw new Error('SOAP retries exhausted');
 }
 
 function parseDateUTC(s) {
@@ -504,6 +546,9 @@ function isValidDate(s) {
 
 const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && (req.url === '/health' || req.url === '/healthz')) {
+    if (HEALTH_REQUIRES_AUTH && !requireAuth(req)) {
+      return json(res, 401, { success: false, error: 'Unauthorized' });
+    }
     return json(res, 200, {
       status: 'ok',
       version: '2.0.0',

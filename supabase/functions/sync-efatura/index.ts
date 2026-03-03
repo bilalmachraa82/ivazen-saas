@@ -77,6 +77,20 @@ type ConnectorResponse = {
   error?: string;
 };
 
+const CONNECTOR_REQUEST_TIMEOUT_MS = Math.max(
+  5000,
+  Number(Deno.env.get("AT_CONNECTOR_TIMEOUT_MS") || 25000),
+);
+const CONNECTOR_MAX_RETRIES = Math.min(
+  4,
+  Math.max(0, Number(Deno.env.get("AT_CONNECTOR_MAX_RETRIES") || 2)),
+);
+const CONNECTOR_RETRY_BASE_DELAY_MS = Math.max(
+  200,
+  Number(Deno.env.get("AT_CONNECTOR_RETRY_BASE_MS") || 800),
+);
+const RETRYABLE_CONNECTOR_STATUS = new Set([408, 429, 500, 502, 503, 504]);
+
 const TAX_CODE_MAPPING: Record<string, { base: string; vat: string | null }> = {
   NOR: { base: "base_standard", vat: "vat_standard" },
   INT: { base: "base_intermediate", vat: "vat_intermediate" },
@@ -106,6 +120,32 @@ function isValidPortugueseNif(value: string | null | undefined): boolean {
 function parseFiscalYear(startDate: string): number | null {
   if (!isIsoDate(startDate)) return null;
   return Number(startDate.slice(0, 4)) || null;
+}
+
+function constantTimeEquals(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const aa = enc.encode(a);
+  const bb = enc.encode(b);
+  const len = Math.max(aa.length, bb.length);
+  let diff = aa.length ^ bb.length;
+  for (let i = 0; i < len; i++) {
+    const av = i < aa.length ? aa[i] : 0;
+    const bv = i < bb.length ? bb[i] : 0;
+    diff |= av ^ bv;
+  }
+  return diff === 0;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableConnectorError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const e = error as { name?: string; message?: string };
+  const msg = String(e.message || "").toLowerCase();
+  return e.name === "AbortError" || msg.includes("timeout") ||
+    msg.includes("connection reset") || msg.includes("network");
 }
 
 function buildRequestMetadata(
@@ -300,30 +340,31 @@ function isEncryptedPayload(value: unknown): value is string {
 
 async function decodeStoredSecret(
   value: unknown,
-  secret: string,
+  secrets: string[],
   fieldLabel: string,
 ): Promise<string | null> {
   if (typeof value !== "string" || !value.trim()) return null;
 
   if (!isEncryptedPayload(value)) {
-    // Backward compatibility for legacy rows written in plain text.
-    console.warn(
-      `[sync-efatura] ${fieldLabel} stored in plaintext format (legacy row)`,
-    );
-    return value;
-  }
-
-  try {
-    return await decryptPassword(value, secret);
-  } catch (error: any) {
-    const hasExplicitKey = Boolean(Deno.env.get("AT_ENCRYPTION_KEY"));
+    // Security hardening: legacy plaintext is no longer accepted.
     console.error(
-      `[sync-efatura] Failed to decrypt ${fieldLabel}: ${
-        error?.message || String(error)
-      } | AT_ENCRYPTION_KEY present: ${hasExplicitKey} | payload length: ${value.length}`,
+      `[sync-efatura] ${fieldLabel} is not encrypted (legacy plaintext unsupported)`,
     );
     return null;
   }
+
+  for (const secret of secrets) {
+    try {
+      return await decryptPassword(value, secret);
+    } catch {
+      // Try next key
+    }
+  }
+
+  console.error(
+    `[sync-efatura] Failed to decrypt ${fieldLabel} with available keys. payload length=${value.length}`,
+  );
+  return null;
 }
 
 function isLikelyWfaUsername(value: string | null): boolean {
@@ -411,7 +452,7 @@ async function callAtConnector(params: {
   }
 
   const url = `${baseUrl.replace(/\/$/, "")}/v1/invoices`;
-  const init: any = {
+  const init: RequestInit & { client?: unknown } = {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -423,31 +464,64 @@ async function callAtConnector(params: {
   const client = getAtConnectorHttpClient();
   if (client) init.client = client;
 
-  const resp = await fetch(url, init);
+  for (let attempt = 0; attempt <= CONNECTOR_MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(
+      () => controller.abort("AT connector timeout"),
+      CONNECTOR_REQUEST_TIMEOUT_MS,
+    );
 
-  const text = await resp.text();
-  let data: any = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    // ignore
+    try {
+      const resp = await fetch(url, { ...init, signal: controller.signal });
+      const text = await resp.text();
+      let data: any = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        // ignore
+      }
+
+      if (!resp.ok) {
+        const retryable = RETRYABLE_CONNECTOR_STATUS.has(resp.status);
+        if (retryable && attempt < CONNECTOR_MAX_RETRIES) {
+          await sleep(CONNECTOR_RETRY_BASE_DELAY_MS * (attempt + 1));
+          continue;
+        }
+        return {
+          success: false,
+          error: data?.error || `AT connector HTTP ${resp.status}`,
+        };
+      }
+
+      if (!data || data.success !== true) {
+        if (attempt < CONNECTOR_MAX_RETRIES) {
+          await sleep(CONNECTOR_RETRY_BASE_DELAY_MS * (attempt + 1));
+          continue;
+        }
+        return {
+          success: false,
+          error: data?.error || "AT connector returned failure",
+        };
+      }
+
+      return data as ConnectorResponse;
+    } catch (error) {
+      if (attempt < CONNECTOR_MAX_RETRIES && isRetryableConnectorError(error)) {
+        await sleep(CONNECTOR_RETRY_BASE_DELAY_MS * (attempt + 1));
+        continue;
+      }
+      return {
+        success: false,
+        error: error instanceof Error
+          ? error.message
+          : "AT connector request failed",
+      };
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
-  if (!resp.ok) {
-    return {
-      success: false,
-      error: data?.error || `AT connector HTTP ${resp.status}`,
-    };
-  }
-
-  if (!data || data.success !== true) {
-    return {
-      success: false,
-      error: data?.error || "AT connector returned failure",
-    };
-  }
-
-  return data as ConnectorResponse;
+  return { success: false, error: "AT connector retries exhausted" };
 }
 
 async function insertPurchaseInvoicesFromAT(
@@ -614,7 +688,7 @@ Deno.serve(async (req: Request) => {
 
     // Accept internal service-role calls (from process-at-sync-queue) OR valid user JWTs
     const token = authHeader.replace("Bearer ", "").trim();
-    let isServiceRole = token === supabaseServiceKey;
+    let isServiceRole = constantTimeEquals(token, supabaseServiceKey);
 
     let authUser: { id: string } | null = null;
     if (!isServiceRole) {
@@ -954,16 +1028,43 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      const explicitKey = Deno.env.get("AT_ENCRYPTION_KEY");
-      const encryptionSecret = explicitKey ||
-        supabaseServiceKey.substring(0, 32);
+      const primaryKey = Deno.env.get("AT_ENCRYPTION_KEY")?.trim() || "";
+      const fallbackKey = Deno.env.get("AT_ENCRYPTION_KEY_FALLBACK")?.trim() ||
+        "";
+      if (!primaryKey) {
+        const configError = "AT_ENCRYPTION_KEY ausente no ambiente";
+        if (syncId) {
+          await supabase.from("at_sync_history").update({
+            status: "error",
+            sync_method: "api",
+            reason_code: "AT_AUTH_FAILED" as SyncReasonCode,
+            error_message: configError,
+            completed_at: new Date().toISOString(),
+          }).eq("id", syncId);
+        }
+        await supabase.from("at_credentials").update({
+          last_sync_at: new Date().toISOString(),
+          last_sync_status: "error",
+          last_sync_error: configError,
+        }).eq("client_id", clientId);
 
-      if (!explicitKey) {
-        console.warn(
-          "[sync-efatura] AT_ENCRYPTION_KEY not available, falling back to service role key prefix. " +
-            "This may fail if credentials were encrypted with a different key.",
+        return new Response(
+          JSON.stringify({
+            success: false,
+            sync_method: "api",
+            reasonCode: "AT_AUTH_FAILED",
+            error: configError,
+            syncId,
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
         );
       }
+      const encryptionSecrets = [primaryKey, fallbackKey].filter((v) =>
+        Boolean(v)
+      );
 
       let resolvedAccountantId: string | null = accountantId ||
         cred?.accountant_id || null;
@@ -982,7 +1083,7 @@ Deno.serve(async (req: Request) => {
         (cred?.subuser_id ? String(cred.subuser_id).trim() : "") ||
         (await decodeStoredSecret(
           cred?.encrypted_username,
-          encryptionSecret,
+          encryptionSecrets,
           "at_credentials.encrypted_username",
         ))?.trim() ||
         (cred?.portal_nif ? String(cred.portal_nif).trim() : "") ||
@@ -990,12 +1091,12 @@ Deno.serve(async (req: Request) => {
 
       const rowPassword = (await decodeStoredSecret(
         cred?.encrypted_password,
-        encryptionSecret,
+        encryptionSecrets,
         "at_credentials.encrypted_password",
       )) ||
         (await decodeStoredSecret(
           cred?.portal_password_encrypted,
-          encryptionSecret,
+          encryptionSecrets,
           "at_credentials.portal_password_encrypted",
         )) ||
         null;
@@ -1016,7 +1117,7 @@ Deno.serve(async (req: Request) => {
         if (cfg?.subuser_password_encrypted) {
           cfgPassword = await decodeStoredSecret(
             cfg.subuser_password_encrypted,
-            encryptionSecret,
+            encryptionSecrets,
             "accountant_at_config.subuser_password_encrypted",
           );
         }

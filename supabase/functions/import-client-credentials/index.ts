@@ -225,8 +225,14 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Encryption secret: prefer dedicated env var, fallback to service role key for backwards compatibility
-    const encryptionSecret = Deno.env.get('AT_ENCRYPTION_KEY') || supabaseServiceKey.substring(0, 32);
+    // Security hardening: dedicated key is mandatory (no service-role fallback).
+    const encryptionSecret = Deno.env.get('AT_ENCRYPTION_KEY')?.trim() || '';
+    if (!encryptionSecret) {
+      return new Response(
+        JSON.stringify({ error: 'Server misconfigured: missing AT_ENCRYPTION_KEY' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Process each credential
     const results: ImportResult[] = [];
