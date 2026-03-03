@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { useAccountant } from '@/hooks/useAccountant';
 import { useClientManagement } from '@/hooks/useClientManagement';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -12,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, FileSpreadsheet, Table as TableIcon, Loader2, Receipt, Calculator, TrendingUp, AlertTriangle, TrendingDown, Euro, Info, Copy, ChevronDown, CheckCircle2, XCircle, Save } from 'lucide-react';
+import { Download, FileSpreadsheet, Table as TableIcon, Loader2, Receipt, Calculator, TrendingUp, AlertTriangle, TrendingDown, Euro, Info, Copy, ChevronDown, CheckCircle2, XCircle, Save, FileCode } from 'lucide-react';
 import { StepNavigator } from '@/components/dashboard/StepNavigator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ClientSearchSelector } from '@/components/ui/client-search-selector';
@@ -23,19 +24,24 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ZenCard, ZenCardHeader, ZenHeader, ZenDecorations, ZenStatsCard } from '@/components/zen';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useQueryClient } from '@tanstack/react-query';
+import { generateSaftXml, downloadSaftXml, dbInvoiceToSaft, dbSalesInvoiceToSaft, SaftCompanyInfo } from '@/lib/saftExporter';
+import { toast } from 'sonner';
 
 export default function Export() {
   const { user, loading } = useAuth();
+  const { profile } = useProfile();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAccountant, isCheckingRole } = useAccountant();
   const { clients, isLoadingClients } = useClientManagement();
   const { selectedClientId, setSelectedClientId } = useSelectedClient();
-  const [activeTab, setActiveTab] = useState<'purchases' | 'sales'>('purchases');
+  const [activeTab, setActiveTab] = useState<'purchases' | 'sales' | 'saft'>('purchases');
   const [deductibilityEdits, setDeductibilityEdits] = useState<Record<string, number>>({});
   const [exclusionEdits, setExclusionEdits] = useState<Record<string, string | null>>({});
   const [isSavingDeductibility, setIsSavingDeductibility] = useState(false);
   const [isSavingExclusions, setIsSavingExclusions] = useState(false);
+  const [saftPeriod, setSaftPeriod] = useState('');
+  const [isExportingSaft, setIsExportingSaft] = useState(false);
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
 
@@ -134,6 +140,78 @@ export default function Export() {
     }
   }, [exclusionEdits, queryClient]);
 
+  const handleExportSaft = useCallback(async () => {
+    if (!saftPeriod || !effectiveClientId) return;
+    setIsExportingSaft(true);
+
+    try {
+      // Parse period
+      let startDate: string;
+      let endDate: string;
+
+      if (saftPeriod.endsWith('-full')) {
+        const year = parseInt(saftPeriod);
+        startDate = `${year}-01-01`;
+        endDate = `${year}-12-31`;
+      } else {
+        const [yearStr, qStr] = saftPeriod.split('-Q');
+        const year = parseInt(yearStr);
+        const quarter = parseInt(qStr);
+        const startMonth = (quarter - 1) * 3;
+        startDate = `${year}-${String(startMonth + 1).padStart(2, '0')}-01`;
+        const endMonth = startMonth + 3;
+        const endDay = new Date(year, endMonth, 0).getDate();
+        endDate = `${year}-${String(endMonth).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`;
+      }
+
+      // Fetch validated purchase invoices
+      const { data: purchases } = await supabase
+        .from('invoices')
+        .select('id, document_number, document_date, document_type, supplier_nif, supplier_name, total_amount, total_vat, base_standard, base_intermediate, base_reduced, base_exempt, vat_standard, vat_intermediate, vat_reduced')
+        .eq('client_id', effectiveClientId)
+        .in('status', ['validated', 'classified'])
+        .gte('document_date', startDate)
+        .lte('document_date', endDate)
+        .order('document_date');
+
+      // Fetch validated sales invoices
+      const { data: sales } = await supabase
+        .from('sales_invoices')
+        .select('id, document_number, document_date, document_type, customer_nif, customer_name, total_amount, total_vat, base_standard, base_intermediate, base_reduced, base_exempt, vat_standard, vat_intermediate, vat_reduced')
+        .eq('client_id', effectiveClientId)
+        .in('status', ['validated', 'classified'])
+        .gte('document_date', startDate)
+        .lte('document_date', endDate)
+        .order('document_date');
+
+      const company: SaftCompanyInfo = {
+        taxRegistrationNumber: profile?.nif || '000000000',
+        companyName: profile?.company_name || profile?.full_name || 'Empresa',
+        addressDetail: profile?.address || undefined,
+        city: undefined,
+        postalCode: undefined,
+        country: 'PT',
+        fiscalYear: selectedYear,
+        startDate,
+        endDate,
+      };
+
+      const saftPurchases = (purchases || []).map((inv, i) => dbInvoiceToSaft(inv, i));
+      const saftSales = (sales || []).map((inv, i) => dbSalesInvoiceToSaft(inv, i));
+
+      const xml = generateSaftXml(company, saftPurchases, saftSales);
+      const filename = `SAF-T_PT_${company.taxRegistrationNumber}_${startDate}_${endDate}.xml`;
+      downloadSaftXml(xml, filename);
+
+      toast.success(`SAF-T exportado: ${(purchases || []).length} compras, ${(sales || []).length} vendas`);
+    } catch (err: any) {
+      console.error('SAF-T export error:', err);
+      toast.error(`Erro ao gerar SAF-T: ${err.message}`);
+    } finally {
+      setIsExportingSaft(false);
+    }
+  }, [saftPeriod, effectiveClientId, selectedYear, profile]);
+
   const hasDeductibilityEdits = Object.keys(deductibilityEdits).length > 0;
   const hasExclusionEdits = Object.keys(exclusionEdits).length > 0;
 
@@ -175,15 +253,19 @@ export default function Export() {
         />
 
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'purchases' | 'sales')} className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'purchases' | 'sales' | 'saft')} className="space-y-6">
+          <TabsList className="grid w-full max-w-lg grid-cols-3">
             <TabsTrigger value="purchases" className="gap-2">
               <TrendingDown className="h-4 w-4" />
-              Compras (Despesas)
+              Compras
             </TabsTrigger>
             <TabsTrigger value="sales" className="gap-2">
               <TrendingUp className="h-4 w-4" />
-              Vendas (Receitas)
+              Vendas
+            </TabsTrigger>
+            <TabsTrigger value="saft" className="gap-2">
+              <FileCode className="h-4 w-4" />
+              SAF-T PT
             </TabsTrigger>
           </TabsList>
 
@@ -821,6 +903,78 @@ export default function Export() {
                 </CardContent>
               </ZenCard>
             </div>
+          </TabsContent>
+
+          {/* SAF-T TAB */}
+          <TabsContent value="saft" className="space-y-6">
+            <ZenCard gradient="default" withLine className="shadow-xl" animationDelay="150ms">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10">
+                    <FileCode className="h-5 w-5 text-primary" />
+                  </div>
+                  SAF-T PT (v1.04)
+                </CardTitle>
+                <CardDescription>
+                  Exporte os dados em formato SAF-T PT para consulta e referência
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Ano Fiscal</Label>
+                    <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(Number(v))}>
+                      <SelectTrigger className="bg-background/50 border-border/50 hover:border-primary/50 transition-colors">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableYears.map((y) => (
+                          <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Período</Label>
+                    <Select
+                      value={saftPeriod}
+                      onValueChange={setSaftPeriod}
+                    >
+                      <SelectTrigger className="bg-background/50 border-border/50 hover:border-primary/50 transition-colors">
+                        <SelectValue placeholder="Selecione o trimestre" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={`${selectedYear}-Q1`}>1.º Trimestre {selectedYear}</SelectItem>
+                        <SelectItem value={`${selectedYear}-Q2`}>2.º Trimestre {selectedYear}</SelectItem>
+                        <SelectItem value={`${selectedYear}-Q3`}>3.º Trimestre {selectedYear}</SelectItem>
+                        <SelectItem value={`${selectedYear}-Q4`}>4.º Trimestre {selectedYear}</SelectItem>
+                        <SelectItem value={`${selectedYear}-full`}>Ano completo {selectedYear}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <Alert className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <AlertDescription className="text-amber-800 dark:text-amber-200 text-sm">
+                    Para submissão oficial à AT, utilize software certificado. Este ficheiro SAF-T é gerado para referência e consulta contabilística.
+                  </AlertDescription>
+                </Alert>
+
+                <Button
+                  className="w-full sm:w-auto zen-button gap-2 shadow-lg hover:shadow-xl transition-all duration-300"
+                  disabled={!saftPeriod || isExportingSaft || !effectiveClientId}
+                  onClick={handleExportSaft}
+                >
+                  {isExportingSaft ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  {isExportingSaft ? 'A gerar...' : 'Exportar SAF-T XML'}
+                </Button>
+              </CardContent>
+            </ZenCard>
           </TabsContent>
         </Tabs>
 

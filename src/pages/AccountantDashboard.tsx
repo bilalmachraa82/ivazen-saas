@@ -15,6 +15,7 @@ import { FiscalDeadlines } from '@/components/accountant/FiscalDeadlines';
 import { AggregatedFiscalSummary } from '@/components/accountant/AggregatedFiscalSummary';
 import { AggregatedMetricsWidget } from '@/components/accountant/AggregatedMetricsWidget';
 import { RevenueExpenseCharts } from '@/components/accountant/RevenueExpenseCharts';
+import { AttentionItems } from '@/components/dashboard/AttentionItems';
 import { 
   Users, 
   FileText, 
@@ -357,9 +358,15 @@ export default function AccountantDashboard() {
           isLoading={isLoadingInvoices}
         />
 
+        {/* Attention Items */}
+        <AttentionItems
+          pendingValidation={filteredMetrics.pendingValidation}
+          lowConfidence={filteredPendingInvoices.filter(inv => (inv.ai_confidence ?? 100) < 80).length}
+        />
+
         {/* Fiscal Overview Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <FiscalDeadlines 
+          <FiscalDeadlines
             ssDeclarationsPending={filteredMetrics.ssDeclarationsPending}
             pendingValidation={filteredMetrics.pendingValidation}
           />

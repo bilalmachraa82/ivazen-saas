@@ -307,7 +307,7 @@ serve(async (req) => {
     const isReverseChargeLike = isEuVatId && !hasChargedVat;
 
     if (isReverseChargeLike) {
-      console.log(`Intra-community NIF detected: ${rawNif} → Campo 10`);
+      console.log(`Intra-community NIF detected → Campo 10`);
       const intraResult = {
         classification: 'ACTIVIDADE' as const,
         dp_field: 10,
@@ -369,7 +369,7 @@ serve(async (req) => {
       }
 
       if (rule) {
-        console.log(`Deterministic classification for supplier ${ruleSupplierTaxId}: ${rule.classification} (rule ID: ${rule.id})`);
+        console.log(`Deterministic classification for supplier ***${ruleSupplierTaxId?.slice(-3)}: ${rule.classification} (rule ID: ${rule.id})`);
 
         // Update invoice with rule-based classification
         const { error: updateError } = await supabase
@@ -488,7 +488,7 @@ Responde APENAS com um objecto JSON válido no seguinte formato:
   "reason": "explicação breve"
 }`;
 
-    console.log('No rule found for supplier', ruleSupplierTaxId, '- calling AI for classification...');
+    console.log('No rule found for supplier ***' + (ruleSupplierTaxId?.slice(-3) || '???'), '- calling AI for classification...');
 
     // Use OpenRouter AI Gateway
     const AI_API_KEY = Deno.env.get('AI_API_KEY');
@@ -646,7 +646,7 @@ Responde APENAS com um objecto JSON válido no seguinte formato:
             onConflict: 'supplier_nif,client_id',
             ignoreDuplicates: true, // Don't overwrite existing rules with higher confidence
           });
-        console.log('Saved new classification rule for supplier', ruleSupplierTaxId);
+        console.log('Saved new classification rule for supplier ***' + (ruleSupplierTaxId?.slice(-3) || '???'));
       } catch (ruleError) {
         // Non-fatal: log and continue
         console.warn('Could not save classification rule:', ruleError);

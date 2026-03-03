@@ -169,8 +169,6 @@ export function useUploadQueue(forClientId?: string | null) {
 
     processingRef.current = true;
     setIsProcessing(true);
-    console.log('Triggering background processing...');
-
     try {
       const { data, error } = await supabase.functions.invoke('process-queue');
 
@@ -178,8 +176,6 @@ export function useUploadQueue(forClientId?: string | null) {
         console.error('Error from process-queue:', error);
         throw error;
       }
-
-      console.log('Processing result:', data);
 
       if (showToast) {
         const pendingCount = typeof data?.pending_count === 'number' ? data.pending_count : null;

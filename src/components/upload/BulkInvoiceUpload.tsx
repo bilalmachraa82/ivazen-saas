@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   processBulkInvoices,
   InvoiceQueueItem,
@@ -124,18 +124,8 @@ export function BulkInvoiceUpload({ selectedClientId, clientName }: BulkInvoiceU
     }
   }, [invoiceType, queue.length]);
 
-  // Debug state for diagnostic panel
-  const [debugInfo, setDebugInfo] = useState<{
-    received: number;
-    fileDetails: { name: string; type: string; size: number; accepted: boolean; reason?: string }[];
-    validCount: number;
-    invalidCount: number;
-  } | null>(null);
-
   // Add files to queue
   const addFiles = (files: File[]) => {
-    console.log('[addFiles] Received:', files.length, 'files, names:', files.map(f => f.name));
-
     if (queue.length + files.length > BULK_INVOICE_CONFIG.MAX_FILES_PER_BATCH) {
       toast({
         title: 'Demasiados ficheiros',
@@ -146,17 +136,6 @@ export function BulkInvoiceUpload({ selectedClientId, clientName }: BulkInvoiceU
     }
 
     const { valid, invalid } = validateBulkFiles(files);
-
-    console.log('[addFiles] validateBulkFiles result: valid=', valid.length, 'invalid=', invalid.length);
-    if (invalid.length > 0) {
-      console.log('[addFiles] REJECTED:', invalid.map(f => f.file.name + ' -> ' + f.reason));
-    }
-
-    const fileDetails = [
-      ...valid.map(v => ({ name: v.fileName, type: v.file.type || '(empty)', size: v.file.size, accepted: true })),
-      ...invalid.map(i => ({ name: i.file.name, type: i.file.type || '(empty)', size: i.file.size, accepted: false, reason: i.reason })),
-    ];
-    setDebugInfo({ received: files.length, fileDetails, validCount: valid.length, invalidCount: invalid.length });
 
     if (invalid.length > 0) {
       toast({
@@ -181,7 +160,6 @@ export function BulkInvoiceUpload({ selectedClientId, clientName }: BulkInvoiceU
     }
 
     const filesToProcess = queue.filter(item => item.status === 'pending' || item.status === 'error');
-    console.log('[handleProcess] Queue total:', queue.length, 'filesToProcess:', filesToProcess.length);
 
     if (filesToProcess.length === 0) {
       toast({ title: 'Nenhuma fatura pendente', description: 'Todas as faturas ja foram processadas' });
@@ -304,24 +282,6 @@ export function BulkInvoiceUpload({ selectedClientId, clientName }: BulkInvoiceU
           </div>
         </CardContent>
       </Card>
-
-      {/* Temporary Debug Panel */}
-      {debugInfo && (
-        <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/20">
-          <AlertCircle className="h-4 w-4 text-amber-600" />
-          <AlertDescription className="text-amber-900 dark:text-amber-200">
-            <p className="font-bold mb-1">🔍 Debug: Último upload</p>
-            <p className="text-xs">Browser entregou: <strong>{debugInfo.received}</strong> ficheiros | Aceites: <strong>{debugInfo.validCount}</strong> | Rejeitados: <strong>{debugInfo.invalidCount}</strong></p>
-            <div className="mt-1 max-h-40 overflow-y-auto text-xs font-mono">
-              {debugInfo.fileDetails.map((f, i) => (
-                <div key={i} className={f.accepted ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}>
-                  {f.accepted ? '✅' : '❌'} {f.name} | type=&quot;{f.type}&quot; | size={f.size} {f.reason ? `| razão: ${f.reason}` : ''}
-                </div>
-              ))}
-            </div>
-          </AlertDescription>
-        </Alert>
-      )}
 
       {/* Unsaved Warning Banner */}
       {unsavedCount > 0 && !isProcessing && (

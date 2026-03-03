@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PaginationControls } from '@/components/ui/pagination-controls';
-import { ZenEmptyState } from '@/components/zen';
+import { ZenEmptyState, ZenSkeleton } from '@/components/zen';
+import { Checkbox } from '@/components/ui/checkbox';
 import { usePagination } from '@/hooks/usePagination';
 import { Eye, CheckCircle, Clock, FileText, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, XCircle, Upload } from 'lucide-react';
 import { format } from 'date-fns';
@@ -22,6 +23,12 @@ interface InvoiceTableProps {
   invoices: Invoice[];
   loading: boolean;
   onSelectInvoice: (invoice: Invoice) => void;
+  /** Enable checkbox selection mode */
+  selectable?: boolean;
+  /** Currently selected invoice IDs */
+  selectedIds?: Set<string>;
+  /** Called when selection changes */
+  onSelectionChange?: (ids: Set<string>) => void;
 }
 
 const statusConfig = {
@@ -52,7 +59,7 @@ const getConfidenceConfig = (confidence: number) => {
   };
 };
 
-export function InvoiceTable({ invoices, loading, onSelectInvoice }: InvoiceTableProps) {
+export function InvoiceTable({ invoices, loading, onSelectInvoice, selectable, selectedIds, onSelectionChange }: InvoiceTableProps) {
   const navigate = useNavigate();
   // Default: sort by confidence ascending (lowest first - needs more attention)
   const [sortField, setSortField] = useState<SortField>('confidence');
@@ -89,6 +96,31 @@ export function InvoiceTable({ invoices, loading, onSelectInvoice }: InvoiceTabl
 
   const paginatedInvoices = pagination.paginatedItems(sortedInvoices);
 
+  const allPageSelected = selectable && paginatedInvoices.length > 0 &&
+    paginatedInvoices.every(inv => selectedIds?.has(inv.id));
+
+  const toggleSelectAll = () => {
+    if (!onSelectionChange || !selectedIds) return;
+    const next = new Set(selectedIds);
+    if (allPageSelected) {
+      paginatedInvoices.forEach(inv => next.delete(inv.id));
+    } else {
+      paginatedInvoices.forEach(inv => next.add(inv.id));
+    }
+    onSelectionChange(next);
+  };
+
+  const toggleSelectOne = (id: string) => {
+    if (!onSelectionChange || !selectedIds) return;
+    const next = new Set(selectedIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    onSelectionChange(next);
+  };
+
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -107,8 +139,37 @@ export function InvoiceTable({ invoices, loading, onSelectInvoice }: InvoiceTabl
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="space-y-4">
+        <div className="rounded-md border overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Data</TableHead>
+                <TableHead>Fornecedor</TableHead>
+                <TableHead>NIF</TableHead>
+                <TableHead className="text-right">Valor</TableHead>
+                <TableHead>Classificação IA</TableHead>
+                <TableHead>Confiança</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><ZenSkeleton className="w-20" /></TableCell>
+                  <TableCell><ZenSkeleton className="w-32" /></TableCell>
+                  <TableCell><ZenSkeleton className="w-24" /></TableCell>
+                  <TableCell className="text-right"><ZenSkeleton className="w-16 ml-auto" /></TableCell>
+                  <TableCell><ZenSkeleton className="w-28" /></TableCell>
+                  <TableCell><ZenSkeleton className="w-16" /></TableCell>
+                  <TableCell><ZenSkeleton className="w-24" /></TableCell>
+                  <TableCell className="text-right"><ZenSkeleton className="w-8 ml-auto" /></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     );
   }
@@ -162,11 +223,20 @@ export function InvoiceTable({ invoices, loading, onSelectInvoice }: InvoiceTabl
           Facturas com menor confiança aparecem primeiro
         </p>
       )}
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead 
+              {selectable && (
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={allPageSelected}
+                    onCheckedChange={toggleSelectAll}
+                    aria-label="Selecionar todas"
+                  />
+                </TableHead>
+              )}
+              <TableHead
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => toggleSort('date')}
               >
@@ -207,6 +277,15 @@ export function InvoiceTable({ invoices, loading, onSelectInvoice }: InvoiceTabl
             
             return (
               <TableRow key={invoice.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onSelectInvoice(invoice)}>
+                {selectable && (
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedIds?.has(invoice.id) ?? false}
+                      onCheckedChange={() => toggleSelectOne(invoice.id)}
+                      aria-label={`Selecionar factura ${invoice.supplier_name || invoice.id}`}
+                    />
+                  </TableCell>
+                )}
                 <TableCell>
                   {invoice.document_date ? format(new Date(invoice.document_date), 'dd/MM/yyyy', { locale: pt }) : '—'}
                 </TableCell>

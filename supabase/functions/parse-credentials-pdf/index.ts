@@ -131,8 +131,6 @@ REGRAS:
     const aiResponse = await response.json();
     const content = aiResponse.choices?.[0]?.message?.content || '';
 
-    console.log('AI Response:', content.substring(0, 500));
-
     // Parse JSON from response (handle markdown code blocks)
     let credentials: ExtractedCredential[] = [];
 

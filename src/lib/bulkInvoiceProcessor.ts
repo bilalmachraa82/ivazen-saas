@@ -75,7 +75,6 @@ export async function processBulkInvoices(
     // Refresh auth session before each batch to prevent token expiration
     try {
       await supabase.auth.refreshSession();
-      console.log(`[BulkProcessor] Batch ${Math.floor(i / BULK_INVOICE_CONFIG.MAX_CONCURRENT) + 1}: session refreshed, processing ${batch.length} files`);
     } catch (refreshErr) {
       console.warn('[BulkProcessor] Session refresh failed, continuing:', refreshErr);
     }
@@ -122,7 +121,6 @@ async function processInvoiceDocument(
 
       // Detect correct MIME type (file.type can be empty)
       const mimeType = detectMimeType(item.file);
-      console.log(`[BulkProcessor] Processing ${item.fileName}: ${Math.round(item.file.size/1024)}KB, mime=${mimeType}, base64=${Math.round(base64Content.length/1024)}KB`);
 
       onProgress(item.id, { ...item, status: 'processing', progress: 40 });
 
@@ -545,7 +543,6 @@ async function fileToBase64(file: File): Promise<string> {
   // Validate: extract base64 portion and check length
   const base64Part = result.replace(/^data:[^;]+;base64,/, '');
   if (base64Part.length > 100) {
-    console.log(`[fileToBase64] OK via readAsDataURL: file=${file.name} (${Math.round(file.size/1024)}KB), base64=${Math.round(base64Part.length/1024)}KB`);
     // Re-construct with correct MIME type
     return `data:${mimeType};base64,${base64Part}`;
   }
@@ -577,7 +574,6 @@ async function fileToBase64(file: File): Promise<string> {
     throw new Error(`Ficheiro vazio após conversão: ${file.name} (${file.size} bytes original, ${fallbackBase64.length} bytes base64)`);
   }
 
-  console.log(`[fileToBase64] OK via ArrayBuffer fallback: file=${file.name} (${Math.round(file.size/1024)}KB), base64=${Math.round(fallbackBase64.length/1024)}KB`);
   return `data:${mimeType};base64,${fallbackBase64}`;
 }
 
@@ -617,12 +613,9 @@ export function validateBulkFiles(files: FileList | File[]): {
 
   const fileArray = Array.from(files);
 
-  console.log('[validateBulkFiles] Input:', fileArray.length, 'files');
-
   for (const file of fileArray) {
     // Check file size
     if (file.size > BULK_INVOICE_CONFIG.MAX_FILE_SIZE) {
-      console.log('[validateBulkFiles] REJECTED (size):', file.name, 'size:', file.size);
       invalid.push({ file, reason: 'Ficheiro muito grande (max 10MB)' });
       continue;
     }
@@ -632,10 +625,7 @@ export function validateBulkFiles(files: FileList | File[]): {
     const isPDF = mime === 'application/pdf';
     const isImage = mime.startsWith('image/');
 
-    console.log('[validateBulkFiles] File:', file.name, 'size:', file.size, 'file.type:', JSON.stringify(file.type), 'detectedMime:', mime, 'isPDF:', isPDF, 'isImage:', isImage);
-
     if (!isPDF && !isImage) {
-      console.log('[validateBulkFiles] REJECTED (type):', file.name, 'file.type:', JSON.stringify(file.type), 'detectedMime:', mime);
       invalid.push({ file, reason: `Tipo de ficheiro nao suportado (${file.type || 'sem tipo'} → ${mime})` });
       continue;
     }

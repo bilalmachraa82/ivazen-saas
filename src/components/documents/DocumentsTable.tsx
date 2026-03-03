@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PaginationControls } from '@/components/ui/pagination-controls';
-import { ZenEmptyState } from '@/components/zen';
+import { ZenEmptyState, ZenSkeleton } from '@/components/zen';
 import { usePagination } from '@/hooks/usePagination';
 import {
   Eye,
@@ -147,8 +147,39 @@ export function DocumentsTable({ documents, loading }: DocumentsTableProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="space-y-4">
+        <div className="rounded-md border overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Data</TableHead>
+                <TableHead>Entidade</TableHead>
+                <TableHead>NIF</TableHead>
+                <TableHead>N.º Documento</TableHead>
+                <TableHead className="text-right">Valor</TableHead>
+                <TableHead>Classificação</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><ZenSkeleton className="w-16" /></TableCell>
+                  <TableCell><ZenSkeleton className="w-20" /></TableCell>
+                  <TableCell><ZenSkeleton className="w-32" /></TableCell>
+                  <TableCell><ZenSkeleton className="w-24" /></TableCell>
+                  <TableCell><ZenSkeleton className="w-20" /></TableCell>
+                  <TableCell className="text-right"><ZenSkeleton className="w-16 ml-auto" /></TableCell>
+                  <TableCell><ZenSkeleton className="w-28" /></TableCell>
+                  <TableCell><ZenSkeleton className="w-20" /></TableCell>
+                  <TableCell className="text-right"><ZenSkeleton className="w-8 ml-auto" /></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     );
   }
@@ -196,7 +227,7 @@ export function DocumentsTable({ documents, loading }: DocumentsTableProps) {
         </Button>
       </div>
 
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>

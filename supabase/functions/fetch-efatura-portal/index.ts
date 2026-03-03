@@ -964,7 +964,7 @@ async function loginToPortal(
 ): Promise<{ success: boolean; cookies: string; error?: string }> {
   try {
     console.log(
-      `[fetch-efatura-portal] Login attempt: NIF=${nif}, password length=${password.length}`,
+      `[fetch-efatura-portal] Login attempt: NIF=***${nif?.slice(-3) || '???'}, password length=${password.length}`,
     );
 
     const loginSubmitUrl = "https://www.acesso.gov.pt/v2/submitNifForm";
@@ -1734,7 +1734,7 @@ Deno.serve(async (req: Request) => {
 
     const syncId = syncEntry?.id;
 
-    console.log(`[fetch-efatura-portal] Logging in for NIF ${clientNif}...`);
+    console.log(`[fetch-efatura-portal] Logging in for NIF ***${clientNif?.slice(-3) || '???'}...`);
 
     // Step 1: Login
     const loginResult = await loginToPortal(clientNif, portalPassword);

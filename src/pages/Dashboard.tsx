@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { ZenCard, ZenHeader, ZenDecorations, ZenStatsCard, ZenEmptyState, ZenLoader } from '@/components/zen';
 import { UnifiedOnboarding } from '@/components/onboarding/UnifiedOnboarding';
 import { TaxFlowWidget } from '@/components/dashboard/TaxFlowWidget';
+import { AttentionItems } from '@/components/dashboard/AttentionItems';
 import { 
   FileText, 
   Clock, 
@@ -103,6 +104,12 @@ export default function Dashboard() {
         </div>
 
         {/* Onboarding progress card is now handled by UnifiedOnboarding */}
+
+        {/* Attention Items */}
+        <AttentionItems
+          pendingValidation={stats.pending}
+          lowConfidence={stats.lowConfidence}
+        />
 
         {/* Recent Invoices */}
         <ZenCard withLine animationDelay="400ms" className="shadow-xl">

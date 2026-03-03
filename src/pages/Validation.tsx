@@ -19,7 +19,8 @@ import { ClientSearchSelector } from '@/components/ui/client-search-selector';
 import { ZenCard, ZenCardHeader, ZenHeader, ZenDecorations, ZenStatsCard, ZenLoader } from '@/components/zen';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Clock, CheckCircle, FileText, AlertCircle, Copy, AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Clock, CheckCircle, FileText, AlertCircle, Copy, AlertTriangle, RefreshCw, CheckSquare, Download, Trash2, X } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -55,6 +56,9 @@ export default function Validation() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [bulkReclassifying, setBulkReclassifying] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -82,6 +86,11 @@ export default function Validation() {
       setSelectedInvoice(updated);
     }
   }, [invoices, selectedInvoice]);
+
+  // Clear selection when filters change (avoid acting on invisible invoices)
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [filters]);
 
   if (authLoading || profileLoading) {
     return <ZenLoader fullScreen text="A carregar..." />;
@@ -149,6 +158,59 @@ export default function Validation() {
     return await validateInvoice(invoiceId, classification);
   };
 
+  const handleExportSelected = async () => {
+    const selected = invoices.filter(inv => selectedIds.has(inv.id));
+    if (selected.length === 0) return;
+
+    const { default: XLSX } = await import('xlsx');
+    const rows = selected.map(inv => ({
+      'Data': inv.document_date || '',
+      'Fornecedor': inv.supplier_name || '',
+      'NIF': inv.supplier_nif || '',
+      'Valor Total': Number(inv.total_amount),
+      'IVA Total': Number(inv.total_vat || 0),
+      'Classificação': inv.final_classification || inv.ai_classification || '',
+      'Campo DP': inv.final_dp_field || inv.ai_dp_field || '',
+      'Dedutibilidade %': inv.final_deductibility || inv.ai_deductibility || '',
+      'Confiança IA %': inv.ai_confidence || '',
+      'Estado': inv.status,
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, 'Facturas');
+    XLSX.writeFile(wb, `facturas_selecionadas_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast.success(`${selected.length} factura(s) exportada(s)`);
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.size === 0) return;
+    setIsDeleting(true);
+
+    const ids = Array.from(selectedIds);
+    const { error } = await supabase
+      .from('invoices')
+      .delete()
+      .in('id', ids);
+
+    if (error) {
+      toast.error(`Erro ao eliminar: ${error.message}`);
+    } else {
+      toast.success(`${ids.length} factura(s) eliminada(s)`);
+      setSelectedIds(new Set());
+      setSelectionMode(false);
+      refetch();
+    }
+    setIsDeleting(false);
+  };
+
+  const toggleSelectionMode = () => {
+    if (selectionMode) {
+      setSelectedIds(new Set());
+    }
+    setSelectionMode(!selectionMode);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-8 animate-fade-in relative">
@@ -203,14 +265,14 @@ export default function Validation() {
             <ZenCard withLine animationDelay="150ms" className="shadow-xl">
               <div className="flex items-center justify-between px-6 pt-6">
                 <ZenCardHeader title="Facturas" icon={FileText} />
-                {classifiableInvoices.length > 0 && (
-                  <div className="flex items-center gap-3">
-                    {bulkReclassifying && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span>A reclassificar {bulkProgress.current}/{bulkProgress.total}</span>
-                        <Progress value={(bulkProgress.current / bulkProgress.total) * 100} className="w-24 h-2" />
-                      </div>
-                    )}
+                <div className="flex items-center gap-3">
+                  {bulkReclassifying && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>A reclassificar {bulkProgress.current}/{bulkProgress.total}</span>
+                      <Progress value={(bulkProgress.current / bulkProgress.total) * 100} className="w-24 h-2" />
+                    </div>
+                  )}
+                  {classifiableInvoices.length > 0 && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -221,9 +283,60 @@ export default function Validation() {
                       <RefreshCw className={`h-3.5 w-3.5 ${bulkReclassifying ? 'animate-spin' : ''}`} />
                       Reclassificar Todas ({classifiableInvoices.length})
                     </Button>
-                  </div>
-                )}
+                  )}
+                  {invoices.length > 0 && (
+                    <Button
+                      variant={selectionMode ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={toggleSelectionMode}
+                      className="gap-1.5"
+                    >
+                      {selectionMode ? <X className="h-3.5 w-3.5" /> : <CheckSquare className="h-3.5 w-3.5" />}
+                      {selectionMode ? 'Cancelar' : 'Selecionar'}
+                    </Button>
+                  )}
+                </div>
               </div>
+
+              {/* Bulk Action Bar */}
+              {selectionMode && selectedIds.size > 0 && (
+                <div className="mx-6 mt-3 flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  <span className="text-sm font-medium">
+                    {selectedIds.size} factura{selectedIds.size !== 1 ? 's' : ''} selecionada{selectedIds.size !== 1 ? 's' : ''}
+                  </span>
+                  <div className="ml-auto flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={handleExportSelected} className="gap-1.5">
+                      <Download className="h-3.5 w-3.5" />
+                      Exportar Excel
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm" disabled={isDeleting} className="gap-1.5">
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Eliminar ({selectedIds.size})
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Eliminar {selectedIds.size} factura{selectedIds.size !== 1 ? 's' : ''}?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta ação vai eliminar permanentemente as facturas selecionadas. Esta ação não pode ser revertida.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={handleDeleteSelected}
+                            className="bg-destructive hover:bg-destructive/90"
+                          >
+                            Eliminar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+              )}
               <CardContent className="space-y-6">
                 <InvoiceFilters
                   filters={filters}
@@ -235,6 +348,9 @@ export default function Validation() {
                   invoices={invoices}
                   loading={loading}
                   onSelectInvoice={handleSelectInvoice}
+                  selectable={selectionMode}
+                  selectedIds={selectedIds}
+                  onSelectionChange={setSelectedIds}
                 />
               </CardContent>
             </ZenCard>

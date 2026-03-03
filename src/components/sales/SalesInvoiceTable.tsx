@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ZenEmptyState } from '@/components/zen';
+import { ZenEmptyState, ZenSkeleton } from '@/components/zen';
 import { Eye, CheckCircle, Clock, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, Upload } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
@@ -79,8 +79,35 @@ export function SalesInvoiceTable({ invoices, loading, onSelectInvoice }: SalesI
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="space-y-4">
+        <div className="rounded-md border overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Data</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>NIF Cliente</TableHead>
+                <TableHead className="text-right">Valor</TableHead>
+                <TableHead>Categoria</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><ZenSkeleton className="w-20" /></TableCell>
+                  <TableCell><ZenSkeleton className="w-32" /></TableCell>
+                  <TableCell><ZenSkeleton className="w-24" /></TableCell>
+                  <TableCell className="text-right"><ZenSkeleton className="w-16 ml-auto" /></TableCell>
+                  <TableCell><ZenSkeleton className="w-20" /></TableCell>
+                  <TableCell><ZenSkeleton className="w-20" /></TableCell>
+                  <TableCell className="text-right"><ZenSkeleton className="w-8 ml-auto" /></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     );
   }
@@ -126,7 +153,7 @@ export function SalesInvoiceTable({ invoices, loading, onSelectInvoice }: SalesI
         </Button>
       </div>
 
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>

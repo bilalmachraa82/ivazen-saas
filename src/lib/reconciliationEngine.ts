@@ -345,7 +345,6 @@ export async function parseExcelReference(file: File): Promise<{
           if (headerLikeCount >= 2) {
             headerRowIndex = i;
             headers = row.map(h => String(h || ''));
-            console.log(`[ReconciliationEngine] Header detectado na linha ${i + 1}:`, headers.slice(0, 5));
             break;
           }
         }
@@ -356,11 +355,7 @@ export async function parseExcelReference(file: File): Promise<{
           warnings.push(`Linha de cabeçalho não detectada, usando linha 1`);
         }
         
-        console.log(`[ReconciliationEngine] Headers finais (${headers.length}):`, headers);
-        
         const mapping = detectColumnMapping(headers);
-        
-        console.log(`[ReconciliationEngine] Mapeamento detectado:`, Object.entries(mapping).filter(([_, v]) => v !== undefined));
         
         // Check required fields - fallback NIF detection
         if (mapping.nif === undefined) {
@@ -376,7 +371,6 @@ export async function parseExcelReference(file: File): Promise<{
             if (nifCount >= 3) {
               mapping.nif = col;
               warnings.push(`Coluna "${headers[col] || `Coluna ${col + 1}`}" detectada como NIF (fallback)`);
-              console.log(`[ReconciliationEngine] NIF fallback: coluna ${col} (${headers[col]})`);
               break;
             }
           }

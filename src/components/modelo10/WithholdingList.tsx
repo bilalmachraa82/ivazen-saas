@@ -240,9 +240,11 @@ export function WithholdingList({ withholdings, onDelete, onDeleteAll, onUpdate,
         <WithholdingFilters filters={filters} onFiltersChange={setFilters} />
         
         {filteredWithholdings.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            Nenhuma retenção encontrada com os filtros selecionados.
-          </div>
+          <ZenEmptyState
+            icon={FileText}
+            title="Sem resultados"
+            description="Nenhuma retenção encontrada com os filtros selecionados."
+          />
         ) : (
           <>
           <div className="overflow-x-auto">

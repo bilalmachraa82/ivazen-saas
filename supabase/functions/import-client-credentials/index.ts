@@ -254,7 +254,7 @@ Deno.serve(async (req: Request) => {
           clientId = user.id;
           clientName = accountantProfile?.company_name || accountantProfile?.full_name || 'Próprio';
           status = 'self';
-          console.log(`[import-credentials] Self-NIF detected: ${cleanNif}`);
+          console.log(`[import-credentials] Self-NIF detected`);
         }
         // Case 2: Already associated to this accountant
         else if (nifToClient.has(cleanNif)) {
@@ -288,7 +288,7 @@ Deno.serve(async (req: Request) => {
               }, { onConflict: 'client_id,accountant_id' });
             
             status = 'associated';
-            console.log(`[import-credentials] Associated existing profile ${cleanNif} to accountant`);
+            console.log(`[import-credentials] Associated existing profile to accountant`);
           } else {
             // Case 4: Create new auth user + profile
             const profileName = cred.full_name?.trim() || `Cliente ${cleanNif}`;
@@ -302,7 +302,7 @@ Deno.serve(async (req: Request) => {
             });
 
             if (createUserError || !newAuthUser?.user) {
-              console.error(`[import-credentials] Failed to create auth user for ${cleanNif}:`, createUserError);
+              console.error(`[import-credentials] Failed to create auth user for ***${cleanNif.slice(-3)}:`, createUserError);
               results.push({
                 nif: cleanNif,
                 status: 'error',
@@ -329,7 +329,7 @@ Deno.serve(async (req: Request) => {
               }, { onConflict: 'id' });
 
             if (upsertError) {
-              console.error(`[import-credentials] Failed to upsert profile for ${cleanNif}:`, upsertError);
+              console.error(`[import-credentials] Failed to upsert profile for ***${cleanNif.slice(-3)}:`, upsertError);
               results.push({
                 nif: cleanNif,
                 status: 'error',
@@ -352,7 +352,7 @@ Deno.serve(async (req: Request) => {
             clientId = newUserId;
             clientName = profileName;
             status = 'created';
-            console.log(`[import-credentials] Created new auth user + profile for ${cleanNif}: ${profileName}`);
+            console.log(`[import-credentials] Created new auth user + profile`);
           }
 
           // Add to map for future lookups in this batch
@@ -379,7 +379,7 @@ Deno.serve(async (req: Request) => {
           }, { onConflict: 'client_id' });
 
         if (credError) {
-          console.error(`[import-credentials] Failed to upsert credentials for ${cleanNif}:`, credError);
+          console.error(`[import-credentials] Failed to upsert credentials for ***${cleanNif.slice(-3)}:`, credError);
           // Don't fail completely, just log
         }
 
@@ -404,7 +404,7 @@ Deno.serve(async (req: Request) => {
         });
 
       } catch (error: any) {
-        console.error(`[import-credentials] Error processing NIF ${cleanNif}:`, error);
+        console.error(`[import-credentials] Error processing NIF ***${cleanNif.slice(-3)}:`, error);
         results.push({
           nif: cleanNif,
           status: 'error',
