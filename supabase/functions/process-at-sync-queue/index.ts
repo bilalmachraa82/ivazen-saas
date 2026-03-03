@@ -18,10 +18,6 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const ENABLE_AUTO_WITHHOLDINGS_SYNC = Deno.env.get(
-  "AT_AUTO_WITHHOLDINGS_SYNC",
-) === "1";
-
 const BATCH_SIZE = 5; // Process 5 clients at a time
 const MAX_RUNTIME_MS = 50000; // 50 seconds max per invocation (leave margin for 60s limit)
 
@@ -35,60 +31,9 @@ function toISODateUTC(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-function triggerAutomaticWithholdingSync(
-  clientId: string,
-  accountantId: string | null,
-  startDate: string,
-  endDate: string,
-): Promise<void> {
-  return fetch(`${SUPABASE_URL}/functions/v1/fetch-efatura-portal`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-    },
-    body: JSON.stringify({
-      clientId,
-      accountantId,
-      startDate,
-      endDate,
-      type: "vendas",
-      syncWithholdings: true,
-    }),
-  }).then(async (resp) => {
-    const body = await resp.text();
-    if (!resp.ok) {
-      console.error(
-        `[${VERSION}] Withholding auto-sync failed HTTP ${resp.status}: ${
-          body.substring(0, 200)
-        }`,
-      );
-      return;
-    }
-    try {
-      const parsed = JSON.parse(body);
-      const withholdings = parsed?.withholdings || {};
-      console.log(
-        `[${VERSION}] Withholding auto-sync ok for client ${clientId}: inserted=${
-          withholdings.inserted ?? 0
-        }, promoted=${withholdings.promoted ?? 0}, pendingReview=${
-          withholdings.pendingReview ?? 0
-        }, skipped=${withholdings.skipped ?? 0}, errors=${
-          withholdings.errors ?? 0
-        }, mode=${withholdings.mode ?? "n/a"}`,
-      );
-    } catch {
-      console.log(
-        `[${VERSION}] Withholding auto-sync response (client ${clientId}) received`,
-      );
-    }
-  }).catch((err) => {
-    console.error(
-      `[${VERSION}] Withholding auto-sync error for client ${clientId}:`,
-      err,
-    );
-  });
-}
+// NOTE: Automatic withholding sync via portal scraping has been removed.
+// fetch-efatura-portal now returns 410 Gone. Withholdings must be
+// handled through the official AT SOAP webservice or manual upload.
 
 Deno.serve(async (req) => {
   console.log(`[${VERSION}] Request received`);
@@ -308,22 +253,6 @@ Deno.serve(async (req) => {
               syncResult.inserted || syncResult.count || 0,
           })
           .eq("id", job.id);
-
-        // Non-blocking: trigger automatic AT withholdings sync from portal JSON.
-        // This does not affect the main purchases/sales sync status.
-        if (ENABLE_AUTO_WITHHOLDINGS_SYNC && Number(fy) === currentYear) {
-          const autoSyncPromise = triggerAutomaticWithholdingSync(
-            job.client_id,
-            job.accountant_id || null,
-            startDate,
-            endDate,
-          );
-          if (EdgeRuntime?.waitUntil) {
-            EdgeRuntime.waitUntil(autoSyncPromise);
-          } else {
-            void autoSyncPromise;
-          }
-        }
 
         processed++;
         console.log(

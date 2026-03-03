@@ -343,11 +343,11 @@ export default function EFaturaSync() {
                         <span className="text-muted-foreground ml-2">
                           via {
                             entry.sync_method === 'api'
-                              ? 'API'
+                              ? 'Webservice AT'
                               : entry.sync_method === 'csv'
                                 ? 'CSV'
                                 : entry.sync_method === 'portal'
-                                  ? 'Portal'
+                                  ? 'Portal (legacy)'
                                   : 'Manual'
                           }
                         </span>

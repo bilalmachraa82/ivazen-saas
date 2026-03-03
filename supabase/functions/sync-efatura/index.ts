@@ -1,13 +1,13 @@
 /**
  * sync-efatura Edge Function
  *
- * Robust sync strategy:
- * - Prefer official AT SOAP/mTLS via an external VPS connector (Node/OpenSSL).
- * - Fallback to portal JSON scraping (fetch-efatura-portal) if the connector is not
- *   configured or fails.
+ * Syncs invoices from AT (Autoridade Tributária) via the official SOAP/mTLS
+ * webservice, proxied through an external VPS connector (Node/OpenSSL).
  *
  * Why external connector:
  * - Supabase Edge runs on Deno/rustls and may fail AT legacy TLS handshakes.
+ *
+ * Requires AT_CONNECTOR_URL and AT_CONNECTOR_TOKEN secrets configured.
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
@@ -232,24 +232,6 @@ function mergeVatTotals(lineSummary: ATLineSummary[]): Record<string, number> {
   return vatTotals;
 }
 
-function extractCookies(headers: Headers): string {
-  const cookies: string[] = [];
-  const setCookieHeaders = (headers as any).getSetCookie?.() || [];
-  for (const setCookie of setCookieHeaders) {
-    const cookiePart = String(setCookie).split(";")[0];
-    if (cookiePart) cookies.push(cookiePart);
-  }
-  const singleHeader = headers.get("set-cookie");
-  if (singleHeader && cookies.length === 0) {
-    const parts = singleHeader.split(",");
-    for (const part of parts) {
-      const cookiePart = part.split(";")[0]?.trim();
-      if (cookiePart && cookiePart.includes("=")) cookies.push(cookiePart);
-    }
-  }
-  return cookies.join("; ");
-}
-
 async function decryptPassword(
   encryptedData: string,
   secret: string,
@@ -334,10 +316,11 @@ async function decodeStoredSecret(
   try {
     return await decryptPassword(value, secret);
   } catch (error: any) {
-    console.warn(
+    const hasExplicitKey = Boolean(Deno.env.get("AT_ENCRYPTION_KEY"));
+    console.error(
       `[sync-efatura] Failed to decrypt ${fieldLabel}: ${
         error?.message || String(error)
-      }`,
+      } | AT_ENCRYPTION_KEY present: ${hasExplicitKey} | payload length: ${value.length}`,
     );
     return null;
   }
@@ -761,9 +744,22 @@ Deno.serve(async (req: Request) => {
     const hasConnector = Boolean(
       Deno.env.get("AT_CONNECTOR_URL") && Deno.env.get("AT_CONNECTOR_TOKEN"),
     );
-    const intendedMethod = environment === "test"
-      ? "api"
-      : (hasConnector ? "api" : "portal");
+
+    if (!hasConnector && environment !== "test") {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "AT connector não configurado. Configure AT_CONNECTOR_URL e AT_CONNECTOR_TOKEN.",
+          reasonCode: "CONNECTOR_NOT_CONFIGURED",
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const intendedMethod = "api";
 
     const { data: syncEntry } = await supabase
       .from("at_sync_history")
@@ -917,9 +913,9 @@ Deno.serve(async (req: Request) => {
     }
 
     // ====================================================================
-    // 1) Try official SOAP/mTLS via external AT connector (VPS)
+    // Official SOAP/mTLS via external AT connector (VPS)
     // ====================================================================
-    if (hasConnector) {
+    {
       console.log(
         `[sync-efatura] Using AT connector for client ${clientId} (NIF ${clientNif}), type=${type}`,
       );
@@ -931,8 +927,43 @@ Deno.serve(async (req: Request) => {
         .limit(1);
 
       const cred = credentials?.[0];
-      const encryptionSecret = Deno.env.get("AT_ENCRYPTION_KEY") ||
+
+      if (!cred) {
+        const noRowError = `Nenhuma credencial AT encontrada para o cliente ${clientId}`;
+        console.warn(`[sync-efatura] ${noRowError}`);
+        if (syncId) {
+          await supabase.from("at_sync_history").update({
+            status: "error",
+            sync_method: "api",
+            reason_code: "AT_AUTH_FAILED" as SyncReasonCode,
+            error_message: noRowError,
+            completed_at: new Date().toISOString(),
+          }).eq("id", syncId);
+        }
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: noRowError,
+            reasonCode: "AT_AUTH_FAILED",
+            syncId,
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      const explicitKey = Deno.env.get("AT_ENCRYPTION_KEY");
+      const encryptionSecret = explicitKey ||
         supabaseServiceKey.substring(0, 32);
+
+      if (!explicitKey) {
+        console.warn(
+          "[sync-efatura] AT_ENCRYPTION_KEY not available, falling back to service role key prefix. " +
+            "This may fail if credentials were encrypted with a different key.",
+        );
+      }
 
       let resolvedAccountantId: string | null = accountantId ||
         cred?.accountant_id || null;
@@ -1028,6 +1059,16 @@ Deno.serve(async (req: Request) => {
       }
 
       if (attempts.length === 0) {
+        console.error(
+          `[sync-efatura] No usable credentials for client ${clientId}. ` +
+            `has_cred_row=${Boolean(cred)} ` +
+            `has_encrypted_username=${Boolean(cred?.encrypted_username)} ` +
+            `has_encrypted_password=${Boolean(cred?.encrypted_password)} ` +
+            `has_subuser_id=${Boolean(cred?.subuser_id)} ` +
+            `has_portal_nif=${Boolean(cred?.portal_nif)} ` +
+            `rowUsername=${Boolean(rowUsername)} rowPassword=${Boolean(rowPassword)} ` +
+            `AT_ENCRYPTION_KEY_present=${Boolean(Deno.env.get("AT_ENCRYPTION_KEY"))}`,
+        );
         const noCredsError =
           "Sem credenciais utilizáveis para connector (client_row/accountant_config)";
         const reasonCode: SyncReasonCode = "AT_AUTH_FAILED";
@@ -1371,100 +1412,6 @@ Deno.serve(async (req: Request) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
-
-    // ====================================================================
-    // 2) Fallback: Portal JSON (fetch-efatura-portal)
-    // ====================================================================
-    console.log(
-      `[sync-efatura] Falling back to fetch-efatura-portal for client ${clientId}, type=${type}`,
-    );
-
-    const portalResponse = await fetch(
-      `${supabaseUrl}/functions/v1/fetch-efatura-portal`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": authHeader,
-        },
-        body: JSON.stringify({
-          clientId,
-          startDate: effectiveStartDate,
-          endDate: effectiveEndDate,
-          type,
-        }),
-      },
-    );
-
-    const portalData = await portalResponse.json();
-
-    if (portalData.success) {
-      if (syncId) {
-        await supabase.from("at_sync_history").update({
-          status: portalData.status || "success",
-          sync_method: "portal",
-          reason_code: null,
-          records_imported: portalData.count || 0,
-          records_skipped: portalData.skipped || 0,
-          completed_at: new Date().toISOString(),
-          metadata: {
-            environment,
-            nif: clientNif,
-            method: "portal_json_fallback",
-            invoicesProcessed: portalData.invoicesProcessed || 0,
-            request: requestMeta,
-          },
-        }).eq("id", syncId);
-      }
-
-      await supabase.from("at_credentials").update({
-        last_sync_at: new Date().toISOString(),
-        last_sync_status: "success",
-        last_sync_error: null,
-      }).eq("client_id", clientId);
-
-      return new Response(
-        JSON.stringify({
-          ...portalData,
-          sync_method: "portal",
-          syncId,
-          environment,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    const portalErr = portalData.error || "Portal sync failed";
-    const portalReasonCode = classifyReasonCode(portalErr);
-
-    if (syncId) {
-      await supabase.from("at_sync_history").update({
-        status: "error",
-        sync_method: "portal",
-        reason_code: portalReasonCode,
-        error_message: portalErr,
-        completed_at: new Date().toISOString(),
-      }).eq("id", syncId);
-    }
-
-    await supabase.from("at_credentials").update({
-      last_sync_at: new Date().toISOString(),
-      last_sync_status: "error",
-      last_sync_error: portalErr,
-    }).eq("client_id", clientId);
-
-    return new Response(
-      JSON.stringify({
-        success: false,
-        reasonCode: portalReasonCode,
-        error: portalErr,
-        syncId,
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
   } catch (error: any) {
     const msg = error?.message || String(error);
     console.error("[sync-efatura] Error:", msg);

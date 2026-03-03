@@ -63,4 +63,4 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.fetch-efatura-portal]
-verify_jwt = false
+verify_jwt = true
