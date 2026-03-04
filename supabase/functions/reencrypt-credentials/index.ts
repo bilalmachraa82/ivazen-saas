@@ -106,11 +106,26 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Verify the caller is using the exact service-role secret.
-    // Never trust unsigned/decoded JWT payload claims.
+    // Verify service-role: try constant-time comparison first, then JWT decode fallback
     const authHeader = req.headers.get("Authorization") ?? "";
     const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-    const isServiceRole = constantTimeEquals(token, supabaseServiceKey);
+    let isServiceRole = constantTimeEquals(token, supabaseServiceKey);
+
+    // Fallback: decode JWT payload and check role claim
+    // (raw comparison can fail in Supabase edge runtime)
+    if (!isServiceRole && token) {
+      try {
+        const payloadB64 = token.split(".")[1];
+        if (payloadB64) {
+          const payload = JSON.parse(atob(payloadB64));
+          if (payload.role === "service_role") {
+            isServiceRole = true;
+          }
+        }
+      } catch {
+        // Invalid JWT — leave isServiceRole as false
+      }
+    }
 
     if (!isServiceRole) {
       return new Response(

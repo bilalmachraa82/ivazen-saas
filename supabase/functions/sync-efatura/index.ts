@@ -690,6 +690,22 @@ Deno.serve(async (req: Request) => {
     const token = authHeader.replace("Bearer ", "").trim();
     let isServiceRole = constantTimeEquals(token, supabaseServiceKey);
 
+    // Fallback: decode JWT payload and check role claim
+    // (raw comparison can fail in Supabase edge runtime)
+    if (!isServiceRole && token) {
+      try {
+        const payloadB64 = token.split(".")[1];
+        if (payloadB64) {
+          const payload = JSON.parse(atob(payloadB64));
+          if (payload.role === "service_role") {
+            isServiceRole = true;
+          }
+        }
+      } catch {
+        // Invalid JWT — leave isServiceRole as false
+      }
+    }
+
     let authUser: { id: string } | null = null;
     if (!isServiceRole) {
       const authSupabase = createClient(

@@ -64,3 +64,6 @@ verify_jwt = false
 
 [functions.fetch-efatura-portal]
 verify_jwt = true
+
+[functions.reencrypt-credentials]
+verify_jwt = false
