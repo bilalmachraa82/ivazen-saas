@@ -12,6 +12,17 @@ interface State {
   error: Error | null;
 }
 
+// Detect stale chunk errors (after deploy, old cached JS filenames 404)
+function isChunkLoadError(error: Error): boolean {
+  const msg = error.message || '';
+  return (
+    msg.includes('Failed to fetch dynamically imported module') ||
+    msg.includes('Loading chunk') ||
+    msg.includes('Loading CSS chunk') ||
+    msg.includes('text/html')
+  );
+}
+
 class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
@@ -24,11 +35,44 @@ class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("ErrorBoundary caught an error:", error, errorInfo);
+
+    // Auto-recover from stale chunk errors by clearing caches and reloading
+    if (isChunkLoadError(error)) {
+      const reloadKey = 'chunk-reload-ts';
+      const lastReload = sessionStorage.getItem(reloadKey);
+      const now = Date.now();
+
+      // Only auto-reload once per 30 seconds to avoid infinite loops
+      if (!lastReload || now - Number(lastReload) > 30000) {
+        sessionStorage.setItem(reloadKey, String(now));
+        // Clear service worker caches then reload
+        if ('caches' in window) {
+          caches.keys().then(names => {
+            Promise.all(names.map(name => caches.delete(name))).then(() => {
+              window.location.reload();
+            });
+          });
+        } else {
+          window.location.reload();
+        }
+        return;
+      }
+    }
+
     Sentry.captureException(error, { extra: { componentStack: errorInfo.componentStack } });
   }
 
   private handleReload = () => {
-    window.location.reload();
+    // Clear caches on manual reload too
+    if ('caches' in window) {
+      caches.keys().then(names => {
+        Promise.all(names.map(name => caches.delete(name))).then(() => {
+          window.location.reload();
+        });
+      });
+    } else {
+      window.location.reload();
+    }
   };
 
   private handleGoHome = () => {
