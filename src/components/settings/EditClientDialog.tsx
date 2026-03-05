@@ -20,6 +20,9 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 import { Loader2, UserCog, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,13 +33,21 @@ const editClientSchema = z.object({
   full_name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   company_name: z.string().optional(),
   nif: z.string().refine((nif) => {
-    if (!nif) return true; // Allow empty for now
+    if (!nif) return true;
     const result = validateNIF(nif, { required: false });
     return result.valid;
   }, { message: 'NIF inválido - verifique o dígito de controlo' }),
   email: z.string().email('Email inválido').or(z.literal('')),
   phone: z.string().optional(),
   address: z.string().optional(),
+  // Fiscal fields
+  niss: z.string().optional(),
+  cae: z.string().optional(),
+  worker_type: z.string().optional(),
+  accounting_regime: z.string().optional(),
+  vat_regime: z.string().optional(),
+  ss_contribution_rate: z.string().optional(),
+  is_first_year: z.boolean().optional(),
 });
 
 type EditClientForm = z.infer<typeof editClientSchema>;
@@ -61,8 +72,31 @@ export function EditClientDialog({ open, onOpenChange, client, onSuccess }: Edit
       email: '',
       phone: '',
       address: '',
+      niss: '',
+      cae: '',
+      worker_type: '',
+      accounting_regime: '',
+      vat_regime: '',
+      ss_contribution_rate: '',
+      is_first_year: false,
     },
   });
+
+  // Fetch full profile data for fiscal fields
+  const [fiscalData, setFiscalData] = useState<Record<string, unknown>>({});
+
+  useEffect(() => {
+    if (client?.id) {
+      supabase
+        .from('profiles')
+        .select('niss, cae, worker_type, accounting_regime, vat_regime, ss_contribution_rate, is_first_year')
+        .eq('id', client.id)
+        .single()
+        .then(({ data }) => {
+          if (data) setFiscalData(data);
+        });
+    }
+  }, [client?.id]);
 
   // Reset form when client changes
   useEffect(() => {
@@ -74,9 +108,16 @@ export function EditClientDialog({ open, onOpenChange, client, onSuccess }: Edit
         email: client.email || '',
         phone: client.phone || '',
         address: client.address || '',
+        niss: (fiscalData.niss as string) || '',
+        cae: (fiscalData.cae as string) || '',
+        worker_type: (fiscalData.worker_type as string) || '',
+        accounting_regime: (fiscalData.accounting_regime as string) || '',
+        vat_regime: (fiscalData.vat_regime as string) || '',
+        ss_contribution_rate: fiscalData.ss_contribution_rate != null ? String(fiscalData.ss_contribution_rate) : '21.4',
+        is_first_year: (fiscalData.is_first_year as boolean) || false,
       });
     }
-  }, [client, form]);
+  }, [client, form, fiscalData]);
 
   const handleClose = () => {
     form.reset();
@@ -93,11 +134,19 @@ export function EditClientDialog({ open, onOpenChange, client, onSuccess }: Edit
         .from('profiles')
         .update({
           full_name: data.full_name,
-          company_name: data.company_name || data.full_name, // Sync company_name with full_name
+          company_name: data.company_name || data.full_name,
           nif: data.nif || null,
           email: data.email || null,
           phone: data.phone || null,
           address: data.address || null,
+          // Fiscal fields
+          niss: data.niss || null,
+          cae: data.cae || null,
+          worker_type: data.worker_type || null,
+          accounting_regime: data.accounting_regime || null,
+          vat_regime: data.vat_regime || null,
+          ss_contribution_rate: data.ss_contribution_rate ? parseFloat(data.ss_contribution_rate) : null,
+          is_first_year: data.is_first_year || false,
         })
         .eq('id', client.id);
 
@@ -137,7 +186,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSuccess }: Edit
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserCog className="h-5 w-5 text-primary" />
@@ -224,6 +273,145 @@ export function EditClientDialog({ open, onOpenChange, client, onSuccess }: Edit
                     <Input placeholder="Rua, Código Postal, Cidade" {...field} />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Fiscal Fields Section */}
+            <Separator className="my-2" />
+            <p className="text-sm font-medium text-muted-foreground">Dados Fiscais</p>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="niss"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>NISS</FormLabel>
+                    <FormControl>
+                      <Input placeholder="12345678901" maxLength={11} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="cae"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>CAE</FormLabel>
+                    <FormControl>
+                      <Input placeholder="69200" maxLength={5} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="worker_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo Trabalhador</FormLabel>
+                    <Select value={field.value || ''} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecionar..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="independent">Trabalhador Independente</SelectItem>
+                        <SelectItem value="eni">ENI</SelectItem>
+                        <SelectItem value="eirl">EIRL</SelectItem>
+                        <SelectItem value="agricultural">Produtor Agrícola</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="accounting_regime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Regime Contabilístico</FormLabel>
+                    <Select value={field.value || ''} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecionar..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="simplified">Regime Simplificado</SelectItem>
+                        <SelectItem value="organized">Contabilidade Organizada</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="vat_regime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Regime IVA</FormLabel>
+                    <Select value={field.value || ''} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecionar..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="normal">Normal</SelectItem>
+                        <SelectItem value="simplified">Simplificado</SelectItem>
+                        <SelectItem value="exempt">Isento (Art. 53)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="ss_contribution_rate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Taxa SS (%)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.1" placeholder="21.4" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="is_first_year"
+              render={({ field }) => (
+                <FormItem className="flex items-center gap-2 space-y-0">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormLabel className="text-sm font-normal">
+                    1.o ano de atividade (isento SS)
+                  </FormLabel>
                 </FormItem>
               )}
             />

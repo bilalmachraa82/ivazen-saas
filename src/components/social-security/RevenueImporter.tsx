@@ -30,6 +30,7 @@ import {
   FileCode,
 } from 'lucide-react';
 import { parseInvoiceFile, ParsedInvoice, aggregateByQuarter, formatCurrency, ParseResult, detectCategoryFromCAE, CategoryDetectionResult } from '@/lib/csvParser';
+import { parseATExcel, ATReciboRecord } from '@/lib/atRecibosParser';
 import { toast } from 'sonner';
 import { REVENUE_CATEGORIES } from '@/hooks/useSocialSecurity';
 import { useCategoryPreferences } from '@/hooks/useCategoryPreferences';
@@ -101,25 +102,95 @@ export function RevenueImporter({ onImport, onCreateSalesInvoices, currentQuarte
     }
   }, []);
 
-  const processFile = useCallback((file: File) => {
+  // Convert AT Excel records to ParsedInvoice format
+  const convertATRecordsToInvoices = (records: ATReciboRecord[]): { invoices: InvoiceWithCategory[]; warnings: string[] } => {
+    const warnings: string[] = [];
+    const invoices: InvoiceWithCategory[] = records.map(record => {
+      // Determine category: Cat. B = services, Cat. F = rental income
+      let category = 'prestacao_servicos';
+      if (record.categoria === 'F_PREDIAIS') {
+        category = 'rendas';
+        warnings.push(`Recibo ${record.numero}: Rendas prediais (Cat. F) — não contam para SS`);
+      } else if (record.categoria === 'E_CAPITAIS') {
+        category = 'capitais';
+      }
+
+      const date = new Date(record.data);
+      const quarter = Math.ceil((date.getMonth() + 1) / 3);
+      const quarterStr = `${date.getFullYear()}-Q${quarter}`;
+
+      return {
+        date,
+        documentNumber: record.numero,
+        customerNif: record.nifAdquirente || '',
+        baseValue: record.valorBase,
+        vatValue: record.valorIVA || 0,
+        totalValue: record.valorTotal,
+        documentType: 'FR',
+        quarter: quarterStr,
+        selectedCategory: category,
+        selected: true,
+      };
+    });
+
+    return { invoices, warnings };
+  };
+
+  const processFile = useCallback(async (file: File) => {
     const fileName = file.name.toLowerCase();
     const isXml = fileName.endsWith('.xml');
     const isCsv = fileName.endsWith('.csv');
-    
-    if (!isCsv && !isXml) {
-      toast.error('Por favor, carregue um ficheiro CSV ou XML (SAFT-PT)');
+    const isExcel = fileName.endsWith('.xls') || fileName.endsWith('.xlsx');
+
+    if (!isCsv && !isXml && !isExcel) {
+      toast.error('Por favor, carregue um ficheiro CSV, XML (SAFT-PT) ou Excel (.xls/.xlsx)');
       return;
     }
 
+    // Handle Excel files (AT recibos verdes export)
+    if (isExcel) {
+      try {
+        const result = await parseATExcel(file);
+        if (!result.success || result.records.length === 0) {
+          toast.error(result.errors[0] || 'Nenhum recibo encontrado no ficheiro Excel');
+          setErrors(result.errors);
+          return;
+        }
+
+        const { invoices, warnings: excelWarnings } = convertATRecordsToInvoices(result.records);
+        const allWarnings = [...result.warnings, ...excelWarnings];
+
+        // Default to services for recibos verdes
+        setDefaultCategory('prestacao_servicos');
+        setDetectedCategory({
+          category: 'prestacao_servicos',
+          confidence: 'high',
+          reason: 'Recibos verdes (Cat. B) — Prestação de serviços',
+        });
+
+        setInvoicesWithCategories(invoices);
+        setErrors(result.errors);
+        setWarnings(allWarnings);
+        setFileType('csv'); // Reuse csv display style
+        setStep('preview');
+        toast.success(`${result.records.length} recibos verdes encontrados (Excel AT)`);
+      } catch (err) {
+        console.error('Excel parse error:', err);
+        toast.error('Erro ao processar ficheiro Excel');
+      }
+      return;
+    }
+
+    // Handle CSV/XML files (existing logic)
     const reader = new FileReader();
     reader.onload = (e) => {
       const content = e.target?.result as string;
       const result = parseInvoiceFile(content, file.name);
-      
+
       // Check for saved preference first, then CAE detection
       const savedCategory = getSuggestedCategory(userCAE);
       let categoryToUse: string;
-      
+
       if (savedCategory) {
         categoryToUse = savedCategory;
         setUsedSavedPreference(true);
@@ -133,20 +204,20 @@ export function RevenueImporter({ onImport, onCreateSalesInvoices, currentQuarte
         categoryToUse = detection.category;
         setDetectedCategory(detection);
       }
-      
+
       // Add category and selection to each invoice
       const invoicesWithCats: InvoiceWithCategory[] = result.invoices.map(invoice => ({
         ...invoice,
         selectedCategory: categoryToUse,
-        selected: true, // Default all selected
+        selected: true,
       }));
-      
+
       setInvoicesWithCategories(invoicesWithCats);
       setDefaultCategory(categoryToUse);
       setErrors(result.errors);
       setWarnings(result.warnings);
       setFileType(result.fileType || (isXml ? 'saft' : 'csv'));
-      
+
       if (result.invoices.length > 0) {
         setStep('preview');
         const typeLabel = result.fileType === 'saft' ? 'SAFT-PT' : 'CSV';
@@ -351,9 +422,9 @@ export function RevenueImporter({ onImport, onCreateSalesInvoices, currentQuarte
                     4
                   </div>
                   <div>
-                    <p className="font-medium">Exportar para CSV ou SAFT-PT</p>
+                    <p className="font-medium">Exportar para CSV, SAFT-PT ou Excel</p>
                     <p className="text-sm text-muted-foreground">
-                      Clique no botão de exportar e guarde o ficheiro CSV ou XML (SAFT-PT)
+                      Clique no botão de exportar e guarde o ficheiro CSV, XML (SAFT-PT) ou Excel (.xls/.xlsx)
                     </p>
                     <div className="flex gap-2 mt-2">
                       <Badge variant="secondary" className="gap-1">
@@ -363,6 +434,10 @@ export function RevenueImporter({ onImport, onCreateSalesInvoices, currentQuarte
                       <Badge variant="secondary" className="gap-1">
                         <FileCode className="h-3 w-3" />
                         SAFT-PT (XML)
+                      </Badge>
+                      <Badge variant="secondary" className="gap-1">
+                        <FileSpreadsheet className="h-3 w-3" />
+                        Excel (.xls/.xlsx)
                       </Badge>
                     </div>
                   </div>
@@ -396,7 +471,7 @@ export function RevenueImporter({ onImport, onCreateSalesInvoices, currentQuarte
       {step === 'upload' && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 flex-wrap">
               Carregar Ficheiro
               <Badge variant="outline" className="gap-1">
                 <FileSpreadsheet className="h-3 w-3" />
@@ -406,9 +481,13 @@ export function RevenueImporter({ onImport, onCreateSalesInvoices, currentQuarte
                 <FileCode className="h-3 w-3" />
                 SAFT-PT
               </Badge>
+              <Badge variant="outline" className="gap-1">
+                <FileSpreadsheet className="h-3 w-3" />
+                Excel
+              </Badge>
             </CardTitle>
             <CardDescription>
-              Arraste o ficheiro CSV ou SAFT-PT (XML) exportado do Portal das Finanças
+              Arraste o ficheiro CSV, SAFT-PT (XML) ou Excel (.xls/.xlsx) exportado do Portal das Finanças
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -430,10 +509,10 @@ export function RevenueImporter({ onImport, onCreateSalesInvoices, currentQuarte
                 <FileCode className="h-10 w-10 text-muted-foreground" />
               </div>
               <p className="text-lg font-medium mb-2">Arraste o ficheiro aqui</p>
-              <p className="text-sm text-muted-foreground mb-4">CSV ou SAFT-PT (XML)</p>
+              <p className="text-sm text-muted-foreground mb-4">CSV, SAFT-PT (XML) ou Excel (.xls/.xlsx)</p>
               <input
                 type="file"
-                accept=".csv,.xml"
+                accept=".csv,.xml,.xls,.xlsx"
                 onChange={handleFileSelect}
                 className="hidden"
                 id="file-upload"

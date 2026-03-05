@@ -263,9 +263,27 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
   const { profile } = useProfile();
   const queryClient = useQueryClient();
   const [quarter, setQuarter] = useState(selectedQuarter || getCurrentQuarter());
-  
+
   // For accountants, use selected client ID; for regular users, use their own ID
   const effectiveClientId = selectedClientId || user?.id;
+
+  // Fix #1: When accountant views a client, fetch the CLIENT's profile, not the accountant's
+  const isViewingOtherClient = !!effectiveClientId && effectiveClientId !== user?.id;
+  const { data: clientProfileData } = useQuery({
+    queryKey: ['client-profile-ss', effectiveClientId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', effectiveClientId!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: isViewingOtherClient,
+  });
+  // Use client's profile when viewing another client, otherwise own profile
+  const activeProfile = (isViewingOtherClient && clientProfileData) ? clientProfileData : profile;
 
   // Fetch revenue entries for quarter
   const { data: revenueEntries = [], isLoading: isLoadingRevenue } = useQuery({
@@ -361,34 +379,53 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
       return acc;
     }, {} as Record<string, number>);
 
-    // Add validated sales invoices to "vendas" category
-    const salesTotal = salesInvoices.reduce((sum, inv) => sum + Number(inv.total_amount), 0);
-    byCategory['vendas'] = (byCategory['vendas'] || 0) + salesTotal;
+    // Fix #2: Separate FR (recibos verdes / services) from FT/FS (goods sales)
+    // FR documents = prestação de serviços (coefficient 0.70)
+    // FT/FS documents = vendas de mercadorias (coefficient 0.20)
+    let salesServicesTotal = 0; // FR - recibos verdes
+    let salesGoodsTotal = 0;    // FT, FS - faturas de venda
+
+    salesInvoices.forEach(inv => {
+      const amount = Number(inv.total_amount);
+      const docType = (inv.document_type || '').toUpperCase();
+      const category = inv.revenue_category;
+
+      // Use explicit revenue_category if set, otherwise infer from document_type
+      if (category === 'prestacao_servicos' || (!category && (docType === 'FR' || docType === 'FS/FR'))) {
+        salesServicesTotal += amount;
+      } else {
+        salesGoodsTotal += amount;
+      }
+    });
+
+    byCategory['prestacao_servicos'] = (byCategory['prestacao_servicos'] || 0) + salesServicesTotal;
+    byCategory['vendas'] = (byCategory['vendas'] || 0) + salesGoodsTotal;
 
     const total = Object.values(byCategory).reduce((sum, val) => sum + val, 0);
-    
-    // Calculate relevant income including sales invoices
+
+    // Calculate relevant income with correct coefficients per document type
     const manualRelevantIncome = calculateRelevantIncome(revenueEntries);
-    const salesRelevantIncome = salesTotal * REVENUE_COEFFICIENTS['vendas']; // 20%
-    const relevantIncome = manualRelevantIncome + salesRelevantIncome;
-    
-    return { 
-      byCategory, 
-      total, 
+    const servicesRelevantIncome = salesServicesTotal * REVENUE_COEFFICIENTS['prestacao_servicos']; // 70%
+    const goodsRelevantIncome = salesGoodsTotal * REVENUE_COEFFICIENTS['vendas']; // 20%
+    const relevantIncome = manualRelevantIncome + servicesRelevantIncome + goodsRelevantIncome;
+
+    return {
+      byCategory,
+      total,
       relevantIncome,
-      salesInvoicesTotal: salesTotal,
+      salesInvoicesTotal: salesServicesTotal + salesGoodsTotal,
       salesInvoicesCount: salesInvoices.length,
     };
   }, [revenueEntries, salesInvoices]);
 
-  // Calculate contribution base and amount based on profile settings
+  // Calculate contribution base and amount based on active profile (client or own)
   const calculatedContribution = useMemo(() => {
-    if (!profile) {
+    if (!activeProfile) {
       return { base: 0, amount: 0, isExempt: false, exemptReason: '' };
     }
     const quarterYear = Number(quarter.split('-')[0] || new Date().getFullYear());
     const quarterLimits = getSSLimits(quarterYear);
-    const profileFields = profile as unknown as SocialSecurityProfileFields;
+    const profileFields = activeProfile as unknown as SocialSecurityProfileFields;
 
     const accountingRegime = profileFields.accounting_regime || 'simplified';
     const hasOtherEmployment = profileFields.has_other_employment || false;
@@ -435,7 +472,7 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
     }
 
     return { base: contributionBase, amount: contributionAmount, isExempt: false, exemptReason: '' };
-  }, [profile, quarter, totals.relevantIncome]);
+  }, [activeProfile, quarter, totals.relevantIncome]);
 
   // Add revenue entry
   const addRevenueMutation = useMutation({
@@ -548,7 +585,8 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
       quarter: string;
       selectedCategory?: string;
     }>) => {
-      if (!effectiveClientId || !profile?.nif) throw new Error('No client selected');
+      const clientNif = activeProfile?.nif || profile?.nif;
+      if (!effectiveClientId || !clientNif) throw new Error('No client selected');
 
       // First, fetch existing sales invoices to check for duplicates
       const { data: existingSales, error: fetchError } = await supabase
@@ -573,7 +611,7 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
       // Filter out duplicates
       const uniqueInvoices = invoices.filter(invoice => {
         const dateStr = invoice.date.toISOString().split('T')[0];
-        const key = `${profile.nif}|${invoice.documentNumber}|${dateStr}`;
+        const key = `${clientNif}|${invoice.documentNumber}|${dateStr}`;
         return !existingKeys.has(key);
       });
 
@@ -585,7 +623,7 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
 
       const insertData = uniqueInvoices.map(invoice => ({
         client_id: effectiveClientId,
-        supplier_nif: profile.nif, // User is the supplier (issuer) of sales invoices
+        supplier_nif: clientNif, // User is the supplier (issuer) of sales invoices
         document_date: invoice.date.toISOString().split('T')[0],
         document_number: invoice.documentNumber,
         customer_nif: invoice.customerNif || null,

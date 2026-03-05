@@ -53,6 +53,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useSyncEFatura, useSyncHistory } from '@/hooks/useATCredentials';
 import { useBulkSync } from '@/hooks/useBulkSync';
 import { ImportCredentialsDialog } from '@/components/settings/ImportCredentialsDialog';
+import { EditCredentialDialog } from '@/components/settings/EditCredentialDialog';
 import { ClientSyncStatus, deriveSyncStatus } from '@/components/efatura/ClientSyncStatus';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
@@ -125,6 +126,7 @@ export default function BulkClientSync() {
   const [syncProgress, setSyncProgress] = useState(0);
   const [currentSyncClient, setCurrentSyncClient] = useState<string | null>(null);
   const [fiscalYear, setFiscalYear] = useState<number>(currentYear);
+  const [credentialDialog, setCredentialDialog] = useState<{ nif: string; name: string } | null>(null);
 
   // Check if user is accountant
   const { data: isAccountant, isLoading: isLoadingRole } = useQuery({
@@ -900,7 +902,21 @@ export default function BulkClientSync() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => navigate(reasonAction.ctaPath!)}
+                                  onClick={() => {
+                                    // Open credential dialog for auth/credential issues
+                                    if (client.nif && (
+                                      !client.hasCredentials ||
+                                      client.latestReasonCode === 'AT_AUTH_FAILED' ||
+                                      reasonAction.ctaPath === '/settings'
+                                    )) {
+                                      setCredentialDialog({
+                                        nif: client.nif,
+                                        name: client.full_name || client.company_name || client.nif,
+                                      });
+                                    } else {
+                                      navigate(reasonAction.ctaPath!);
+                                    }
+                                  }}
                                 >
                                   {reasonAction.ctaLabel}
                                 </Button>
@@ -1002,6 +1018,16 @@ export default function BulkClientSync() {
           </ZenCard>
         )}
       </div>
+
+      {credentialDialog && (
+        <EditCredentialDialog
+          open={!!credentialDialog}
+          onOpenChange={(open) => !open && setCredentialDialog(null)}
+          clientNif={credentialDialog.nif}
+          clientName={credentialDialog.name}
+          onSuccess={() => refetchClients()}
+        />
+      )}
     </DashboardLayout>
   );
 }

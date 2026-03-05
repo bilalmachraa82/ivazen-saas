@@ -8,13 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, RefreshCw, Search, Download, ShieldAlert, ShieldCheck, Clock3, Wrench } from 'lucide-react';
+import { Loader2, RefreshCw, Search, Download, ShieldAlert, ShieldCheck, Clock3, KeyRound } from 'lucide-react';
 import { useATControlCenter } from '@/hooks/useATControlCenter';
 import { useBulkSync } from '@/hooks/useBulkSync';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { pt } from 'date-fns/locale';
-import { useNavigate } from 'react-router-dom';
+import { EditCredentialDialog } from '@/components/settings/EditCredentialDialog';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'Todos os estados' },
@@ -37,13 +37,13 @@ function toCsvValue(value: unknown): string {
 }
 
 export default function ATControlCenter() {
-  const navigate = useNavigate();
   const bulkSync = useBulkSync();
   const currentYear = new Date().getFullYear();
 
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [reason, setReason] = useState('all');
+  const [credentialDialog, setCredentialDialog] = useState<{ nif: string; name: string } | null>(null);
 
   const { rows, stats, reasonOptions, isLoading, isRefetching, refetch, promoteCandidates, isPromoting } =
     useATControlCenter({
@@ -350,14 +350,19 @@ export default function ATControlCenter() {
                             <ShieldCheck className="h-4 w-4 mr-1" />
                             Promover
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => navigate('/settings')}
-                          >
-                            <Wrench className="h-4 w-4 mr-1" />
-                            Corrigir
-                          </Button>
+                          {row.client_nif && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setCredentialDialog({
+                                nif: row.client_nif,
+                                name: row.client_name || row.client_nif,
+                              })}
+                            >
+                              <KeyRound className="h-4 w-4 mr-1" />
+                              Credenciais
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -368,6 +373,16 @@ export default function ATControlCenter() {
           </CardContent>
         </ZenCard>
       </div>
+
+      {credentialDialog && (
+        <EditCredentialDialog
+          open={!!credentialDialog}
+          onOpenChange={(open) => !open && setCredentialDialog(null)}
+          clientNif={credentialDialog.nif}
+          clientName={credentialDialog.name}
+          onSuccess={() => refetch()}
+        />
+      )}
     </DashboardLayout>
   );
 }
