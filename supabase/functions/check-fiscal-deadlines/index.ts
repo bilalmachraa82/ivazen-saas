@@ -115,13 +115,9 @@ Deno.serve(async (req) => {
     let isAuthorized = isServiceRoleToken(token, serviceRoleKey);
     let userId: string | null = null;
 
-    // If not service-role, try user auth
-    if (!isAuthorized && authHeader) {
-      const authSupabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
-        global: { headers: { Authorization: authHeader } },
-        auth: { persistSession: false },
-      });
-      const { data: { user }, error: authError } = await authSupabase.auth.getUser();
+    // If not service-role, try user auth with explicit token
+    if (!isAuthorized && token) {
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
       if (!authError && user) {
         userId = user.id;
       }
