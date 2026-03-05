@@ -14,6 +14,8 @@ interface ExtractedCredential {
   nif: string;
   password: string;
   name?: string;
+  niss?: string;
+  ss_password?: string;
 }
 
 Deno.serve(async (req) => {
@@ -78,19 +80,23 @@ Deno.serve(async (req) => {
 
 INSTRUÇÕES:
 1. Procura por tabelas ou listas com NIFs (Números de Identificação Fiscal portugueses - 9 dígitos)
-2. Para cada NIF, encontra a password/senha associada
+2. Para cada NIF, encontra a password/senha das Finanças (AT) associada
 3. Também extrai o nome do cliente se disponível
+4. Se existir coluna NISS (Número de Identificação de Segurança Social - 11 dígitos), extrai também
+5. Se existir coluna Senha Seg. Social (password da Segurança Social), extrai também
 
 FORMATO DE RESPOSTA (JSON):
 Devolve APENAS um array JSON válido, sem markdown ou texto extra:
 [
-  {"nif": "123456789", "password": "ABC123", "name": "Nome Cliente"},
+  {"nif": "123456789", "password": "ABC123", "name": "Nome Cliente", "niss": "12345678901", "ss_password": "SenhaSSocial"},
   {"nif": "987654321", "password": "XYZ789", "name": "Outro Cliente"}
 ]
 
 REGRAS:
 - NIFs devem ter exactamente 9 dígitos numéricos
+- NISS devem ter 11 dígitos numéricos (quando presentes)
 - Passwords exactamente como aparecem no documento
+- Inclui niss e ss_password apenas se existirem no documento
 - Se não encontrares nenhuma credencial, devolve: []
 - NÃO inventes dados - extrai apenas o que existe no documento`
               },
@@ -104,7 +110,7 @@ REGRAS:
           }
         ],
         temperature: 0.1,
-        max_tokens: 8000,
+        max_tokens: 32000,
       }),
     });
 
@@ -156,6 +162,8 @@ REGRAS:
           nif: String(c.nif || '').replace(/\D/g, ''),
           password: String(c.password || '').trim(),
           name: c.name ? String(c.name).trim() : undefined,
+          niss: c.niss ? String(c.niss).replace(/\D/g, '') : undefined,
+          ss_password: c.ss_password ? String(c.ss_password).trim() : undefined,
         }))
         .filter(c => c.nif.length === 9 && c.password.length > 0);
 

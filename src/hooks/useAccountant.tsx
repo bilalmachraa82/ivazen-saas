@@ -91,16 +91,28 @@ export function useAccountant() {
     enabled: !!user?.id,
   });
 
-  // Fetch all clients associated with this accountant
+  // Fetch all clients associated with this accountant via client_accountants junction table
   const { data: clients, isLoading: isLoadingClients } = useQuery({
     queryKey: ['accountant-clients', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
 
+      // Get client IDs from junction table (source of truth)
+      const { data: associations, error: assocError } = await supabase
+        .from('client_accountants')
+        .select('client_id')
+        .eq('accountant_id', user.id);
+
+      if (assocError) throw assocError;
+      if (!associations?.length) return [];
+
+      const clientIds = associations.map(a => a.client_id);
+
+      // Fetch full profiles for those clients
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('accountant_id', user.id)
+        .in('id', clientIds)
         .order('full_name');
 
       if (error) throw error;
