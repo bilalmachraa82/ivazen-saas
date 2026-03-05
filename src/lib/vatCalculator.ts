@@ -28,7 +28,7 @@ export const VAT_CONFIG = {
     MADEIRA: {
       standard: 22,
       intermediate: 12,
-      reduced: 5,
+      reduced: 4,
       label: 'Madeira',
     },
   },

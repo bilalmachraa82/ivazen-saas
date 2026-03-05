@@ -186,7 +186,7 @@ const fiscalTerms: FiscalTerm[] = [
     id: 'art-53',
     term: 'Regime de Isencao do Art. 53',
     abbreviation: 'Art. 53',
-    definition: 'Regime de isencao de IVA aplicavel a sujeitos passivos com volume de negocios inferior a 14.500EUR anuais. Estes contribuintes nao liquidam IVA nas suas vendas, mas tambem nao podem deduzir o IVA das suas compras.',
+    definition: 'Regime de isencao de IVA aplicavel a sujeitos passivos com volume de negocios inferior a 15.000EUR anuais (desde 2025). Estes contribuintes nao liquidam IVA nas suas vendas, mas tambem nao podem deduzir o IVA das suas compras.',
     category: 'iva',
     icon: FileText,
     officialLink: 'https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/civa_rep/Pages/iva53.aspx',

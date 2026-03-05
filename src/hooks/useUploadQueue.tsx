@@ -8,7 +8,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export interface QueueItem {
   id: string;
@@ -60,7 +60,6 @@ interface DbQueueItem {
 
 export function useUploadQueue(forClientId?: string | null) {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [items, setItems] = useState<QueueItem[]>([]);
   const [stats, setStats] = useState<QueueStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -179,8 +178,7 @@ export function useUploadQueue(forClientId?: string | null) {
 
       if (showToast) {
         const pendingCount = typeof data?.pending_count === 'number' ? data.pending_count : null;
-        toast({
-          title: 'Processamento iniciado',
+        toast.success('Processamento iniciado', {
           description: pendingCount !== null
             ? `Fila iniciada em background (${pendingCount} pendentes). Atualize em alguns segundos.`
             : 'Fila iniciada em background. Atualize em alguns segundos.',
@@ -193,17 +191,15 @@ export function useUploadQueue(forClientId?: string | null) {
     } catch (error: unknown) {
       console.error('Error triggering processing:', error);
       if (showToast) {
-        toast({
-          title: 'Erro ao processar',
+        toast.error('Erro ao processar', {
           description: error instanceof Error ? error.message : 'Não foi possível iniciar o processamento',
-          variant: 'destructive',
         });
       }
     } finally {
       processingRef.current = false;
       setIsProcessing(false);
     }
-  }, [user, fetchQueue, toast]);
+  }, [user, fetchQueue]);
 
   // Public trigger function (always shows toast)
   const triggerProcessing = useCallback(async () => {
@@ -271,10 +267,8 @@ export function useUploadQueue(forClientId?: string | null) {
     const { autoTriggerProcessing = true, showToast = true } = options;
 
     if (!user) {
-      toast({
-        title: 'Erro',
+      toast.error('Erro', {
         description: 'Utilizador não autenticado',
-        variant: 'destructive',
       });
       return { success: false, uploaded: 0 };
     }
@@ -320,8 +314,7 @@ export function useUploadQueue(forClientId?: string | null) {
     await fetchQueue();
 
     if (uploadedCount > 0 && showToast) {
-      toast({
-        title: 'Ficheiros adicionados à fila',
+      toast.success('Ficheiros adicionados à fila', {
         description: `${uploadedCount} de ${files.length} ficheiros adicionados. A iniciar processamento automático...`,
       });
     }
@@ -338,7 +331,7 @@ export function useUploadQueue(forClientId?: string | null) {
     setUploadProgress(0);
 
     return { success: uploadedCount > 0, uploaded: uploadedCount };
-  }, [user, effectiveClientId, toast, fetchQueue, triggerProcessingInternal]);
+  }, [user, effectiveClientId, fetchQueue, triggerProcessingInternal]);
 
   // Remove item from queue
   const removeItem = useCallback(async (itemId: string) => {
@@ -353,19 +346,16 @@ export function useUploadQueue(forClientId?: string | null) {
       if (error) throw error;
 
       await fetchQueue();
-      toast({
-        title: 'Item removido',
+      toast.success('Item removido', {
         description: 'O ficheiro foi removido da fila',
       });
     } catch (error) {
       console.error('Error removing item:', error);
-      toast({
-        title: 'Erro',
+      toast.error('Erro', {
         description: 'Não foi possível remover o item',
-        variant: 'destructive',
       });
     }
-  }, [user, fetchQueue, toast]);
+  }, [user, fetchQueue]);
 
   // Clear all completed/failed items
   const clearCompleted = useCallback(async () => {
@@ -381,14 +371,13 @@ export function useUploadQueue(forClientId?: string | null) {
       if (error) throw error;
 
       await fetchQueue();
-      toast({
-        title: 'Fila limpa',
+      toast.success('Fila limpa', {
         description: 'Itens concluídos e falhados foram removidos',
       });
     } catch (error) {
       console.error('Error clearing completed:', error);
     }
-  }, [user, fetchQueue, toast]);
+  }, [user, fetchQueue]);
 
   // Clear ALL queue items for a specific client (for reset functionality)
   const clearAllQueue = useCallback(async (clientId?: string) => {
@@ -408,19 +397,16 @@ export function useUploadQueue(forClientId?: string | null) {
       if (error) throw error;
 
       await fetchQueue();
-      toast({
-        title: 'Fila limpa',
+      toast.success('Fila limpa', {
         description: 'Todos os itens da fila foram removidos',
       });
     } catch (error) {
       console.error('Error clearing all queue:', error);
-      toast({
-        title: 'Erro',
+      toast.error('Erro', {
         description: 'Não foi possível limpar a fila',
-        variant: 'destructive',
       });
     }
-  }, [user, effectiveClientId, fetchQueue, toast]);
+  }, [user, effectiveClientId, fetchQueue]);
 
   // Retry failed item
   const retryItem = useCallback(async (itemId: string) => {
@@ -435,14 +421,13 @@ export function useUploadQueue(forClientId?: string | null) {
       if (error) throw error;
 
       await fetchQueue();
-      toast({
-        title: 'Item reprocessado',
+      toast.success('Item reprocessado', {
         description: 'O ficheiro foi adicionado à fila novamente',
       });
     } catch (error) {
       console.error('Error retrying item:', error);
     }
-  }, [user, fetchQueue, toast]);
+  }, [user, fetchQueue]);
 
   return {
     items,

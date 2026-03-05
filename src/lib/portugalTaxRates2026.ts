@@ -133,7 +133,7 @@ export const TAXAS_IVA_ACORES = {
 export const TAXAS_IVA_MADEIRA = {
   NORMAL: 0.22,       // 22%
   INTERMEDIA: 0.12,   // 12%
-  REDUZIDA: 0.05,     // 5%
+  REDUZIDA: 0.04,     // 4%
 };
 
 /**
@@ -249,8 +249,8 @@ export const PRAZOS_SEGURANCA_SOCIAL = {
 export const PRAZO_MODELO_10 = {
   ANO: 2026,
   MES: 2,  // February
-  DIA: 10, // 10th
-  DESCRICAO: '10 de Fevereiro de 2026',
+  DIA: 28, // Last business day of February
+  DESCRICAO: 'Último dia útil de Fevereiro de 2026',
 };
 
 /**
@@ -310,7 +310,7 @@ export const REGIOES_FISCAIS = {
  */
 export const CALENDARIO_FISCAL_2026 = [
   { data: '2026-01-22', obrigacao: 'IVA - Declaração alterações (Art. 53.º)' },
-  { data: '2026-02-10', obrigacao: 'Modelo 10 - Entrega obrigatória', critico: true },
+  { data: '2026-02-28', obrigacao: 'Modelo 10 - Entrega obrigatória', critico: true },
   { data: '2026-02-16', obrigacao: 'Comunicação contratos arrendamento' },
   { data: '2026-04-01', obrigacao: 'IRS - Início período entrega' },
   { data: '2026-06-30', obrigacao: 'IRS - Fim período entrega', critico: true },

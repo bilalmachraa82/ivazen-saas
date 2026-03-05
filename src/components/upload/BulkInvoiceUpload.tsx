@@ -18,7 +18,7 @@ import {
   saveInvoiceToDatabase,
   BULK_INVOICE_CONFIG
 } from '@/lib/bulkInvoiceProcessor';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 
 interface BulkInvoiceUploadProps {
@@ -33,8 +33,6 @@ export function BulkInvoiceUpload({ selectedClientId, clientName }: BulkInvoiceU
   const [isDragging, setIsDragging] = useState(false);
   const [invoiceType, setInvoiceType] = useState<'purchase' | 'sales'>('purchase');
   const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
-  const { toast } = useToast();
-
   const effectiveClientId = selectedClientId || user?.id;
 
   // Calculate stats
@@ -80,7 +78,7 @@ export function BulkInvoiceUpload({ selectedClientId, clientName }: BulkInvoiceU
         });
 
       if (uploadError) {
-        toast({ title: 'Erro no upload', description: uploadError.message, variant: 'destructive' });
+        toast.error('Erro no upload', { description: uploadError.message });
         return;
       }
 
@@ -93,12 +91,12 @@ export function BulkInvoiceUpload({ selectedClientId, clientName }: BulkInvoiceU
             ? { ...q, invoiceId: result.invoiceId, warnings: (q.warnings || []).filter(w => !w.startsWith('Aviso:')) }
             : q
         ));
-        toast({ title: 'Gravada!', description: `${item.fileName} guardada com sucesso.` });
+        toast.success('Gravada!', { description: `${item.fileName} guardada com sucesso.` });
       } else {
-        toast({ title: 'Erro ao gravar', description: result.error, variant: 'destructive' });
+        toast.error('Erro ao gravar', { description: result.error });
       }
     } catch (err: any) {
-      toast({ title: 'Erro', description: err.message, variant: 'destructive' });
+      toast.error('Erro', { description: err.message });
     } finally {
       setRetryingIds(prev => {
         const next = new Set(prev);
@@ -127,10 +125,8 @@ export function BulkInvoiceUpload({ selectedClientId, clientName }: BulkInvoiceU
   // Add files to queue
   const addFiles = (files: File[]) => {
     if (queue.length + files.length > BULK_INVOICE_CONFIG.MAX_FILES_PER_BATCH) {
-      toast({
-        title: 'Demasiados ficheiros',
+      toast.error('Demasiados ficheiros', {
         description: `Maximo de ${BULK_INVOICE_CONFIG.MAX_FILES_PER_BATCH} ficheiros por envio. Ja tem ${queue.length} na fila.`,
-        variant: 'destructive',
       });
       return;
     }
@@ -138,10 +134,8 @@ export function BulkInvoiceUpload({ selectedClientId, clientName }: BulkInvoiceU
     const { valid, invalid } = validateBulkFiles(files);
 
     if (invalid.length > 0) {
-      toast({
-        title: `${invalid.length} ficheiro(s) rejeitado(s)`,
+      toast.error(`${invalid.length} ficheiro(s) rejeitado(s)`, {
         description: invalid.slice(0, 3).map(f => `${f.file.name}: ${f.reason}`).join(', ') + (invalid.length > 3 ? '...' : ''),
-        variant: 'destructive',
       });
     }
 
@@ -149,20 +143,20 @@ export function BulkInvoiceUpload({ selectedClientId, clientName }: BulkInvoiceU
 
     const itemsWithType = valid.map(item => ({ ...item, invoiceType }));
     setQueue(prev => [...prev, ...itemsWithType]);
-    toast({ title: 'Ficheiros adicionados', description: `${valid.length} fatura(s) adicionada(s) a fila` });
+    toast.success('Ficheiros adicionados', { description: `${valid.length} fatura(s) adicionada(s) a fila` });
   };
 
   // Process all pending documents
   const handleProcess = async () => {
     if (!effectiveClientId) {
-      toast({ title: 'Cliente nao definido', description: 'Selecione um cliente antes de processar', variant: 'destructive' });
+      toast.error('Cliente nao definido', { description: 'Selecione um cliente antes de processar' });
       return;
     }
 
     const filesToProcess = queue.filter(item => item.status === 'pending' || item.status === 'error');
 
     if (filesToProcess.length === 0) {
-      toast({ title: 'Nenhuma fatura pendente', description: 'Todas as faturas ja foram processadas' });
+      toast('Nenhuma fatura pendente', { description: 'Todas as faturas ja foram processadas' });
       return;
     }
 
@@ -171,9 +165,9 @@ export function BulkInvoiceUpload({ selectedClientId, clientName }: BulkInvoiceU
       await processBulkInvoices(filesToProcess, effectiveClientId, (id, updatedItem) => {
         setQueue(prev => prev.map(item => item.id === id ? updatedItem : item));
       }, { saveToDatabase: true });
-      toast({ title: 'Processamento concluido', description: `${filesToProcess.length} fatura(s) processada(s)` });
+      toast.success('Processamento concluido', { description: `${filesToProcess.length} fatura(s) processada(s)` });
     } catch (error: any) {
-      toast({ title: 'Erro no processamento', description: error.message || 'Ocorreu um erro ao processar as faturas', variant: 'destructive' });
+      toast.error('Erro no processamento', { description: error.message || 'Ocorreu um erro ao processar as faturas' });
     } finally {
       setIsProcessing(false);
     }
@@ -181,7 +175,7 @@ export function BulkInvoiceUpload({ selectedClientId, clientName }: BulkInvoiceU
 
   const handleClearAll = () => {
     setQueue([]);
-    toast({ title: 'Fila limpa', description: 'Todas as faturas foram removidas' });
+    toast.success('Fila limpa', { description: 'Todas as faturas foram removidas' });
   };
 
   const handleRemove = (id: string) => {

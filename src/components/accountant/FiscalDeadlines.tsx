@@ -15,7 +15,7 @@ import {
 
 interface Deadline {
   id: string;
-  type: 'iva' | 'ss' | 'modelo10' | 'irs';
+  type: 'iva' | 'ss' | 'modelo10' | 'irs' | 'saft';
   title: string;
   dueDate: Date;
   description: string;
@@ -38,26 +38,84 @@ export function FiscalDeadlines({ ssDeclarationsPending, pendingValidation }: Fi
     
     const allDeadlines: Deadline[] = [];
     
-    // IVA Monthly - Day 20 of following month
+    // IVA Monthly - Day 20 of following month (regime mensal: volume negócios > 650.000€)
     const ivaMonthlyDue = new Date(currentYear, currentMonth, 20);
     if (now.getDate() > 20) {
       ivaMonthlyDue.setMonth(ivaMonthlyDue.getMonth() + 1);
     }
-    
-    const ivaStatus = getDeadlineStatus(ivaMonthlyDue, pendingValidation > 5);
+
+    const ivaMonthlyStatus = getDeadlineStatus(ivaMonthlyDue, pendingValidation > 5);
     allDeadlines.push({
       id: 'iva-monthly',
       type: 'iva',
       title: 'IVA Mensal',
       dueDate: ivaMonthlyDue,
-      description: `Declaração periódica de IVA${pendingValidation > 0 ? ` (${pendingValidation} pendentes)` : ''}`,
-      status: ivaStatus,
+      description: `Regime mensal (vol. negócios > 650.000€)${pendingValidation > 0 ? ` • ${pendingValidation} pendentes` : ''}`,
+      status: ivaMonthlyStatus,
       link: 'https://www.acesso.gov.pt/v2/loginForm?partID=PFAP&path=/geral/dashboard',
-      priority: ivaStatus === 'overdue' ? 1 : ivaStatus === 'urgent' ? 2 : 3,
+      priority: ivaMonthlyStatus === 'overdue' ? 1 : ivaMonthlyStatus === 'urgent' ? 2 : 3,
+    });
+
+    // IVA Quarterly - Day 20 of 2nd month after quarter end (regime trimestral: vol. negócios <= 650.000€)
+    // Q1 (Jan-Mar) → May 20, Q2 (Apr-Jun) → Aug 20, Q3 (Jul-Sep) → Nov 20, Q4 (Oct-Dec) → Feb 20 next year
+    const quarterEndMonths = [2, 5, 8, 11]; // March, June, September, December (0-indexed)
+    let ivaQuarterlyDue: Date;
+
+    // Find the next quarterly deadline
+    const nextQuarterlyDeadlines = [
+      new Date(currentYear, 4, 20),   // Q1: May 20
+      new Date(currentYear, 7, 20),   // Q2: Aug 20
+      new Date(currentYear, 10, 20),  // Q3: Nov 20
+      new Date(currentYear + 1, 1, 20), // Q4: Feb 20 next year
+    ];
+
+    ivaQuarterlyDue = nextQuarterlyDeadlines.find(d => d >= now) || nextQuarterlyDeadlines[0];
+    // If all deadlines this cycle have passed, use Q1 of next year
+    if (ivaQuarterlyDue < now) {
+      ivaQuarterlyDue = new Date(currentYear + 1, 4, 20);
+    }
+
+    const quarterLabels: Record<string, string> = {
+      '4': 'T1 (Jan-Mar)',
+      '7': 'T2 (Abr-Jun)',
+      '10': 'T3 (Jul-Set)',
+      '1': 'T4 (Out-Dez)',
+    };
+    const quarterLabel = quarterLabels[String(ivaQuarterlyDue.getMonth())] || '';
+
+    const ivaQuarterlyStatus = getDeadlineStatus(ivaQuarterlyDue, pendingValidation > 5);
+    allDeadlines.push({
+      id: 'iva-quarterly',
+      type: 'iva',
+      title: 'IVA Trimestral',
+      dueDate: ivaQuarterlyDue,
+      description: `Regime trimestral ${quarterLabel} (vol. negócios ≤ 650.000€)${pendingValidation > 0 ? ` • ${pendingValidation} pendentes` : ''}`,
+      status: ivaQuarterlyStatus,
+      link: 'https://www.acesso.gov.pt/v2/loginForm?partID=PFAP&path=/geral/dashboard',
+      priority: ivaQuarterlyStatus === 'overdue' ? 1 : ivaQuarterlyStatus === 'urgent' ? 2 : 3,
     });
     
-    // SS Quarterly - Until day 15 of 2nd month after quarter
-    const ssQuarterDue = new Date(currentYear, currentQuarter * 3 + 1, 15);
+    // SAF-T Communication - Day 5 of following month
+    const saftDue = new Date(currentYear, currentMonth + 1, 5);
+    if (now.getDate() > 5) {
+      saftDue.setMonth(saftDue.getMonth() + 1);
+    }
+    const saftStatus = getDeadlineStatus(saftDue, false);
+    allDeadlines.push({
+      id: 'saft',
+      type: 'saft',
+      title: 'SAF-T Faturação',
+      dueDate: saftDue,
+      description: 'Comunicação mensal do ficheiro SAF-T à AT',
+      status: saftStatus,
+      link: 'https://faturas.portaldasfinancas.gov.pt/',
+      priority: saftStatus === 'overdue' ? 1 : saftStatus === 'urgent' ? 2 : 3,
+    });
+
+    // SS Quarterly - Last day of the deadline month (Jan 31, Apr 30, Jul 31, Oct 31)
+    const ssQuarterMonth = [0, 3, 6, 9][currentQuarter - 1] + 3; // month after quarter
+    const ssQuarterDue = new Date(currentYear, (ssQuarterMonth % 12) + 1, 0); // last day of month
+    if (ssQuarterMonth >= 12) ssQuarterDue.setFullYear(currentYear + 1);
     if (now > ssQuarterDue) {
       ssQuarterDue.setMonth(ssQuarterDue.getMonth() + 3);
     }
@@ -145,10 +203,11 @@ export function FiscalDeadlines({ ssDeclarationsPending, pendingValidation }: Fi
 
   const getTypeColor = (type: Deadline['type']) => {
     switch (type) {
-      case 'iva': return 'bg-green-500/10 text-green-600';
-      case 'ss': return 'bg-blue-500/10 text-blue-600';
+      case 'iva': return 'bg-success/10 text-success';
+      case 'ss': return 'bg-primary/10 text-primary';
       case 'modelo10': return 'bg-purple-500/10 text-purple-600';
-      case 'irs': return 'bg-orange-500/10 text-orange-600';
+      case 'saft': return 'bg-cyan-500/10 text-cyan-600';
+      case 'irs': return 'bg-warning/10 text-warning';
     }
   };
 

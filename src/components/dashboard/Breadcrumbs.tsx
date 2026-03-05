@@ -24,12 +24,12 @@ interface RouteMetadata {
 const routeMetadata: Record<string, RouteMetadata> = {
   '': {
     label: 'Dashboard',
-    description: 'Visao geral do seu negocio fiscal',
+    description: 'Visão geral do seu negócio fiscal',
     icon: Home
   },
   'dashboard': {
     label: 'Dashboard',
-    description: 'Visao geral do seu negocio fiscal',
+    description: 'Visão geral do seu negócio fiscal',
     icon: Home
   },
   'upload': {
@@ -38,7 +38,7 @@ const routeMetadata: Record<string, RouteMetadata> = {
     icon: Upload
   },
   'validation': {
-    label: 'Faturas de Compras',
+    label: 'Validação de Compras',
     description: 'Validar e classificar faturas recebidas',
     icon: FileCheck
   },
@@ -48,48 +48,48 @@ const routeMetadata: Record<string, RouteMetadata> = {
     icon: Receipt
   },
   'modelo-10': {
-    label: 'Modelo 10 - Retencoes',
-    description: 'Gerir retencoes na fonte para AT',
+    label: 'Modelo 10 - Retenções',
+    description: 'Gerir retenções na fonte para AT',
     icon: FileText
   },
   'seguranca-social': {
-    label: 'Seguranca Social',
-    description: 'Calcular e submeter contribuicoes SS',
+    label: 'Segurança Social',
+    description: 'Calcular e submeter contribuições SS',
     icon: Shield
   },
   'iva-calculator': {
     label: 'Calculadora IVA',
-    description: 'Ferramentas de calculo de IVA',
+    description: 'Ferramentas de cálculo de IVA',
     icon: Calculator
   },
   'reports': {
-    label: 'Relatorios',
-    description: 'Analise fiscal e exportacao de dados',
+    label: 'Relatórios',
+    description: 'Análise fiscal e exportação de dados',
     icon: BarChart3
   },
   'settings': {
-    label: 'Definicoes',
-    description: 'Configurar perfil e preferencias',
+    label: 'Definições',
+    description: 'Configurar perfil e preferências',
     icon: Settings
   },
   'accountant': {
     label: 'Painel Contabilista',
-    description: 'Gestao de clientes e validacao em massa',
+    description: 'Gestão de clientes e validação em massa',
     icon: Briefcase
   },
   'export': {
     label: 'Exportar',
-    description: 'Exportar dados e relatorios',
+    description: 'Exportar dados e relatórios',
     icon: Download
   },
   'ai-metrics': {
-    label: 'Metricas IA',
+    label: 'Métricas IA',
     description: 'Monitorizar desempenho da IA',
     icon: Brain
   },
   'admin': {
-    label: 'Administracao',
-    description: 'Painel de administracao do sistema',
+    label: 'Administração',
+    description: 'Painel de administração do sistema',
     icon: Settings
   },
   'users': {
@@ -99,7 +99,7 @@ const routeMetadata: Record<string, RouteMetadata> = {
   },
   'partners': {
     label: 'Parceiros',
-    description: 'Gerir parceiros e integracoes',
+    description: 'Gerir parceiros e integrações',
     icon: Users
   },
   'accountants': {
@@ -114,12 +114,12 @@ const routeMetadata: Record<string, RouteMetadata> = {
   },
   'onboarding': {
     label: 'Onboarding',
-    description: 'Configuracao inicial da conta',
+    description: 'Configuração inicial da conta',
     icon: AppWindow
   },
   'install': {
     label: 'Instalar App',
-    description: 'Instalar aplicacao no dispositivo',
+    description: 'Instalar aplicação no dispositivo',
     icon: AppWindow
   },
 };
@@ -131,10 +131,10 @@ export function Breadcrumbs() {
   const pathSegments = location.pathname.split('/').filter(Boolean);
 
   // Build breadcrumb items
-  const homeMeta = routeMetadata[''] || { label: 'Inicio', description: 'Pagina inicial' };
+  const homeMeta = routeMetadata[''] || { label: 'Início', description: 'Página inicial' };
   const breadcrumbs: BreadcrumbItem[] = [
     {
-      label: 'Inicio',
+      label: 'Início',
       description: homeMeta.description,
       href: '/',
       icon: Home
@@ -147,7 +147,7 @@ export function Breadcrumbs() {
     const isLast = index === pathSegments.length - 1;
     const meta = routeMetadata[segment] || {
       label: segment.charAt(0).toUpperCase() + segment.slice(1),
-      description: `Pagina ${segment}`
+      description: `Página ${segment}`
     };
 
     breadcrumbs.push({
@@ -166,13 +166,13 @@ export function Breadcrumbs() {
   return (
     <TooltipProvider delayDuration={300}>
       <nav
-        aria-label="Navegacao por breadcrumbs"
+        aria-label="Navegação por breadcrumbs"
         className="mb-6"
         role="navigation"
       >
         <ol
           className="flex items-center gap-1.5 text-sm text-muted-foreground"
-          aria-label="Lista de navegacao"
+          aria-label="Lista de navegação"
         >
           {breadcrumbs.map((item, index) => {
             const isLast = index === breadcrumbs.length - 1;
@@ -216,7 +216,7 @@ export function Breadcrumbs() {
                           "font-medium cursor-default",
                           isLast && "text-foreground"
                         )}
-                        aria-label={`Pagina atual: ${item.label}`}
+                        aria-label={`Página atual: ${item.label}`}
                       >
                         {content}
                       </span>

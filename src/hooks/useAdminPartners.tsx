@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 export interface Partner {
   id: string;
@@ -25,7 +25,6 @@ export interface PartnerFormData {
 
 export const useAdminPartners = () => {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   // Fetch all partners (including inactive)
   const partnersQuery = useQuery({
@@ -63,10 +62,10 @@ export const useAdminPartners = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-partners'] });
       queryClient.invalidateQueries({ queryKey: ['partners'] });
-      toast({ title: "Parceiro criado com sucesso" });
+      toast.success("Parceiro criado com sucesso");
     },
     onError: (error) => {
-      toast({ title: "Erro ao criar parceiro", description: error.message, variant: "destructive" });
+      toast.error("Erro ao criar parceiro", { description: error.message });
     },
   });
 
@@ -86,10 +85,10 @@ export const useAdminPartners = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-partners'] });
       queryClient.invalidateQueries({ queryKey: ['partners'] });
-      toast({ title: "Parceiro atualizado com sucesso" });
+      toast.success("Parceiro atualizado com sucesso");
     },
     onError: (error) => {
-      toast({ title: "Erro ao atualizar parceiro", description: error.message, variant: "destructive" });
+      toast.error("Erro ao atualizar parceiro", { description: error.message });
     },
   });
 
@@ -106,10 +105,10 @@ export const useAdminPartners = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-partners'] });
       queryClient.invalidateQueries({ queryKey: ['partners'] });
-      toast({ title: "Parceiro eliminado com sucesso" });
+      toast.success("Parceiro eliminado com sucesso");
     },
     onError: (error) => {
-      toast({ title: "Erro ao eliminar parceiro", description: error.message, variant: "destructive" });
+      toast.error("Erro ao eliminar parceiro", { description: error.message });
     },
   });
 
@@ -128,7 +127,7 @@ export const useAdminPartners = () => {
       queryClient.invalidateQueries({ queryKey: ['partners'] });
     },
     onError: (error) => {
-      toast({ title: "Erro ao alterar estado", description: error.message, variant: "destructive" });
+      toast.error("Erro ao alterar estado", { description: error.message });
     },
   });
 

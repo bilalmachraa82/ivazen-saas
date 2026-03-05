@@ -29,6 +29,7 @@ import {
   Clock,
   Loader2,
   FileKey,
+  ShieldAlert,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -294,6 +295,19 @@ export function EFaturaAPIConfig({
                         Configure as credenciais do sub-utilizador para o ambiente de testes.
                       </DialogDescription>
                     </DialogHeader>
+                    <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <ShieldAlert className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                        <div className="text-sm text-amber-800 dark:text-amber-300">
+                          <p className="font-semibold">Aviso de Seguranca</p>
+                          <p className="mt-1">
+                            As credenciais de teste sao guardadas sem encriptacao.
+                            <strong> Nao utilize passwords reais da AT.</strong> Use apenas credenciais
+                            de teste dedicadas ao ambiente de testes.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                     <div className="space-y-4 py-4">
                       <div className="space-y-2">
                         <Label htmlFor="username">Username (Sub-utilizador AT)</Label>
@@ -378,6 +392,19 @@ export function EFaturaAPIConfig({
                     </div>
                   ) : (
                     <>
+                      <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <ShieldAlert className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                          <div className="text-sm text-amber-800 dark:text-amber-300">
+                            <p className="font-semibold">Aviso de Seguranca</p>
+                            <p className="mt-1">
+                              As credenciais de teste sao guardadas sem encriptacao.
+                              <strong> Nao utilize passwords reais da AT.</strong> Use apenas credenciais
+                              de teste dedicadas ao ambiente de testes.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                       <div className="space-y-4 py-4">
                         <div className="space-y-2">
                           <Label htmlFor="setup-username">Username (Sub-utilizador AT)</Label>

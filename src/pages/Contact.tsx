@@ -6,14 +6,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Mail, Send, CheckCircle, Phone, MapPin, Clock, Building } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 const Contact = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const { toast } = useToast();
-
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -23,8 +21,7 @@ const Contact = () => {
 
     setIsSubmitting(false);
     setIsSubmitted(true);
-    toast({
-      title: "Mensagem enviada",
+    toast.success("Mensagem enviada", {
       description: "Responderemos dentro de 24-48 horas úteis.",
     });
   };

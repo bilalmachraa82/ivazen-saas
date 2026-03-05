@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useAccountant } from '@/hooks/useAccountant';
+import { useSelectedClient } from '@/hooks/useSelectedClient';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -54,6 +55,8 @@ export default function AccountantDashboard() {
     validateInvoice,
     isValidating,
   } = useAccountant();
+
+  const { setSelectedClientId: setGlobalSelectedClientId } = useSelectedClient();
 
   // Local expand/collapse state for client list (not global context)
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
@@ -246,7 +249,7 @@ export default function AccountantDashboard() {
         </div>
 
         {/* Metrics */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
@@ -276,8 +279,8 @@ export default function AccountantDashboard() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-yellow-500/10">
-                  <Clock className="h-5 w-5 text-yellow-600" />
+                <div className="p-3 rounded-lg bg-warning/10">
+                  <Clock className="h-5 w-5 text-warning" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Pendentes</p>
@@ -289,8 +292,8 @@ export default function AccountantDashboard() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-green-500/10">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                <div className="p-3 rounded-lg bg-success/10">
+                  <CheckCircle2 className="h-5 w-5 text-success" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Validadas</p>
@@ -302,12 +305,12 @@ export default function AccountantDashboard() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-green-500/10">
-                  <Calculator className="h-5 w-5 text-green-600" />
+                <div className="p-3 rounded-lg bg-success/10">
+                  <Calculator className="h-5 w-5 text-success" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">IVA Ded.</p>
-                  <p className="text-lg font-bold text-green-600">{formatCurrency(filteredMetrics.totalVatDeductible)}</p>
+                  <p className="text-lg font-bold text-success">{formatCurrency(filteredMetrics.totalVatDeductible)}</p>
                 </div>
               </div>
             </CardContent>
@@ -315,12 +318,12 @@ export default function AccountantDashboard() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-blue-500/10">
-                  <Shield className="h-5 w-5 text-blue-600" />
+                <div className="p-3 rounded-lg bg-primary/10">
+                  <Shield className="h-5 w-5 text-primary" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">SS Pend.</p>
-                  <p className="text-2xl font-bold text-blue-600">{filteredMetrics.ssDeclarationsPending}</p>
+                  <p className="text-2xl font-bold text-primary">{filteredMetrics.ssDeclarationsPending}</p>
                 </div>
               </div>
             </CardContent>
@@ -328,12 +331,12 @@ export default function AccountantDashboard() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-blue-500/10">
-                  <Calculator className="h-5 w-5 text-blue-600" />
+                <div className="p-3 rounded-lg bg-primary/10">
+                  <Calculator className="h-5 w-5 text-primary" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">SS Total</p>
-                  <p className="text-lg font-bold text-blue-600">{formatCurrency(filteredMetrics.ssTotalContributions)}</p>
+                  <p className="text-lg font-bold text-primary">{formatCurrency(filteredMetrics.ssTotalContributions)}</p>
                 </div>
               </div>
             </CardContent>
@@ -575,11 +578,11 @@ export default function AccountantDashboard() {
                               </div>
                               <div className="text-center px-3">
                                 <p className="text-xs text-muted-foreground">Pendentes</p>
-                                <p className="font-medium text-yellow-600">{client.classifiedCount}</p>
+                                <p className="font-medium text-warning">{client.classifiedCount}</p>
                               </div>
                               <div className="text-center px-3">
                                 <p className="text-xs text-muted-foreground">IVA Ded.</p>
-                                <p className="font-medium text-green-600">{formatCurrency(client.totalDeductible)}</p>
+                                <p className="font-medium text-success">{formatCurrency(client.totalDeductible)}</p>
                               </div>
                               <div className="text-center px-3">
                                 <p className="text-xs text-muted-foreground">SS</p>
@@ -600,6 +603,7 @@ export default function AccountantDashboard() {
                                 variant="outline"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  setGlobalSelectedClientId(client.id);
                                   navigate('/validation');
                                 }}
                                 className="gap-1"
@@ -612,6 +616,7 @@ export default function AccountantDashboard() {
                                 variant="outline"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  setGlobalSelectedClientId(client.id);
                                   navigate('/seguranca-social');
                                 }}
                                 className="gap-1"
@@ -624,6 +629,7 @@ export default function AccountantDashboard() {
                                 variant="outline"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  setGlobalSelectedClientId(client.id);
                                   navigate('/upload');
                                 }}
                                 className="gap-1"
@@ -672,11 +678,14 @@ export default function AccountantDashboard() {
                                   </div>
                                 ))}
                               </div>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 className="mt-3 gap-1"
-                                onClick={() => navigate('/validation')}
+                                onClick={() => {
+                                  setGlobalSelectedClientId(client.id);
+                                  navigate('/validation');
+                                }}
                               >
                                 Ver todas as facturas
                                 <ArrowRight className="h-3 w-3" />
@@ -749,15 +758,15 @@ export default function AccountantDashboard() {
                     </div>
                     <div>
                       <p className="text-muted-foreground">IVA Dedutível</p>
-                      <p className="text-lg font-bold text-green-600">{formatCurrency(filteredMetrics.totalVatDeductible)}</p>
+                      <p className="text-lg font-bold text-success">{formatCurrency(filteredMetrics.totalVatDeductible)}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">SS Pendentes</p>
-                      <p className="text-lg font-bold text-yellow-600">{filteredMetrics.ssDeclarationsPending}</p>
+                      <p className="text-lg font-bold text-warning">{filteredMetrics.ssDeclarationsPending}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">SS Total</p>
-                      <p className="text-lg font-bold text-blue-600">{formatCurrency(filteredMetrics.ssTotalContributions)}</p>
+                      <p className="text-lg font-bold text-primary">{formatCurrency(filteredMetrics.ssTotalContributions)}</p>
                     </div>
                   </div>
                 </div>

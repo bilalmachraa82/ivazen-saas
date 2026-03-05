@@ -138,11 +138,11 @@ export const OFFICIAL_WITHHOLDING_RATES: Record<string, Record<string, number[]>
     'RA': [18.4, 13.2, 9.2], // Açores: -20% sobre taxas do Continente
     'RM': [18.4, 13.2, 9.2], // Madeira: igual aos Açores
   },
-  // Categoria B - Não Residentes
+  // Categoria B - Não Residentes (Art. 71 CIRS)
   'B_NR': {
-    'C': [20], // 20% para não residentes
-    'RA': [16], // Açores -20%
-    'RM': [16], // Madeira -20%
+    'C': [25], // 25% para não residentes (Art. 71 CIRS)
+    'RA': [20], // Açores -20%
+    'RM': [20], // Madeira -20%
   },
   // Categoria E - Rendimentos de capitais
   'E': {
@@ -152,9 +152,9 @@ export const OFFICIAL_WITHHOLDING_RATES: Record<string, Record<string, number[]>
   },
   // Categoria F - Rendimentos prediais
   'F': {
-    'C': [25, 16.5], // 25% geral, 16.5% arrendamento habitacional de longa duração
-    'RA': [20, 13.2], // -20%
-    'RM': [20, 13.2], // -20%
+    'C': [25, 15], // 25% geral, 15% arrendamento habitacional de longa duração (2-5 anos, Art. 72 CIRS)
+    'RA': [20, 12], // -20%
+    'RM': [20, 12], // -20%
   },
   // Categoria G - Incrementos patrimoniais (mais-valias)
   'G': {

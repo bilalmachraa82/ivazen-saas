@@ -19,7 +19,7 @@ import {
 '@/components/ui/accordion';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 // FAQ Content
@@ -99,8 +99,6 @@ export function ChatWidget() {
     message: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
-
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (open) {
@@ -119,10 +117,8 @@ export function ChatWidget() {
     e.preventDefault();
 
     if (!formData.name || !formData.email || !formData.message) {
-      toast({
-        title: 'Campos obrigatorios',
+      toast.error('Campos obrigatorios', {
         description: 'Por favor preencha todos os campos.',
-        variant: 'destructive'
       });
       return;
     }
@@ -132,9 +128,8 @@ export function ChatWidget() {
     // Simulate sending (in production, this would call an API)
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    toast({
-      title: 'Mensagem enviada!',
-      description: 'Obrigado pelo seu contacto. Responderemos em breve.'
+    toast.success('Mensagem enviada!', {
+      description: 'Obrigado pelo seu contacto. Responderemos em breve.',
     });
 
     setFormData({ name: '', email: '', message: '' });

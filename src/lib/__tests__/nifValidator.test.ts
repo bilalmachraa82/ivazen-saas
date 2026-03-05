@@ -133,12 +133,12 @@ describe('Taxas de Retenção - getSuggestedRate', () => {
       expect(getSuggestedRate('B', 'RM')).toBe(18.4);
     });
 
-    it('deve retornar 20% para não residentes Continente', () => {
-      expect(getSuggestedRate('B', 'C', true)).toBe(20);
+    it('deve retornar 25% para não residentes Continente (Art. 71 CIRS)', () => {
+      expect(getSuggestedRate('B', 'C', true)).toBe(25);
     });
 
-    it('deve retornar 16% para não residentes Açores', () => {
-      expect(getSuggestedRate('B', 'RA', true)).toBe(16);
+    it('deve retornar 20% para não residentes Açores', () => {
+      expect(getSuggestedRate('B', 'RA', true)).toBe(20);
     });
   });
 
@@ -182,7 +182,7 @@ describe('getAvailableRates', () => {
     const rates = getAvailableRates('B', 'C');
     expect(rates).toHaveLength(3);
     expect(rates[0].rate).toBe(23);    // Taxa Geral (2025)
-    expect(rates[1].rate).toBe(16.5);  // Actividades Específicas
+    expect(rates[1].rate).toBe(16.5);  // Actividades Específicas (unchanged in Cat B)
     expect(rates[2].rate).toBe(11.5);  // Profissões Liberais
   });
 
@@ -198,7 +198,7 @@ describe('getAvailableRates', () => {
     const rates = getAvailableRates('F', 'C');
     expect(rates).toHaveLength(2);
     expect(rates[0].rate).toBe(25);    // Rendas Geral
-    expect(rates[1].rate).toBe(16.5);  // Arrendamento Longa Duração
+    expect(rates[1].rate).toBe(15);   // Arrendamento Longa Duração (2-5 anos)
   });
 
   it('deve ajustar taxas para Açores (-20%) (2025)', () => {
@@ -210,7 +210,7 @@ describe('getAvailableRates', () => {
   it('deve retornar 1 taxa para não residentes Cat. B', () => {
     const rates = getAvailableRates('B', 'C', true);
     expect(rates).toHaveLength(1);
-    expect(rates[0].rate).toBe(20);  // 20% não residentes
+    expect(rates[0].rate).toBe(25);  // 25% não residentes (Art. 71 CIRS)
   });
 });
 
@@ -244,7 +244,7 @@ describe('Conformidade com Legislação Fiscal Portuguesa', () => {
     expect(OFFICIAL_WITHHOLDING_RATES['B']['C'][0]).toBe(23);
   });
 
-  it('Cat. B não residentes deve ter taxa de 20%', () => {
-    expect(OFFICIAL_WITHHOLDING_RATES['B_NR']['C'][0]).toBe(20);
+  it('Cat. B não residentes deve ter taxa de 25% (Art. 71 CIRS)', () => {
+    expect(OFFICIAL_WITHHOLDING_RATES['B_NR']['C'][0]).toBe(25);
   });
 });

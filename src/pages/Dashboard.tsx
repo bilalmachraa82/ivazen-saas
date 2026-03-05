@@ -12,6 +12,7 @@ import { ZenCard, ZenHeader, ZenDecorations, ZenStatsCard, ZenEmptyState, ZenLoa
 import { UnifiedOnboarding } from '@/components/onboarding/UnifiedOnboarding';
 import { TaxFlowWidget } from '@/components/dashboard/TaxFlowWidget';
 import { AttentionItems } from '@/components/dashboard/AttentionItems';
+import { FiscalDeadlines } from '@/components/accountant/FiscalDeadlines';
 import { 
   FileText, 
   Clock, 
@@ -110,6 +111,14 @@ export default function Dashboard() {
           pendingValidation={stats.pending}
           lowConfidence={stats.lowConfidence}
         />
+
+        {/* Fiscal Deadlines */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <FiscalDeadlines
+            ssDeclarationsPending={0}
+            pendingValidation={stats.pending}
+          />
+        </div>
 
         {/* Recent Invoices */}
         <ZenCard withLine animationDelay="400ms" className="shadow-xl">

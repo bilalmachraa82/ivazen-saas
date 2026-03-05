@@ -11,7 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { processBulkDocuments, QueueItem, getConfidenceStatus } from '@/lib/bulkProcessor';
 import { BulkReviewTable } from './BulkReviewTable';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 // File size limit: 5MB per file (reduced to avoid payload limits with base64 encoding)
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
@@ -28,8 +28,6 @@ export function BulkUploadTab({ selectedClientId, selectedYear, clientName, isAc
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const { toast } = useToast();
-
   // Handle file drop
   const handleDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -51,10 +49,8 @@ export function BulkUploadTab({ selectedClientId, selectedYear, clientName, isAc
   const addFiles = (files: File[]) => {
     // Check total number of files
     if (queue.length + files.length > MAX_FILES_PER_BATCH) {
-      toast({
-        title: 'Demasiados ficheiros',
+      toast.error('Demasiados ficheiros', {
         description: `Máximo de ${MAX_FILES_PER_BATCH} ficheiros por envio. Já tem ${queue.length} na fila.`,
-        variant: 'destructive',
       });
       return;
     }
@@ -82,10 +78,8 @@ export function BulkUploadTab({ selectedClientId, selectedYear, clientName, isAc
 
     // Show rejected files warning
     if (rejectedFiles.length > 0) {
-      toast({
-        title: `${rejectedFiles.length} ficheiro(s) rejeitado(s)`,
+      toast.error(`${rejectedFiles.length} ficheiro(s) rejeitado(s)`, {
         description: rejectedFiles.slice(0, 3).join(', ') + (rejectedFiles.length > 3 ? '...' : ''),
-        variant: 'destructive',
       });
     }
 
@@ -103,8 +97,7 @@ export function BulkUploadTab({ selectedClientId, selectedYear, clientName, isAc
 
     setQueue(prev => [...prev, ...newItems]);
 
-    toast({
-      title: 'Ficheiros adicionados',
+    toast.success('Ficheiros adicionados', {
       description: `${validFiles.length} documento(s) adicionado(s) à fila`,
     });
   };
@@ -114,8 +107,7 @@ export function BulkUploadTab({ selectedClientId, selectedYear, clientName, isAc
     const filesToProcess = queue.filter(item => item.status === 'pending' || item.status === 'error');
 
     if (filesToProcess.length === 0) {
-      toast({
-        title: 'Nenhum documento pendente',
+      toast('Nenhum documento pendente', {
         description: 'Todos os documentos já foram processados',
       });
       return;
@@ -132,15 +124,12 @@ export function BulkUploadTab({ selectedClientId, selectedYear, clientName, isAc
         }
       );
 
-      toast({
-        title: 'Processamento concluído',
+      toast.success('Processamento concluído', {
         description: `${filesToProcess.length} documento(s) processado(s)`,
       });
     } catch (error: any) {
-      toast({
-        title: 'Erro no processamento',
+      toast.error('Erro no processamento', {
         description: error.message || 'Ocorreu um erro ao processar os documentos',
-        variant: 'destructive',
       });
     } finally {
       setIsProcessing(false);
@@ -150,8 +139,7 @@ export function BulkUploadTab({ selectedClientId, selectedYear, clientName, isAc
   // Clear all documents
   const handleClearAll = () => {
     setQueue([]);
-    toast({
-      title: 'Fila limpa',
+    toast.success('Fila limpa', {
       description: 'Todos os documentos foram removidos',
     });
   };

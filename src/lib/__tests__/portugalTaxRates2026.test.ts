@@ -158,7 +158,7 @@ describe('portugalTaxRates2026', () => {
     it('should have correct submission deadline', () => {
       expect(PRAZO_MODELO_10.ANO).toBe(2026);
       expect(PRAZO_MODELO_10.MES).toBe(2); // February
-      expect(PRAZO_MODELO_10.DIA).toBe(10);
+      expect(PRAZO_MODELO_10.DIA).toBe(28);
     });
 
     it('should have all income categories defined', () => {

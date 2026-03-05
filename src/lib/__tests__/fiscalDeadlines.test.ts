@@ -4,7 +4,7 @@
  *  - getUpcomingDeadlines — cálculo de prazos fiscais portugueses
  *  - IVA Mensal — dia 20 do mês seguinte
  *  - IVA Trimestral — dia 20 do 2º mês após trimestre
- *  - SS Trimestral — dia 15 do 2º mês após trimestre
+ *  - SS Trimestral — último dia do mês seguinte ao trimestre
  *  - Modelo 10 — 28 de fevereiro do ano seguinte
  *  - urgency levels — critical/warning/info
  */
@@ -72,8 +72,9 @@ function getUpcomingDeadlines(now: Date): Deadline[] {
     });
   }
 
-  // SS Quarterly
-  const ssQuarterDue = new Date(currentYear, currentQuarter * 3 + 1, 15);
+  // SS Quarterly - last day of month following the quarter
+  const ssQuarterMonth = currentQuarter * 3 + 1;
+  const ssQuarterDue = new Date(currentYear, ssQuarterMonth + 1, 0);
   if (now > ssQuarterDue) {
     ssQuarterDue.setMonth(ssQuarterDue.getMonth() + 3);
   }

@@ -65,6 +65,7 @@ const navGroups = [
     icon: LayoutDashboard,
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: FileText, tourId: 'nav-dashboard' },
+      { href: '/accountant', label: 'Painel Contabilista', icon: Briefcase, tourId: 'nav-accountant', requireAccountant: true },
     ]
   },
   {
@@ -264,17 +265,28 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     setMobileOpenGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
   };
 
-  const visibleNavGroups = isAccountant
-    ? navGroups
-    : navGroups.filter((group) => group.id !== 'importacao');
+  const visibleNavGroups = navGroups
+    .filter((group) => isAccountant || group.id !== 'importacao')
+    .map((group) => {
+      if (!isAccountant) {
+        return {
+          ...group,
+          items: group.items.filter((item) => !(item as any).requireAccountant),
+        };
+      }
+      return group;
+    });
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Skip to content link for accessibility */}
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-background focus:text-foreground">Saltar para o conteúdo</a>
+
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-card border-b border-border px-4 h-16 flex items-center justify-between">
         <Link to="/dashboard" className="flex items-center gap-2">
           <FileText className="h-6 w-6 text-primary" />
-          <span className="font-semibold text-foreground">Raquel</span>
+          <span className="font-semibold text-foreground">IVAzen</span>
         </Link>
         <div className="flex items-center gap-2">
           {/* Mobile Offline Indicator */}
@@ -429,8 +441,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <FileText className="h-5 w-5 text-sidebar-primary-foreground" />
             </div>
             <div>
-              <h1 className="font-semibold text-sidebar-foreground">Raquel</h1>
-              <p className="text-xs text-sidebar-foreground/60">Assistente IVA</p>
+              <h1 className="font-semibold text-sidebar-foreground">IVAzen</h1>
+              <p className="text-xs text-sidebar-foreground/60">Gestão Fiscal Inteligente</p>
             </div>
           </Link>
         </div>
@@ -594,7 +606,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="lg:ml-64 min-h-screen pt-16 lg:pt-0">
+      <main id="main-content" className="lg:ml-64 min-h-screen pt-16 lg:pt-0">
         <InstallBanner />
         <div className="p-6 lg:p-8">
           <Breadcrumbs />

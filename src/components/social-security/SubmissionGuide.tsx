@@ -225,7 +225,7 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
           <div className="text-sm">
             <p className="font-medium text-amber-600 dark:text-amber-400">Prazo de Entrega</p>
             <p className="text-muted-foreground">
-              A declaração deve ser entregue até ao dia 15 do mês seguinte ao trimestre
+              A declaração deve ser entregue até ao último dia do mês seguinte ao trimestre
               (Janeiro, Abril, Julho, Outubro).
             </p>
           </div>

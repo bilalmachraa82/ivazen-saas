@@ -32,7 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useWithholdings } from '@/hooks/useWithholdings';
 import { useUploadQueue, QueueItem as UploadQueueItem } from '@/hooks/useUploadQueue';
 import { BulkReviewTable } from './BulkReviewTable';
@@ -54,8 +54,6 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
-  const { toast } = useToast();
-  
   // Get withholdings to show the effective saved count
   const { 
     withholdings, 
@@ -97,18 +95,15 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
       // 2. Clear the entire upload queue for this client
       await clearAllQueue(selectedClientId);
       
-      toast({
-        title: 'Ano reposto com sucesso',
+      toast.success('Ano reposto com sucesso', {
         description: `Todas as retenções de ${selectedYear} e a fila de upload foram eliminadas.`,
       });
       
       setShowResetDialog(false);
     } catch (error) {
       console.error('Error resetting year:', error);
-      toast({
-        title: 'Erro ao repor ano',
+      toast.error('Erro ao repor ano', {
         description: 'Não foi possível eliminar todos os dados. Tente novamente.',
-        variant: 'destructive',
       });
     } finally {
       setIsResetting(false);
@@ -135,10 +130,8 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
   const validateAndAddFiles = (files: File[]) => {
     const totalFiles = selectedFiles.length + files.length;
     if (totalFiles > MAX_FILES_PER_UPLOAD) {
-      toast({
-        title: 'Demasiados ficheiros',
+      toast.error('Demasiados ficheiros', {
         description: `Máximo de ${MAX_FILES_PER_UPLOAD} ficheiros por envio`,
-        variant: 'destructive',
       });
       return;
     }
@@ -164,10 +157,8 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
     });
 
     if (rejected.length > 0) {
-      toast({
-        title: `${rejected.length} ficheiro(s) rejeitado(s)`,
+      toast.error(`${rejected.length} ficheiro(s) rejeitado(s)`, {
         description: rejected.slice(0, 3).join(', '),
-        variant: 'destructive',
       });
     }
 
@@ -190,8 +181,7 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
     }
 
     if (uploadedTotal > 0) {
-      toast({
-        title: 'Ficheiros adicionados à fila',
+      toast.success('Ficheiros adicionados à fila', {
         description: `${uploadedTotal} de ${selectedFiles.length} ficheiros adicionados. A iniciar processamento automático...`,
       });
 

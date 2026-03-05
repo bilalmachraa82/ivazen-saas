@@ -26,7 +26,7 @@ import {
 import { CheckCircle, AlertCircle, XCircle, Trash2, CheckSquare } from 'lucide-react';
 import { QueueItem, getConfidenceStatus } from '@/lib/bulkProcessor';
 import { useWithholdings } from '@/hooks/useWithholdings';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 
@@ -43,8 +43,6 @@ export function BulkReviewTable({ items, onRemove, selectedClientId, selectedYea
   
   // Use withholdings hook with the selected client ID for accountants
   const { addWithholding } = useWithholdings(selectedClientId);
-  const { toast } = useToast();
-
   // Toggle individual selection
   const toggleSelect = (id: string) => {
     setSelected(prev => {
@@ -72,8 +70,7 @@ export function BulkReviewTable({ items, onRemove, selectedClientId, selectedYea
     const greenItems = items.filter(item => item.confidence && item.confidence >= 0.95);
     setSelected(new Set(greenItems.map(item => item.id)));
 
-    toast({
-      title: 'Seleção automática',
+    toast.success('Seleção automática', {
       description: `${greenItems.length} documento(s) com alta confiança selecionado(s)`,
     });
   };
@@ -86,20 +83,16 @@ export function BulkReviewTable({ items, onRemove, selectedClientId, selectedYea
     const itemsToApprove = items.filter(item => selected.has(item.id));
 
     if (itemsToApprove.length === 0) {
-      toast({
-        title: 'Nenhum documento selecionado',
+      toast.error('Nenhum documento selecionado', {
         description: 'Selecione pelo menos um documento para aprovar',
-        variant: 'destructive',
       });
       return;
     }
 
     // Check if client is selected (for accountants)
     if (selectedClientId === null) {
-      toast({
-        title: 'Cliente não selecionado',
+      toast.error('Cliente não selecionado', {
         description: 'Selecione um cliente antes de aprovar os documentos',
-        variant: 'destructive',
       });
       return;
     }
@@ -142,17 +135,14 @@ export function BulkReviewTable({ items, onRemove, selectedClientId, selectedYea
     setSelected(new Set());
 
     if (successCount > 0) {
-      toast({
-        title: 'Aprovação concluída',
+      toast.success('Aprovação concluída', {
         description: `${successCount}/${totalToApprove} documento(s) adicionado(s) ao Modelo 10${errorCount > 0 ? ` (${errorCount} falharam)` : ''}`,
       });
     }
 
     if (errorCount > 0 && successCount === 0) {
-      toast({
-        title: 'Erro na aprovação',
+      toast.error('Erro na aprovação', {
         description: 'Não foi possível adicionar os documentos. Verifique e tente novamente.',
-        variant: 'destructive',
       });
     }
   };
@@ -164,8 +154,7 @@ export function BulkReviewTable({ items, onRemove, selectedClientId, selectedYea
     itemsToRemove.forEach(item => onRemove(item.id));
     setSelected(new Set());
 
-    toast({
-      title: 'Documentos removidos',
+    toast.success('Documentos removidos', {
       description: `${itemsToRemove.length} documento(s) removido(s) da fila`,
     });
   };

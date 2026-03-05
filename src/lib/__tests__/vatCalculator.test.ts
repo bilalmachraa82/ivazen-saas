@@ -33,10 +33,10 @@ describe('VAT Calculator - Portuguese IVA 2025', () => {
       expect(VAT_CONFIG.RATES.AZORES.reduced).toBe(4);
     });
 
-    it('has correct Madeira rates (22%, 12%, 5%)', () => {
+    it('has correct Madeira rates (22%, 12%, 4%)', () => {
       expect(VAT_CONFIG.RATES.MADEIRA.standard).toBe(22);
       expect(VAT_CONFIG.RATES.MADEIRA.intermediate).toBe(12);
-      expect(VAT_CONFIG.RATES.MADEIRA.reduced).toBe(5);
+      expect(VAT_CONFIG.RATES.MADEIRA.reduced).toBe(4);
     });
   });
 
@@ -193,9 +193,9 @@ describe('VAT Calculator - Portuguese IVA 2025', () => {
       expect(result.region).toBe('Madeira');
     });
 
-    it('calculates 5% for Madeira reduced rate', () => {
+    it('calculates 4% for Madeira reduced rate', () => {
       const result = calculateVAT(100, 'MADEIRA', 'reduced');
-      expect(result.vatAmount).toBe(5);
+      expect(result.vatAmount).toBe(4);
     });
 
     it('rounds to 2 decimal places', () => {
