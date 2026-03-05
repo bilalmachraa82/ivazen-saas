@@ -1,5 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.94.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://ivazen-saas.vercel.app',
@@ -161,7 +160,7 @@ function normalizeSupplierTaxIdForRules(raw: string): string | null {
   return null;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -184,17 +183,19 @@ serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Create client with user's auth to verify identity
-    const userSupabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-      auth: { persistSession: false }
+    // Extract bearer token and verify user identity
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+
+    // Use service role client to validate the user's JWT
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { persistSession: false, autoRefreshToken: false }
     });
 
-    const { data: { user }, error: authError } = await userSupabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     if (authError || !user) {
+      console.error('[classify-invoice] Auth failed:', authError?.message);
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -507,7 +508,7 @@ Responde APENAS com um objecto JSON válido no seguinte formato:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-2.5-flash',
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: userPrompt }
@@ -660,7 +661,7 @@ Responde APENAS com um objecto JSON válido no seguinte formato:
         success: true,
         classification,
         source: 'ai',
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-2.5-flash',
         message: 'Invoice classified successfully via AI'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

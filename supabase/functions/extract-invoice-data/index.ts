@@ -1,4 +1,4 @@
-// No supabase client needed - this function only calls AI gateway, no DB access
+import { createClient } from "npm:@supabase/supabase-js@2.94.1";
 import { evaluateEdpFallbackSanity } from './edpSanity.ts';
 import { isServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
 
@@ -359,12 +359,12 @@ Deno.serve(async (req) => {
     let isServiceRole = isServiceRoleToken(token, supabaseServiceRoleKey);
 
     if (!isServiceRole) {
-      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
       const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
         auth: { persistSession: false, autoRefreshToken: false },
       });
       const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
       if (authError || !user) {
+        console.error('[extract-invoice-data] Auth failed:', authError?.message);
         return new Response(
           JSON.stringify({ error: 'Unauthorized' }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

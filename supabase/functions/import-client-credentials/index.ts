@@ -159,17 +159,40 @@ Deno.serve(async (req: Request) => {
     // Service client for admin operations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get current user
-    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
-    if (authError || !user) {
+    // Get current user — with service_role JWT fallback for migration scripts
+    let user: { id: string } | null = null;
+    const { data: { user: authUser }, error: authError } = await supabaseUser.auth.getUser();
+
+    if (authUser) {
+      user = authUser;
+    } else {
+      // Fallback: decode JWT to check if it's a service_role token
+      try {
+        const token = authHeader.replace('Bearer ', '');
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.role === 'service_role') {
+          // Service role: find the primary accountant (Adélia)
+          const { data: accountants } = await supabaseAdmin
+            .from('user_roles')
+            .select('user_id')
+            .eq('role', 'accountant')
+            .limit(1);
+          if (accountants?.length) {
+            user = { id: accountants[0].user_id };
+          }
+        }
+      } catch {}
+    }
+
+    if (!user) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Check if user is accountant
-    const { data: isAccountant } = await supabaseUser.rpc('has_role', {
+    // Check if user is accountant (skip for service_role)
+    const { data: isAccountant } = await supabaseAdmin.rpc('has_role', {
       _user_id: user.id,
       _role: 'accountant',
     });
