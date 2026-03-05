@@ -1488,11 +1488,25 @@ Deno.serve(async (req: Request) => {
         }).eq("id", syncId);
       }
 
-      await supabase.from("at_credentials").update({
-        last_sync_at: new Date().toISOString(),
-        last_sync_status: overallStatus,
-        last_sync_error: overallError,
-      }).eq("client_id", clientId);
+      // Adaptive backoff: reset consecutive_failures on success, increment on error
+      if (overallStatus === "success" || overallStatus === "partial") {
+        await supabase.from("at_credentials").update({
+          last_sync_at: new Date().toISOString(),
+          last_sync_status: overallStatus,
+          last_sync_error: overallError,
+          consecutive_failures: 0,
+        }).eq("client_id", clientId);
+      } else {
+        await supabase.from("at_credentials").update({
+          last_sync_at: new Date().toISOString(),
+          last_sync_status: overallStatus,
+          last_sync_error: overallError,
+        }).eq("client_id", clientId);
+        // Atomic increment via RPC
+        await supabase.rpc("increment_consecutive_failures", {
+          p_client_id: clientId,
+        }).catch(() => {/* RPC not yet deployed — non-critical */});
+      }
 
       if (overallStatus === "error") {
         return new Response(

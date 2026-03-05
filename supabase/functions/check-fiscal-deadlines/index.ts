@@ -98,41 +98,71 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Auth: accept service-role key (cron/internal) or admin JWT.
+    // Auth: accept service-role key, webhook token (cron), or admin JWT.
     const authHeader = req.headers.get('Authorization');
+    const webhookToken = (req.headers.get('x-internal-webhook-token') || '').trim();
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
-    if (!authHeader) {
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    let isAuthorized = false;
+    let userId: string | null = null;
+
+    // Check service-role bearer token
+    if (authHeader) {
+      const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+      if (token === serviceRoleKey) {
+        isAuthorized = true;
+      } else {
+        // JWT decode fallback (constantTimeEquals can fail in edge runtime)
+        try {
+          const payloadB64 = token.split('.')[1];
+          if (payloadB64) {
+            const payload = JSON.parse(atob(payloadB64));
+            if (payload.role === 'service_role') {
+              isAuthorized = true;
+            }
+          }
+        } catch { /* not a valid JWT */ }
+      }
+
+      // If not service-role, try user auth
+      if (!isAuthorized) {
+        const authSupabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
+          global: { headers: { Authorization: authHeader } },
+          auth: { persistSession: false },
+        });
+        const { data: { user }, error: authError } = await authSupabase.auth.getUser();
+        if (!authError && user) {
+          userId = user.id;
+        }
+      }
+    }
+
+    // Check webhook token (used by pg_cron scheduler)
+    if (!isAuthorized && !userId && webhookToken) {
+      const { data: webhookRow } = await supabase
+        .from('internal_webhook_keys')
+        .select('token')
+        .eq('name', 'check_fiscal_deadlines')
+        .limit(1)
+        .maybeSingle();
+
+      if (webhookRow?.token && webhookToken === webhookRow.token) {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized && !userId) {
       return new Response(
         JSON.stringify({ error: 'Autenticação obrigatória' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-    const isServiceRole = token === serviceRoleKey;
-    let userId: string | null = null;
-
-    if (!isServiceRole) {
-      const authSupabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
-        global: { headers: { Authorization: authHeader } },
-        auth: { persistSession: false },
-      });
-      const { data: { user }, error: authError } = await authSupabase.auth.getUser();
-      if (authError || !user) {
-        return new Response(
-          JSON.stringify({ error: 'Token inválido ou expirado' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      userId = user.id;
-    }
-
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-
     // Non-service calls must be admin-only.
-    if (!isServiceRole && userId) {
+    if (!isAuthorized && userId) {
       const { data: adminRole, error: roleError } = await supabase
         .from('user_roles')
         .select('role')

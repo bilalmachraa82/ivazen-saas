@@ -87,6 +87,22 @@ Deno.serve(async (req) => {
       .trim();
 
     let isAuthorized = constantTimeEquals(token, SUPABASE_SERVICE_ROLE_KEY);
+
+    // JWT decode fallback — constantTimeEquals can fail in Supabase edge runtime
+    if (!isAuthorized && token) {
+      try {
+        const payloadB64 = token.split(".")[1];
+        if (payloadB64) {
+          const payload = JSON.parse(atob(payloadB64));
+          if (payload.role === "service_role") {
+            isAuthorized = true;
+          }
+        }
+      } catch {
+        // Invalid JWT — leave isAuthorized as false
+      }
+    }
+
     if (!isAuthorized && webhookToken) {
       const { data: webhookRow, error: webhookError } = await supabase
         .from("internal_webhook_keys")
@@ -146,17 +162,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get pending jobs
-    let query = supabase
+    // Get pending jobs (includes retryable error jobs whose retry time has passed)
+    const { data: jobs, error: jobsError } = await supabase
       .from("at_sync_jobs")
       .select("*")
-      .eq("status", "pending")
+      .eq("job_batch_id", batchId)
+      .or(
+        "status.eq.pending," +
+        "and(status.eq.error,next_retry_at.not.is.null,next_retry_at.lte." + new Date().toISOString() + ")"
+      )
       .order("created_at", { ascending: true })
       .limit(BATCH_SIZE);
-
-    query = query.eq("job_batch_id", batchId);
-
-    const { data: jobs, error: jobsError } = await query;
 
     if (jobsError) {
       console.error(`[${VERSION}] Failed to fetch jobs:`, jobsError);
@@ -294,15 +310,51 @@ Deno.serve(async (req) => {
           } invoices`,
         );
       } catch (error: any) {
-        console.error(`[${VERSION}] Job ${job.id} failed:`, error.message);
+        const errorMsg = error.message || "Unknown error";
+        console.error(`[${VERSION}] Job ${job.id} failed:`, errorMsg);
 
-        // Mark as error
+        // Classify error: transient (retryable) vs permanent (dead letter)
+        const msg = errorMsg.toLowerCase();
+        const isPermanent =
+          msg.includes("auth_failed") ||
+          msg.includes("autentic") ||
+          msg.includes("credencia") ||
+          msg.includes("no credentials") ||
+          msg.includes("unauthorized") ||
+          msg.includes("forbidden") ||
+          msg.includes("nif inv") ||
+          msg.includes("year_in_future");
+
+        const currentRetry = job.retry_count || 0;
+        const maxRetries = job.max_retries || 3;
+
+        let nextRetryAt: string | null = null;
+        if (!isPermanent && currentRetry < maxRetries) {
+          // Exponential backoff: (retry+1) * 2 hours
+          const delayHours = (currentRetry + 1) * 2;
+          const retryDate = new Date(Date.now() + delayHours * 60 * 60 * 1000);
+          nextRetryAt = retryDate.toISOString();
+          console.log(
+            `[${VERSION}] Job ${job.id} scheduled for retry ${currentRetry + 1}/${maxRetries} at ${nextRetryAt}`,
+          );
+        } else if (isPermanent) {
+          console.log(
+            `[${VERSION}] Job ${job.id} moved to dead letter (permanent error)`,
+          );
+        } else {
+          console.log(
+            `[${VERSION}] Job ${job.id} moved to dead letter (max retries exceeded)`,
+          );
+        }
+
         await supabase
           .from("at_sync_jobs")
           .update({
             status: "error",
-            error_message: error.message || "Unknown error",
+            error_message: errorMsg,
             completed_at: new Date().toISOString(),
+            retry_count: currentRetry + (isPermanent ? 0 : 1),
+            next_retry_at: nextRetryAt,
           })
           .eq("id", job.id);
 
@@ -310,12 +362,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Check if there are more pending jobs
+    // Check if there are more pending jobs (including retryable ones)
     const { count: remainingCount } = await supabase
       .from("at_sync_jobs")
       .select("*", { count: "exact", head: true })
-      .eq("status", "pending")
-      .eq("job_batch_id", batchId);
+      .eq("job_batch_id", batchId)
+      .eq("status", "pending");
 
     const hasMore = (remainingCount || 0) > 0;
 

@@ -16,6 +16,7 @@ import { AggregatedFiscalSummary } from '@/components/accountant/AggregatedFisca
 import { AggregatedMetricsWidget } from '@/components/accountant/AggregatedMetricsWidget';
 import { RevenueExpenseCharts } from '@/components/accountant/RevenueExpenseCharts';
 import { AttentionItems } from '@/components/dashboard/AttentionItems';
+import { SyncHealthWidget } from '@/components/accountant/SyncHealthWidget';
 import { 
   Users, 
   FileText, 
@@ -365,15 +366,16 @@ export default function AccountantDashboard() {
         />
 
         {/* Fiscal Overview Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <FiscalDeadlines
             ssDeclarationsPending={filteredMetrics.ssDeclarationsPending}
             pendingValidation={filteredMetrics.pendingValidation}
           />
-          <AggregatedFiscalSummary 
+          <AggregatedFiscalSummary
             clients={filteredClients}
             invoices={filteredInvoices}
           />
+          <SyncHealthWidget />
         </div>
 
         <Tabs defaultValue="clients" className="space-y-6">

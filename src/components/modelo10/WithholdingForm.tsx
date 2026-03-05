@@ -585,7 +585,7 @@ export function WithholdingForm({ onSubmit, onExtract, isSubmitting, defaultYear
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      Taxas oficiais para {watchCategory === 'B' ? 'Cat. B' : watchCategory === 'E' ? 'Cat. E' : 'Cat. F'} - {watchLocation}
+                      Taxas oficiais para Cat. {watchCategory} - {watchLocation}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
