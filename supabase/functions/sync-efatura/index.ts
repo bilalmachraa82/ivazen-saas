@@ -11,6 +11,7 @@
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
+import { isServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://ivazen-saas.vercel.app",
@@ -120,20 +121,6 @@ function isValidPortugueseNif(value: string | null | undefined): boolean {
 function parseFiscalYear(startDate: string): number | null {
   if (!isIsoDate(startDate)) return null;
   return Number(startDate.slice(0, 4)) || null;
-}
-
-function constantTimeEquals(a: string, b: string): boolean {
-  const enc = new TextEncoder();
-  const aa = enc.encode(a);
-  const bb = enc.encode(b);
-  const len = Math.max(aa.length, bb.length);
-  let diff = aa.length ^ bb.length;
-  for (let i = 0; i < len; i++) {
-    const av = i < aa.length ? aa[i] : 0;
-    const bv = i < bb.length ? bb[i] : 0;
-    diff |= av ^ bv;
-  }
-  return diff === 0;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -687,24 +674,8 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     // Accept internal service-role calls (from process-at-sync-queue) OR valid user JWTs
-    const token = authHeader.replace("Bearer ", "").trim();
-    let isServiceRole = constantTimeEquals(token, supabaseServiceKey);
-
-    // Fallback: decode JWT payload and check role claim
-    // (raw comparison can fail in Supabase edge runtime)
-    if (!isServiceRole && token) {
-      try {
-        const payloadB64 = token.split(".")[1];
-        if (payloadB64) {
-          const payload = JSON.parse(atob(payloadB64));
-          if (payload.role === "service_role") {
-            isServiceRole = true;
-          }
-        }
-      } catch {
-        // Invalid JWT — leave isServiceRole as false
-      }
-    }
+    const token = extractBearerToken(authHeader);
+    const isServiceRole = isServiceRoleToken(token, supabaseServiceKey);
 
     let authUser: { id: string } | null = null;
     if (!isServiceRole) {

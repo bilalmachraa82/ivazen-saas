@@ -9,26 +9,13 @@
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
+import { isServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://ivazen-saas.vercel.app",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
-
-function constantTimeEquals(a: string, b: string): boolean {
-  const enc = new TextEncoder();
-  const aa = enc.encode(a);
-  const bb = enc.encode(b);
-  const len = Math.max(aa.length, bb.length);
-  let diff = aa.length ^ bb.length;
-  for (let i = 0; i < len; i++) {
-    const av = i < aa.length ? aa[i] : 0;
-    const bv = i < bb.length ? bb[i] : 0;
-    diff |= av ^ bv;
-  }
-  return diff === 0;
-}
 
 // ── Encryption (same algorithm as import-client-credentials) ──────────────
 
@@ -106,28 +93,9 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Verify service-role: try constant-time comparison first, then JWT decode fallback
-    const authHeader = req.headers.get("Authorization") ?? "";
-    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-    let isServiceRole = constantTimeEquals(token, supabaseServiceKey);
-
-    // Fallback: decode JWT payload and check role claim
-    // (raw comparison can fail in Supabase edge runtime)
-    if (!isServiceRole && token) {
-      try {
-        const payloadB64 = token.split(".")[1];
-        if (payloadB64) {
-          const payload = JSON.parse(atob(payloadB64));
-          if (payload.role === "service_role") {
-            isServiceRole = true;
-          }
-        }
-      } catch {
-        // Invalid JWT — leave isServiceRole as false
-      }
-    }
-
-    if (!isServiceRole) {
+    // Verify service-role token (with JWT decode fallback)
+    const token = extractBearerToken(req.headers.get("Authorization"));
+    if (!isServiceRoleToken(token, supabaseServiceKey)) {
       return new Response(
         JSON.stringify({ error: "Acesso restrito a service-role" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },

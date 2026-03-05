@@ -9,6 +9,11 @@
 const VERSION = "process-at-sync-queue@20260225-1315";
 
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
+import {
+  isServiceRoleToken,
+  extractBearerToken,
+  verifyWebhookToken,
+} from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://ivazen-saas.vercel.app",
@@ -33,20 +38,6 @@ declare const EdgeRuntime:
 
 function toISODateUTC(d: Date): string {
   return d.toISOString().slice(0, 10);
-}
-
-function constantTimeEquals(a: string, b: string): boolean {
-  const enc = new TextEncoder();
-  const aa = enc.encode(a);
-  const bb = enc.encode(b);
-  const len = Math.max(aa.length, bb.length);
-  let diff = aa.length ^ bb.length;
-  for (let i = 0; i < len; i++) {
-    const av = i < aa.length ? aa[i] : 0;
-    const bv = i < bb.length ? bb[i] : 0;
-    diff |= av ^ bv;
-  }
-  return diff === 0;
 }
 
 async function fetchWithTimeout(
@@ -81,39 +72,13 @@ Deno.serve(async (req) => {
 
     // Security: internal-only endpoint.
     // Accept either service-role bearer token or an internal webhook token used by DB scheduler.
-    const authHeader = req.headers.get("Authorization");
-    const token = authHeader?.replace(/^Bearer\s+/i, "").trim() || "";
-    const webhookToken = (req.headers.get("x-internal-webhook-token") || "")
-      .trim();
+    const token = extractBearerToken(req.headers.get("Authorization"));
+    const webhookToken = (req.headers.get("x-internal-webhook-token") || "").trim();
 
-    let isAuthorized = constantTimeEquals(token, SUPABASE_SERVICE_ROLE_KEY);
-
-    // JWT decode fallback — constantTimeEquals can fail in Supabase edge runtime
-    if (!isAuthorized && token) {
-      try {
-        const payloadB64 = token.split(".")[1];
-        if (payloadB64) {
-          const payload = JSON.parse(atob(payloadB64));
-          if (payload.role === "service_role") {
-            isAuthorized = true;
-          }
-        }
-      } catch {
-        // Invalid JWT — leave isAuthorized as false
-      }
-    }
+    let isAuthorized = isServiceRoleToken(token, SUPABASE_SERVICE_ROLE_KEY);
 
     if (!isAuthorized && webhookToken) {
-      const { data: webhookRow, error: webhookError } = await supabase
-        .from("internal_webhook_keys")
-        .select("token")
-        .eq("name", "process_at_sync_queue")
-        .limit(1)
-        .maybeSingle();
-
-      if (!webhookError && webhookRow?.token) {
-        isAuthorized = constantTimeEquals(webhookToken, webhookRow.token);
-      }
+      isAuthorized = await verifyWebhookToken(supabase, webhookToken, "process_at_sync_queue");
     }
 
     if (!isAuthorized) {
