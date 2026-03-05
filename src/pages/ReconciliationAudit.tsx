@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { handleATTimeWindowResponse } from '@/lib/atTimeWindow';
 import { useClientManagement } from '@/hooks/useClientManagement';
 import { ClientSearchSelector } from '@/components/ui/client-search-selector';
 import { ReconciliationUploader, FileList } from '@/components/validation/ReconciliationUploader';
@@ -368,7 +369,10 @@ export default function ReconciliationAudit() {
       });
       
       if (error) throw error;
-      
+
+      // Handle AT time window block
+      if (handleATTimeWindowResponse(data)) return;
+
       toast.success('Sincronização AT concluída', {
         description: `${data?.invoicesProcessed || 0} facturas obtidas`
       });

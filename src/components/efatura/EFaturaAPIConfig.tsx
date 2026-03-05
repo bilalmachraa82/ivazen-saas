@@ -32,6 +32,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { handleATTimeWindowResponse } from '@/lib/atTimeWindow';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -166,6 +167,9 @@ export function EFaturaAPIConfig({
 
       // Check for errors returned as 200
       const responseData = (data ?? {}) as SyncEfaturaResponse;
+
+      // Handle AT time window block with user-friendly message
+      if (handleATTimeWindowResponse(responseData)) return;
 
       if (responseData.success === false) {
         toast.error('Erro na sincronização', {

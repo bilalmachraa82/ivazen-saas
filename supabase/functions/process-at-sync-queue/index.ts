@@ -222,6 +222,7 @@ Deno.serve(async (req) => {
               type: "ambos",
               startDate,
               endDate,
+              source: "queue",
             }),
           },
           SYNC_REQUEST_TIMEOUT_MS,

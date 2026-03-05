@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { getAccessTokenOrThrow, parseEdgeInvokeError } from '@/lib/supabaseFunctionErrors';
 import { toast } from 'sonner';
+import { handleATTimeWindowResponse } from '@/lib/atTimeWindow';
 
 export interface ATConfig {
   id: string;
@@ -216,6 +217,10 @@ export function useSyncEFatura() {
       });
 
       if (error) throw await parseEdgeInvokeError(error, 'Falha a executar sync AT');
+      // Handle AT time window block
+      if (handleATTimeWindowResponse(data)) {
+        return { success: false, reasonCode: 'AT_TIME_WINDOW' };
+      }
       if (!data.success) throw new Error(data.error || 'Sync failed');
 
       return data;

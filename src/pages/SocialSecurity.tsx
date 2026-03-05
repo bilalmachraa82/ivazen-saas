@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useClientManagement } from '@/hooks/useClientManagement';
 import { useSocialSecurity, REVENUE_CATEGORIES, REVENUE_COEFFICIENTS, getQuarterLabel } from '@/hooks/useSocialSecurity';
+import { getSSCoefficient } from '@/lib/ssCoefficients';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -569,7 +570,7 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                   <TableBody>
                     {REVENUE_CATEGORIES.filter(cat => (totals.byCategory[cat.value] || 0) > 0).map((cat) => {
                       const categoryTotal = totals.byCategory[cat.value] || 0;
-                      const coefficient = REVENUE_COEFFICIENTS[cat.value] || 0.70;
+                      const coefficient = getSSCoefficient(cat.value);
                       const categoryBase = categoryTotal * coefficient;
                       
                       return (

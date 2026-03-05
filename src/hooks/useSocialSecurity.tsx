@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
+import { SS_COEFFICIENTS, SS_REVENUE_CATEGORIES, getSSCoefficient } from '@/lib/ssCoefficients';
 
 interface RevenueEntry {
   id: string;
@@ -82,30 +83,10 @@ export const getSSLimits = (year?: number) => {
 export const IAS_2025 = 522.50;
 export const SS_LIMITS = getSSLimits(2025);
 
-// Coefficients for calculating relevant income by category (official rates)
-export const REVENUE_COEFFICIENTS: Record<string, number> = {
-  prestacao_servicos: 0.70,    // 70% - Services
-  vendas: 0.20,                 // 20% - Sales of goods
-  hotelaria: 0.20,              // 20% - Hotels/Restaurants
-  producao_agricola: 0.20,      // 20% - Agricultural production
-  rendas: 0.95,                 // 95% - Rental income
-  capitais: 0.95,               // 95% - Capital income
-  prop_intelectual: 0.50,       // 50% - Intellectual property (first transfer)
-  subsidios: 0.70,              // 70% - Subsidies
-  outros: 0.70,                 // 70% - Other income
-};
-
-export const REVENUE_CATEGORIES = [
-  { value: 'prestacao_servicos', label: 'Prestação de Serviços (Cat. B)', coefficient: 0.70 },
-  { value: 'vendas', label: 'Vendas de Produtos', coefficient: 0.20 },
-  { value: 'hotelaria', label: 'Actividades Hoteleiras/Restauração', coefficient: 0.20 },
-  { value: 'producao_agricola', label: 'Produção Agrícola', coefficient: 0.20 },
-  { value: 'rendas', label: 'Rendimentos Prediais (Cat. F)', coefficient: 0.95 },
-  { value: 'capitais', label: 'Rendimentos de Capitais (Cat. E)', coefficient: 0.95 },
-  { value: 'prop_intelectual', label: 'Propriedade Intelectual', coefficient: 0.50 },
-  { value: 'subsidios', label: 'Subsídios', coefficient: 0.70 },
-  { value: 'outros', label: 'Outros Rendimentos', coefficient: 0.70 },
-] as const;
+// Coefficients for calculating relevant income by category
+// Canonical source: src/lib/ssCoefficients.ts
+export const REVENUE_COEFFICIENTS = SS_COEFFICIENTS;
+export const REVENUE_CATEGORIES = SS_REVENUE_CATEGORIES;
 
 // Official contribution rates
 export const SS_RATES = [
@@ -232,7 +213,7 @@ export function isDeadlineMonth(): boolean {
 // Calculate relevant income with proper coefficients
 export function calculateRelevantIncome(entries: RevenueEntry[]): number {
   return entries.reduce((sum, entry) => {
-    const coefficient = REVENUE_COEFFICIENTS[entry.category] || 0.70;
+    const coefficient = getSSCoefficient(entry.category);
     return sum + (Number(entry.amount) * coefficient);
   }, 0);
 }

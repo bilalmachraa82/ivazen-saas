@@ -10,6 +10,7 @@
  */
 
 import type { ATInvoice, ATLineSummary } from './wsSecurityUtils';
+import { SS_COEFFICIENTS, getSSCoefficient } from '@/lib/ssCoefficients';
 
 // Tax code mapping to IVAzen fields
 export const TAX_CODE_MAPPING = {
@@ -27,12 +28,13 @@ export const FISCAL_REGION_RATES = {
 } as const;
 
 // Revenue categories for Social Security calculation
+// Canonical coefficients sourced from @/lib/ssCoefficients.ts
 export const REVENUE_CATEGORIES = {
-  'prestacao_servicos': { code: 'B', coefficient: 0.70, label: 'Prestação de Serviços' },
-  'vendas': { code: 'B', coefficient: 0.20, label: 'Vendas' },
-  'hotelaria': { code: 'B', coefficient: 0.15, label: 'Hotelaria e Restauração' },
-  'producao_agricola': { code: 'B', coefficient: 0.20, label: 'Produção Agrícola' },
-  'outras': { code: 'B', coefficient: 0.70, label: 'Outras' },
+  'prestacao_servicos': { code: 'B', coefficient: SS_COEFFICIENTS.prestacao_servicos, label: 'Prestacao de Servicos' },
+  'vendas':             { code: 'B', coefficient: SS_COEFFICIENTS.vendas,              label: 'Vendas' },
+  'hotelaria':          { code: 'B', coefficient: SS_COEFFICIENTS.hotelaria,           label: 'Hotelaria e Restauracao' },
+  'producao_agricola':  { code: 'B', coefficient: SS_COEFFICIENTS.producao_agricola,   label: 'Producao Agricola' },
+  'outras':             { code: 'B', coefficient: SS_COEFFICIENTS.outros,              label: 'Outras' },
 } as const;
 
 export type RevenueCategory = keyof typeof REVENUE_CATEGORIES;
@@ -317,10 +319,10 @@ export function calculateSSContributionFromSales(
     revenueByCategory[sale.revenue_category] += netAmount;
   }
   
-  // Calculate relevant income applying coefficients
+  // Calculate relevant income applying coefficients from centralized source
   let relevantIncome = 0;
   for (const [category, amount] of Object.entries(revenueByCategory) as [RevenueCategory, number][]) {
-    const coefficient = REVENUE_CATEGORIES[category].coefficient;
+    const coefficient = getSSCoefficient(category);
     relevantIncome += amount * coefficient;
   }
   

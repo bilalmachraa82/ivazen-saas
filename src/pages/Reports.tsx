@@ -15,6 +15,7 @@ import { format, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinI
 import { pt } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
+import { SS_COEFFICIENTS, getSSCoefficient, getSSCategoryLabel } from '@/lib/ssCoefficients';
 
 type PeriodType = 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'year';
 type ReportType = 'vat' | 'ss' | 'expenses';
@@ -23,18 +24,15 @@ const currentYear = new Date().getFullYear();
 const years = [currentYear, currentYear - 1, currentYear - 2];
 
 const quarters: { value: PeriodType; label: string }[] = [
-  { value: 'Q1', label: '1º Trimestre (Jan-Mar)' },
-  { value: 'Q2', label: '2º Trimestre (Abr-Jun)' },
-  { value: 'Q3', label: '3º Trimestre (Jul-Set)' },
-  { value: 'Q4', label: '4º Trimestre (Out-Dez)' },
+  { value: 'Q1', label: '1.o Trimestre (Jan-Mar)' },
+  { value: 'Q2', label: '2.o Trimestre (Abr-Jun)' },
+  { value: 'Q3', label: '3.o Trimestre (Jul-Set)' },
+  { value: 'Q4', label: '4.o Trimestre (Out-Dez)' },
   { value: 'year', label: 'Ano Completo' },
 ];
 
-const revenueCoefficients: Record<string, number> = {
-  prestacao_servicos: 0.75,
-  vendas: 0.15,
-  outros_rendimentos: 1.0,
-};
+// Use centralized coefficients from ssCoefficients.ts
+const revenueCoefficients = SS_COEFFICIENTS;
 
 export default function Reports() {
   const [selectedYear, setSelectedYear] = useState(currentYear);
@@ -110,23 +108,18 @@ export default function Reports() {
 
   // SS calculations
   const ssData = useMemo(() => {
-    const byCategory = {
-      prestacao_servicos: 0,
-      vendas: 0,
-      outros_rendimentos: 0,
-    };
-    
+    const byCategory: Record<string, number> = {};
+
     filteredSales.forEach(inv => {
       const category = inv.revenue_category || 'prestacao_servicos';
-      if (category in byCategory) {
-        byCategory[category as keyof typeof byCategory] += Number(inv.total_amount || 0);
-      }
+      byCategory[category] = (byCategory[category] || 0) + Number(inv.total_amount || 0);
     });
 
-    const relevantIncome = 
-      byCategory.prestacao_servicos * revenueCoefficients.prestacao_servicos +
-      byCategory.vendas * revenueCoefficients.vendas +
-      byCategory.outros_rendimentos * revenueCoefficients.outros_rendimentos;
+    // Calculate relevant income using centralized coefficients
+    let relevantIncome = 0;
+    for (const [category, amount] of Object.entries(byCategory)) {
+      relevantIncome += amount * getSSCoefficient(category);
+    }
 
     const rate = profile?.ss_contribution_rate || 21.4;
     const contribution = relevantIncome * (rate / 100);
@@ -259,20 +252,22 @@ export default function Reports() {
     XLSX.utils.book_append_sheet(wb, vatSheet, 'IVA');
 
     // SS Sheet
+    const ssCategoryRows = Object.entries(ssData.byCategory).map(([cat, amount]) => {
+      const coeff = getSSCoefficient(cat);
+      return [getSSCategoryLabel(cat), amount, coeff, amount * coeff];
+    });
     const ssSheet = XLSX.utils.aoa_to_sheet([
-      ['Segurança Social', periodLabel],
+      ['Seguranca Social', periodLabel],
       [],
-      ['Categoria', 'Valor (€)', 'Coeficiente', 'Relevante (€)'],
-      ['Prestação Serviços', ssData.byCategory.prestacao_servicos, 0.75, ssData.byCategory.prestacao_servicos * 0.75],
-      ['Vendas', ssData.byCategory.vendas, 0.15, ssData.byCategory.vendas * 0.15],
-      ['Outros Rendimentos', ssData.byCategory.outros_rendimentos, 1.0, ssData.byCategory.outros_rendimentos],
+      ['Categoria', 'Valor (EUR)', 'Coeficiente', 'Relevante (EUR)'],
+      ...ssCategoryRows,
       [],
       ['Total Receita', ssData.totalRevenue],
       ['Rendimento Relevante', ssData.relevantIncome],
       ['Taxa (%)', ssData.rate],
-      ['Contribuição', ssData.contribution],
+      ['Contribuicao', ssData.contribution],
     ]);
-    XLSX.utils.book_append_sheet(wb, ssSheet, 'Segurança Social');
+    XLSX.utils.book_append_sheet(wb, ssSheet, 'Seguranca Social');
 
     // Expenses Sheet
     const expensesRows = [
@@ -528,21 +523,23 @@ export default function Reports() {
                     <div className="text-right">Relevante</div>
                   </div>
                   
-                  {Object.entries(ssData.byCategory).map(([cat, value]) => (
-                    <div key={cat} className="grid grid-cols-4 gap-4 text-sm">
-                      <div className="font-medium">
-                        {cat === 'prestacao_servicos' ? 'Prestação de Serviços' : 
-                         cat === 'vendas' ? 'Vendas' : 'Outros Rendimentos'}
+                  {Object.entries(ssData.byCategory).map(([cat, value]) => {
+                    const coeff = getSSCoefficient(cat);
+                    return (
+                      <div key={cat} className="grid grid-cols-4 gap-4 text-sm">
+                        <div className="font-medium">
+                          {getSSCategoryLabel(cat)}
+                        </div>
+                        <div className="text-right">{formatCurrency(value)}</div>
+                        <div className="text-right text-muted-foreground">
+                          {(coeff * 100).toFixed(0)}%
+                        </div>
+                        <div className="text-right font-medium">
+                          {formatCurrency(value * coeff)}
+                        </div>
                       </div>
-                      <div className="text-right">{formatCurrency(value)}</div>
-                      <div className="text-right text-muted-foreground">
-                        {(revenueCoefficients[cat] * 100).toFixed(0)}%
-                      </div>
-                      <div className="text-right font-medium">
-                        {formatCurrency(value * revenueCoefficients[cat])}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <Separator />

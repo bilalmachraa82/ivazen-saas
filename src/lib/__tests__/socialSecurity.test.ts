@@ -66,8 +66,8 @@ describe('Coeficientes de Rendimento Relevante', () => {
     expect(REVENUE_COEFFICIENTS.vendas).toBe(0.20);
   });
 
-  it('hotelaria e restauração = 20%', () => {
-    expect(REVENUE_COEFFICIENTS.hotelaria).toBe(0.20);
+  it('hotelaria e restauração = 15% (PENDING LEGAL VALIDATION)', () => {
+    expect(REVENUE_COEFFICIENTS.hotelaria).toBe(0.15);
   });
 
   it('produção agrícola = 20%', () => {

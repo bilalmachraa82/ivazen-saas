@@ -12,6 +12,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
 import { isServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
+import { isWithinATWindow } from "../_shared/atWindow.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://ivazen-saas.vercel.app",
@@ -28,6 +29,12 @@ interface SyncRequest {
   startDate?: string;
   endDate?: string;
   nif?: string;
+  /** 'queue' = called by process-at-sync-queue (scheduler already checks window).
+   *  'manual' = called by frontend/user (subject to time window guard).
+   *  Default: 'manual' */
+  source?: "queue" | "manual";
+  /** Force sync even outside time window. Only accepted with service-role auth. */
+  force?: boolean;
 }
 
 interface ATLineSummary {
@@ -58,6 +65,7 @@ type SyncReasonCode =
   | "AT_STARTDATE_FUTURE"
   | "AT_EMPTY_LIST"
   | "AT_AUTH_FAILED"
+  | "AT_TIME_WINDOW"
   | "AT_SCHEMA_RESPONSE_ERROR"
   | "INVALID_CLIENT_NIF"
   | "YEAR_IN_FUTURE"
@@ -702,6 +710,7 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    const body: SyncRequest = await req.json();
     const {
       clientId,
       accountantId,
@@ -710,7 +719,37 @@ Deno.serve(async (req: Request) => {
       startDate,
       endDate,
       nif,
-    }: SyncRequest = await req.json();
+    } = body;
+
+    const source = body.source || "manual";
+    const forceSync = body.force === true;
+
+    // AT Time Window Guard: only applies to manual (user-driven) calls.
+    // Queue calls (from process-at-sync-queue) bypass — the scheduler already controls the window.
+    // force:true is only allowed for service-role callers (diagnostic/admin use).
+    if (source !== "queue" && environment !== "test") {
+      const windowCheck = isWithinATWindow();
+      if (!windowCheck.isWithin) {
+        if (forceSync && isServiceRole) {
+          console.log("[sync-efatura] Time window bypassed via force+service-role");
+        } else {
+          console.log(`[sync-efatura] Blocked: outside AT time window. ${windowCheck.message}`);
+          return new Response(
+            JSON.stringify({
+              success: false,
+              reasonCode: "AT_TIME_WINDOW" as SyncReasonCode,
+              error: windowCheck.message,
+              nextWindowStart: windowCheck.nextWindowStart,
+              nextWindowEnd: windowCheck.nextWindowEnd,
+            }),
+            {
+              status: 200,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
+      }
+    }
 
     if (!clientId) {
       return new Response(

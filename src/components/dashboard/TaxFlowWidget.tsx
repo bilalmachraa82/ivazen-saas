@@ -5,13 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowRight, TrendingUp, Receipt, Shield, ChevronRight, Loader2 } from 'lucide-react';
 import { useSalesInvoices } from '@/hooks/useSalesInvoices';
 import { useProfile } from '@/hooks/useProfile';
-
-// Coefficients for Social Security calculation
-const CATEGORY_COEFFICIENTS: Record<string, number> = {
-  'prestacao_servicos': 0.70,
-  'vendas': 0.20,
-  'outros_rendimentos': 0.70,
-};
+import { getSSCoefficient } from '@/lib/ssCoefficients';
 
 interface TaxFlowWidgetProps {
   currentQuarter?: string;
@@ -34,10 +28,10 @@ export function TaxFlowWidget({ currentQuarter }: TaxFlowWidgetProps) {
   // Total VAT
   const totalVAT = validatedSales.reduce((sum, inv) => sum + (inv.total_vat || 0), 0);
   
-  // Calculate SS base using categories
+  // Calculate SS base using categories (coefficients from centralized source)
   const ssBase = validatedSales.reduce((sum, inv) => {
     const category = inv.revenue_category || 'prestacao_servicos';
-    const coefficient = CATEGORY_COEFFICIENTS[category] || 0.70;
+    const coefficient = getSSCoefficient(category);
     return sum + ((inv.total_amount || 0) * coefficient);
   }, 0);
   

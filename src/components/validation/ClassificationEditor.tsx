@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CheckCircle, AlertTriangle, Keyboard, HelpCircle, Pencil } from 'lucide-react';
+import { inferDpField } from '@/lib/classificationRules';
 
 const CLASSIFICATIONS = [
   'Mercadorias',
@@ -36,6 +37,9 @@ interface ClassificationEditorProps {
     final_dp_field: number | null;
     final_deductibility: number | null;
     status: string | null;
+    base_reduced?: number | null;
+    base_intermediate?: number | null;
+    base_standard?: number | null;
   };
   onValidate: (classification: {
     final_classification: string;
@@ -56,13 +60,40 @@ export function ClassificationEditor({ invoice, onValidate, isValidating }: Clas
   const [deductibility, setDeductibility] = useState(
     invoice.final_deductibility || invoice.ai_deductibility || 100
   );
+  const [dpReviewRequired, setDpReviewRequired] = useState(false);
+
+  // Track whether the user has manually changed the DP field
+  const userOverrodeDp = useRef(false);
 
   useEffect(() => {
     setClassification(invoice.final_classification || invoice.ai_classification || '');
     setDpField(invoice.final_dp_field || invoice.ai_dp_field || 22);
     setDeductibility(invoice.final_deductibility || invoice.ai_deductibility || 100);
     setIsReopened(false);
+    setDpReviewRequired(false);
+    userOverrodeDp.current = false;
   }, [invoice]);
+
+  // Auto-fill DP field when classification changes
+  useEffect(() => {
+    if (!classification || userOverrodeDp.current) return;
+
+    const result = inferDpField({
+      classification,
+      base_reduced: invoice.base_reduced,
+      base_intermediate: invoice.base_intermediate,
+      base_standard: invoice.base_standard,
+    });
+
+    setDpReviewRequired(result.requiresReview);
+
+    if (result.confident && result.dpField !== null) {
+      setDpField(result.dpField);
+    } else if (result.dpField !== null) {
+      // Suggest but flag for review
+      setDpField(result.dpField);
+    }
+  }, [classification, invoice.base_reduced, invoice.base_intermediate, invoice.base_standard]);
 
   const handleValidate = useCallback(async () => {
     if (!classification || isValidating) return;
@@ -158,10 +189,17 @@ export function ClassificationEditor({ invoice, onValidate, isValidating }: Clas
           </div>
           <Select
             value={dpField.toString()}
-            onValueChange={(v) => setDpField(Number(v))}
+            onValueChange={(v) => {
+              userOverrodeDp.current = true;
+              setDpField(Number(v));
+              setDpReviewRequired(false);
+            }}
             disabled={isValidated}
           >
-            <SelectTrigger id="dp-field">
+            <SelectTrigger
+              id="dp-field"
+              className={dpReviewRequired ? 'border-amber-500 ring-1 ring-amber-500/30' : ''}
+            >
               <SelectValue placeholder="Seleccionar campo" />
             </SelectTrigger>
             <SelectContent>
@@ -172,6 +210,14 @@ export function ClassificationEditor({ invoice, onValidate, isValidating }: Clas
               ))}
             </SelectContent>
           </Select>
+          {dpReviewRequired && (
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Factura com bases IVA mistas — confirme o campo DP
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="space-y-3">

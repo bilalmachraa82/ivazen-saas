@@ -10,12 +10,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { CheckCircle, Loader2, Tag, Sparkles } from 'lucide-react';
+import { SS_REVENUE_CATEGORIES, getSSCoefficient, getSSCategoryLabel } from '@/lib/ssCoefficients';
 
-const REVENUE_CATEGORIES = [
-  { value: 'prestacao_servicos', label: 'Prestação de Serviços', coefficient: 0.70 },
-  { value: 'vendas', label: 'Venda de Produtos', coefficient: 0.20 },
-  { value: 'outros_rendimentos', label: 'Outros Rendimentos', coefficient: 0.70 },
-];
+const REVENUE_CATEGORIES = SS_REVENUE_CATEGORIES;
 
 interface SalesClassificationEditorProps {
   invoice: {
@@ -45,11 +42,11 @@ export function SalesClassificationEditor({
   };
 
   const getCategoryLabel = (value: string) => {
-    return REVENUE_CATEGORIES.find(c => c.value === value)?.label || value;
+    return getSSCategoryLabel(value);
   };
 
   const getCategoryCoefficient = (value: string) => {
-    return REVENUE_CATEGORIES.find(c => c.value === value)?.coefficient || 0.70;
+    return getSSCoefficient(value);
   };
 
   return (

@@ -22,6 +22,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { getSSCoefficient } from '@/lib/ssCoefficients';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -136,12 +137,11 @@ export function FiscalSummary({ clientId, year, compact = false }: FiscalSummary
         .gte('document_date', `${fiscalYear}-01-01`)
         .lte('document_date', `${fiscalYear}-12-31`);
 
-      // Calculate base with coefficients (simplified)
+      // Calculate base with coefficients from centralized source
       let base = 0;
       salesData?.forEach(sale => {
         const amount = Number(sale.total_amount) || 0;
-        // Default coefficient for services is 70%
-        const coefficient = sale.revenue_category === 'vendas' ? 0.20 : 0.70;
+        const coefficient = getSSCoefficient(sale.revenue_category || 'prestacao_servicos');
         base += amount * coefficient;
       });
 

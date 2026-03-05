@@ -45,6 +45,147 @@ export const DP_FIELD_MAP = {
 };
 
 /**
+ * Maps human-readable classification labels to DP field values.
+ * Classifications that depend on the VAT rate use null to signal
+ * that the rate-based logic below should decide.
+ */
+const CLASSIFICATION_TO_DP: Record<string, number | null> = {
+  'Imobilizado corpóreo': DP_FIELD_MAP.IMOBILIZADO,
+  'Imobilizado incorpóreo': DP_FIELD_MAP.IMOBILIZADO,
+  'Fornecimentos e serviços externos': DP_FIELD_MAP.OUTROS_BENS,
+  'Gastos com pessoal': DP_FIELD_MAP.OUTROS_BENS,
+  'Outros gastos': DP_FIELD_MAP.OUTROS_BENS,
+  'Não dedutível': null,
+  // Rate-dependent: resolved by dominant VAT base
+  'Mercadorias': null,
+  'Matérias-primas': null,
+};
+
+/** Classifications whose DP depends on the dominant VAT rate */
+const RATE_DEPENDENT_CLASSIFICATIONS = new Set([
+  'Mercadorias',
+  'Matérias-primas',
+]);
+
+/**
+ * Input for inferring the DP field from classification and VAT bases
+ */
+export interface InferDpInput {
+  classification: string;
+  base_reduced?: number | null;
+  base_intermediate?: number | null;
+  base_standard?: number | null;
+}
+
+/**
+ * Result of DP field inference
+ */
+export interface InferDpResult {
+  dpField: number | null;
+  confident: boolean;
+  requiresReview: boolean;
+  reason?: string;
+}
+
+/**
+ * Infer the DP (Declaracao Periodica) field from the classification
+ * and the invoice's VAT base amounts.
+ *
+ * Rules:
+ * - Fixed-DP classifications (Imobilizado, FSE, Gastos pessoal, Outros)
+ *   map directly via CLASSIFICATION_TO_DP.
+ * - Rate-dependent classifications (Mercadorias, Materias-primas) pick
+ *   the DP that matches the dominant VAT base.
+ * - If multiple non-zero bases exist and the smaller is >20% of the
+ *   larger, the result is flagged as requiresReview (mixed IVA guardrail).
+ * - All bases 0/null (exempt invoice) defaults to dpField=24.
+ * - Unknown classification returns dpField=null, confident=false.
+ */
+export function inferDpField(input: InferDpInput): InferDpResult {
+  const { classification, base_reduced, base_intermediate, base_standard } = input;
+
+  // Unknown classification — not in the map at all
+  if (!(classification in CLASSIFICATION_TO_DP)) {
+    return {
+      dpField: null,
+      confident: false,
+      requiresReview: false,
+      reason: `Classificacao "${classification}" nao encontrada no mapa DP`,
+    };
+  }
+
+  // Non-deductible classification
+  if (classification === 'Não dedutível') {
+    return {
+      dpField: null,
+      confident: true,
+      requiresReview: false,
+      reason: 'Despesa nao dedutivel — sem campo DP',
+    };
+  }
+
+  // Collect non-zero bases for mixed-IVA detection
+  const bases: { label: string; value: number; dp: number }[] = [];
+  const br = base_reduced ?? 0;
+  const bi = base_intermediate ?? 0;
+  const bs = base_standard ?? 0;
+
+  if (br > 0) bases.push({ label: 'reduzida (6%)', value: br, dp: DP_FIELD_MAP.EXISTENCIAS_6 });
+  if (bi > 0) bases.push({ label: 'intermedia (13%)', value: bi, dp: DP_FIELD_MAP.EXISTENCIAS_13 });
+  if (bs > 0) bases.push({ label: 'normal (23%)', value: bs, dp: DP_FIELD_MAP.EXISTENCIAS_23 });
+
+  // Detect mixed IVA: two or more non-zero bases where the smaller
+  // is >20% of the larger
+  let mixedIva = false;
+  if (bases.length >= 2) {
+    const sorted = [...bases].sort((a, b) => b.value - a.value);
+    const largest = sorted[0].value;
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i].value / largest > 0.2) {
+        mixedIva = true;
+        break;
+      }
+    }
+  }
+
+  // Fixed-DP classifications (not rate-dependent)
+  if (!RATE_DEPENDENT_CLASSIFICATIONS.has(classification)) {
+    const fixedDp = CLASSIFICATION_TO_DP[classification]!;
+    return {
+      dpField: fixedDp,
+      confident: !mixedIva,
+      requiresReview: mixedIva,
+      reason: mixedIva
+        ? `Campo ${fixedDp} sugerido, mas factura tem bases IVA mistas — requer revisao`
+        : `Campo ${fixedDp} por classificacao "${classification}"`,
+    };
+  }
+
+  // Rate-dependent classifications: pick DP from dominant base
+  // All bases zero/null → exempt → default to 24
+  if (bases.length === 0) {
+    return {
+      dpField: DP_FIELD_MAP.OUTROS_BENS,
+      confident: true,
+      requiresReview: false,
+      reason: 'Todas as bases IVA sao 0/nulas (isento) — Campo 24 por defeito',
+    };
+  }
+
+  // Pick the dominant (largest) base
+  const dominant = bases.reduce((max, b) => (b.value > max.value ? b : max), bases[0]);
+
+  return {
+    dpField: dominant.dp,
+    confident: !mixedIva,
+    requiresReview: mixedIva,
+    reason: mixedIva
+      ? `Campo ${dominant.dp} sugerido pela base dominante (${dominant.label}), mas factura tem bases IVA mistas — requer revisao`
+      : `Campo ${dominant.dp} pela base dominante (${dominant.label})`,
+  };
+}
+
+/**
  * Known supplier patterns for automatic classification
  */
 const KNOWN_SUPPLIERS: Record<string, Partial<ClassificationResult>> = {

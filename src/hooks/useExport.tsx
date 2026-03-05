@@ -34,8 +34,14 @@ const DP_FIELD_LABELS: Record<number, string> = {
   24: 'Outros bens e serviços',
 };
 
+function getCurrentQuarter(): string {
+  const now = new Date();
+  const q = Math.ceil((now.getMonth() + 1) / 3);
+  return `${now.getFullYear()}-Q${q}`;
+}
+
 export function useExport(clientId?: string) {
-  const [selectedPeriod, setSelectedPeriod] = useState<string>('');
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(getCurrentQuarter);
   const [exportFormat, setExportFormat] = useState<'xlsx' | 'csv'>('xlsx');
   const [isExporting, setIsExporting] = useState(false);
   const [periodType, setPeriodType] = useState<'monthly' | 'quarterly'>('quarterly');

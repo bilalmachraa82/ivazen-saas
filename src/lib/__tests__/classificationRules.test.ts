@@ -31,10 +31,12 @@ vi.mock('@/integrations/supabase/client', () => ({
 import {
   classifyExpense,
   classifyExpenses,
+  inferDpField,
   DP_FIELD_MAP,
   type ClassificationInput,
   type ClassificationResult,
   type Classification,
+  type InferDpInput,
 } from '../classificationRules';
 
 // ---------------------------------------------------------------------------
@@ -413,5 +415,217 @@ describe('classifyExpenses — processamento em lote', () => {
     const results = await classifyExpenses(inputs);
     expect(results.get('503504564')?.classification).toBe('ACTIVIDADE');
     expect(results.get('999999990')?.classification).toBe('PESSOAL');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// inferDpField — inferência do campo DP a partir da classificação e bases IVA
+// ---------------------------------------------------------------------------
+describe('inferDpField', () => {
+  // --- Known fixed-DP classifications ---
+  it('Imobilizado corporeo → Campo 20, confident', () => {
+    const result = inferDpField({
+      classification: 'Imobilizado corpóreo',
+      base_standard: 1500,
+    });
+    expect(result.dpField).toBe(20);
+    expect(result.confident).toBe(true);
+    expect(result.requiresReview).toBe(false);
+  });
+
+  it('Imobilizado incorporeo → Campo 20, confident', () => {
+    const result = inferDpField({
+      classification: 'Imobilizado incorpóreo',
+      base_standard: 500,
+    });
+    expect(result.dpField).toBe(20);
+    expect(result.confident).toBe(true);
+    expect(result.requiresReview).toBe(false);
+  });
+
+  it('Fornecimentos e servicos externos → Campo 24, confident', () => {
+    const result = inferDpField({
+      classification: 'Fornecimentos e serviços externos',
+      base_standard: 200,
+    });
+    expect(result.dpField).toBe(24);
+    expect(result.confident).toBe(true);
+    expect(result.requiresReview).toBe(false);
+  });
+
+  it('Gastos com pessoal → Campo 24', () => {
+    const result = inferDpField({
+      classification: 'Gastos com pessoal',
+      base_standard: 1000,
+    });
+    expect(result.dpField).toBe(24);
+    expect(result.confident).toBe(true);
+  });
+
+  it('Outros gastos → Campo 24', () => {
+    const result = inferDpField({
+      classification: 'Outros gastos',
+      base_standard: 50,
+    });
+    expect(result.dpField).toBe(24);
+    expect(result.confident).toBe(true);
+  });
+
+  it('Nao dedutivel → dpField null, confident true', () => {
+    const result = inferDpField({
+      classification: 'Não dedutível',
+      base_standard: 100,
+    });
+    expect(result.dpField).toBeNull();
+    expect(result.confident).toBe(true);
+    expect(result.requiresReview).toBe(false);
+  });
+
+  // --- Rate-dependent classifications ---
+  it('Mercadorias com base_standard dominante → Campo 22', () => {
+    const result = inferDpField({
+      classification: 'Mercadorias',
+      base_standard: 500,
+      base_reduced: 0,
+      base_intermediate: 0,
+    });
+    expect(result.dpField).toBe(22);
+    expect(result.confident).toBe(true);
+    expect(result.requiresReview).toBe(false);
+  });
+
+  it('Mercadorias com base_reduced dominante → Campo 21', () => {
+    const result = inferDpField({
+      classification: 'Mercadorias',
+      base_reduced: 300,
+      base_standard: 0,
+    });
+    expect(result.dpField).toBe(21);
+    expect(result.confident).toBe(true);
+  });
+
+  it('Materias-primas com base_intermediate dominante → Campo 23', () => {
+    const result = inferDpField({
+      classification: 'Matérias-primas',
+      base_intermediate: 400,
+      base_standard: 0,
+      base_reduced: 0,
+    });
+    expect(result.dpField).toBe(23);
+    expect(result.confident).toBe(true);
+  });
+
+  // --- Mixed IVA guardrail ---
+  it('bases mistas (menor >20% da maior) → requiresReview true, confident false', () => {
+    // 300 / 1000 = 30% > 20% → mixed
+    const result = inferDpField({
+      classification: 'Mercadorias',
+      base_standard: 1000,
+      base_reduced: 300,
+    });
+    expect(result.dpField).toBe(22); // still suggests dominant
+    expect(result.confident).toBe(false);
+    expect(result.requiresReview).toBe(true);
+    expect(result.reason).toContain('mistas');
+  });
+
+  it('bases mistas (menor <=20% da maior) → NOT requiresReview', () => {
+    // 180 / 1000 = 18% <= 20% → not mixed
+    const result = inferDpField({
+      classification: 'Mercadorias',
+      base_standard: 1000,
+      base_reduced: 180,
+    });
+    expect(result.dpField).toBe(22);
+    expect(result.confident).toBe(true);
+    expect(result.requiresReview).toBe(false);
+  });
+
+  it('bases mistas exactamente 20% da maior → NOT requiresReview (boundary)', () => {
+    // 200 / 1000 = 0.2 exactly → NOT > 0.2
+    const result = inferDpField({
+      classification: 'Mercadorias',
+      base_standard: 1000,
+      base_reduced: 200,
+    });
+    expect(result.confident).toBe(true);
+    expect(result.requiresReview).toBe(false);
+  });
+
+  it('bases mistas em classificacao fixa tambem sinaliza requiresReview', () => {
+    const result = inferDpField({
+      classification: 'Fornecimentos e serviços externos',
+      base_standard: 500,
+      base_reduced: 300, // 300/500 = 60% > 20%
+    });
+    expect(result.dpField).toBe(24); // fixed DP
+    expect(result.confident).toBe(false);
+    expect(result.requiresReview).toBe(true);
+  });
+
+  it('tres bases nao nulas com duas significativas → requiresReview', () => {
+    const result = inferDpField({
+      classification: 'Mercadorias',
+      base_standard: 500,
+      base_intermediate: 200, // 200/500 = 40% > 20%
+      base_reduced: 10,       // 10/500 = 2% <= 20%
+    });
+    expect(result.requiresReview).toBe(true);
+    expect(result.confident).toBe(false);
+    expect(result.dpField).toBe(22); // dominant is standard
+  });
+
+  // --- All bases zero/null (exempt) ---
+  it('todas as bases 0 → dpField 24 (outros bens) para classificacao rate-dependent', () => {
+    const result = inferDpField({
+      classification: 'Mercadorias',
+      base_standard: 0,
+      base_reduced: 0,
+      base_intermediate: 0,
+    });
+    expect(result.dpField).toBe(24);
+    expect(result.confident).toBe(true);
+    expect(result.requiresReview).toBe(false);
+    expect(result.reason).toContain('isento');
+  });
+
+  it('todas as bases null → dpField 24 para classificacao rate-dependent', () => {
+    const result = inferDpField({
+      classification: 'Matérias-primas',
+      base_standard: null,
+      base_reduced: null,
+      base_intermediate: null,
+    });
+    expect(result.dpField).toBe(24);
+    expect(result.confident).toBe(true);
+  });
+
+  it('bases omitidas (undefined) → dpField 24 para classificacao rate-dependent', () => {
+    const result = inferDpField({
+      classification: 'Mercadorias',
+    });
+    expect(result.dpField).toBe(24);
+    expect(result.confident).toBe(true);
+  });
+
+  // --- Unknown classification ---
+  it('classificacao desconhecida → dpField null, confident false', () => {
+    const result = inferDpField({
+      classification: 'Classificacao Inventada',
+      base_standard: 100,
+    });
+    expect(result.dpField).toBeNull();
+    expect(result.confident).toBe(false);
+    expect(result.requiresReview).toBe(false);
+    expect(result.reason).toContain('nao encontrada');
+  });
+
+  it('string vazia como classificacao → dpField null, confident false', () => {
+    const result = inferDpField({
+      classification: '',
+      base_standard: 100,
+    });
+    expect(result.dpField).toBeNull();
+    expect(result.confident).toBe(false);
   });
 });
