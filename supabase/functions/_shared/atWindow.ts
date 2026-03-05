@@ -1,12 +1,11 @@
 /**
  * AT Portal Time Window Helper
  *
- * The AT (Autoridade Tributária) portal is only reliably accessible during
- * specific time windows. The canonical windows (decided in F0.8) are:
- *   - Morning: 06:00–06:15 (Europe/Lisbon)
- *   - Evening: 19:30–19:45 (Europe/Lisbon)
+ * The AT (Autoridade Tributária) portal is reliably accessible during
+ * the overnight window: 19:00–06:00 (Europe/Lisbon).
  *
- * These match the pg_cron scheduler windows in run_scheduled_at_sync().
+ * Manual syncs are blocked outside this window to prevent false auth errors.
+ * The pg_cron scheduler runs at 06:00 and 19:30 within this window.
  */
 
 interface ATWindowResult {
@@ -40,48 +39,24 @@ function getLisbonTime(utcDate: Date): { hours: number; minutes: number; date: D
 }
 
 /**
- * Check if a given UTC time falls within the AT portal time windows.
+ * Check if a given UTC time falls within the AT portal time window.
  *
- * Windows (in Europe/Lisbon timezone):
- *   - 06:00–06:15
- *   - 19:30–19:45
+ * Window (in Europe/Lisbon timezone): 19:00–06:00 (overnight)
  */
 export function isWithinATWindow(now?: Date): ATWindowResult {
   const utcNow = now || new Date();
   const { hours, minutes } = getLisbonTime(utcNow);
   const timeMinutes = hours * 60 + minutes;
 
-  // Morning window: 06:00 (360) to 06:15 (375)
-  const morningStart = 360;
-  const morningEnd = 375;
-  // Evening window: 19:30 (1170) to 19:45 (1185)
-  const eveningStart = 1170;
-  const eveningEnd = 1185;
+  // Overnight window: 19:00 (1140) to 06:00 (360) next day
+  const eveningStart = 1140; // 19:00
+  const morningEnd = 360;    // 06:00
 
-  const isWithin =
-    (timeMinutes >= morningStart && timeMinutes <= morningEnd) ||
-    (timeMinutes >= eveningStart && timeMinutes <= eveningEnd);
+  // Window wraps midnight: 19:00→23:59 OR 00:00→06:00
+  const isWithin = timeMinutes >= eveningStart || timeMinutes <= morningEnd;
 
-  // Calculate next window
-  let nextStart: string;
-  let nextEnd: string;
-
-  if (timeMinutes < morningStart) {
-    nextStart = "06:00";
-    nextEnd = "06:15";
-  } else if (timeMinutes <= morningEnd) {
-    nextStart = "06:00";
-    nextEnd = "06:15";
-  } else if (timeMinutes < eveningStart) {
-    nextStart = "19:30";
-    nextEnd = "19:45";
-  } else if (timeMinutes <= eveningEnd) {
-    nextStart = "19:30";
-    nextEnd = "19:45";
-  } else {
-    nextStart = "06:00";
-    nextEnd = "06:15";
-  }
+  const nextStart = "19:00";
+  const nextEnd = "06:00";
 
   const message = isWithin
     ? `Dentro da janela AT (${nextStart}–${nextEnd} Lisboa)`
