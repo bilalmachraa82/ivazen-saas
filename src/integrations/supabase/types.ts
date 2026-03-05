@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -167,6 +167,7 @@ export type Database = {
           certificate_valid_from: string | null
           certificate_valid_to: string | null
           client_id: string
+          consecutive_failures: number
           created_at: string | null
           encrypted_password: string
           encrypted_username: string
@@ -188,6 +189,7 @@ export type Database = {
           certificate_valid_from?: string | null
           certificate_valid_to?: string | null
           client_id: string
+          consecutive_failures?: number
           created_at?: string | null
           encrypted_password: string
           encrypted_username: string
@@ -209,6 +211,7 @@ export type Database = {
           certificate_valid_from?: string | null
           certificate_valid_to?: string | null
           client_id?: string
+          consecutive_failures?: number
           created_at?: string | null
           encrypted_password?: string
           encrypted_username?: string
@@ -227,8 +230,22 @@ export type Database = {
             foreignKeyName: "at_credentials_accountant_id_fkey"
             columns: ["accountant_id"]
             isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "at_credentials_accountant_id_fkey"
+            columns: ["accountant_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "at_credentials_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
           },
           {
             foreignKeyName: "at_credentials_client_id_fkey"
@@ -349,6 +366,9 @@ export type Database = {
           id: string
           invoices_synced: number | null
           job_batch_id: string | null
+          max_retries: number
+          next_retry_at: string | null
+          retry_count: number
           started_at: string | null
           status: string
         }
@@ -362,6 +382,9 @@ export type Database = {
           id?: string
           invoices_synced?: number | null
           job_batch_id?: string | null
+          max_retries?: number
+          next_retry_at?: string | null
+          retry_count?: number
           started_at?: string | null
           status?: string
         }
@@ -375,6 +398,9 @@ export type Database = {
           id?: string
           invoices_synced?: number | null
           job_batch_id?: string | null
+          max_retries?: number
+          next_retry_at?: string | null
+          retry_count?: number
           started_at?: string | null
           status?: string
         }
@@ -383,8 +409,22 @@ export type Database = {
             foreignKeyName: "at_sync_jobs_accountant_id_fkey"
             columns: ["accountant_id"]
             isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "at_sync_jobs_accountant_id_fkey"
+            columns: ["accountant_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "at_sync_jobs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
           },
           {
             foreignKeyName: "at_sync_jobs_client_id_fkey"
@@ -431,6 +471,13 @@ export type Database = {
             foreignKeyName: "at_sync_override_audit_accountant_id_fkey"
             columns: ["accountant_id"]
             isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "at_sync_override_audit_accountant_id_fkey"
+            columns: ["accountant_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -445,10 +492,41 @@ export type Database = {
             foreignKeyName: "at_sync_override_audit_requested_by_fkey"
             columns: ["requested_by"]
             isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "at_sync_override_audit_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
+      }
+      at_sync_runtime_config: {
+        Row: {
+          check_deadlines_url: string | null
+          created_at: string
+          id: boolean
+          process_queue_url: string
+          updated_at: string
+        }
+        Insert: {
+          check_deadlines_url?: string | null
+          created_at?: string
+          id?: boolean
+          process_queue_url: string
+          updated_at?: string
+        }
+        Update: {
+          check_deadlines_url?: string | null
+          created_at?: string
+          id?: boolean
+          process_queue_url?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       at_sync_year_overrides: {
         Row: {
@@ -489,8 +567,22 @@ export type Database = {
             foreignKeyName: "at_sync_year_overrides_accountant_id_fkey"
             columns: ["accountant_id"]
             isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "at_sync_year_overrides_accountant_id_fkey"
+            columns: ["accountant_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "at_sync_year_overrides_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
           },
           {
             foreignKeyName: "at_sync_year_overrides_created_by_fkey"
@@ -503,26 +595,25 @@ export type Database = {
       }
       at_withholding_candidates: {
         Row: {
-          accountant_id: string
+          accountant_id: string | null
           beneficiary_name: string | null
           beneficiary_nif: string
           client_id: string
           confidence: number | null
-          confidence_score: number | null
+          confidence_score: number
           created_at: string
-          detected_keys: string[] | null
+          detected_keys: string[]
           detection_reason: string | null
-          document_reference: string | null
+          document_reference: string
           fiscal_year: number
           gross_amount: number
           id: string
           income_category: string
-          income_code: string | null
           notes: string | null
           payment_date: string
           promoted_at: string | null
           promoted_withholding_id: string | null
-          raw_payload: Json | null
+          raw_payload: Json
           rejection_reason: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -535,26 +626,25 @@ export type Database = {
           withholding_rate: number | null
         }
         Insert: {
-          accountant_id: string
+          accountant_id?: string | null
           beneficiary_name?: string | null
           beneficiary_nif: string
           client_id: string
           confidence?: number | null
-          confidence_score?: number | null
+          confidence_score?: number
           created_at?: string
-          detected_keys?: string[] | null
+          detected_keys?: string[]
           detection_reason?: string | null
-          document_reference?: string | null
+          document_reference: string
           fiscal_year: number
-          gross_amount?: number
+          gross_amount: number
           id?: string
           income_category: string
-          income_code?: string | null
           notes?: string | null
           payment_date: string
           promoted_at?: string | null
           promoted_withholding_id?: string | null
-          raw_payload?: Json | null
+          raw_payload?: Json
           rejection_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -567,26 +657,25 @@ export type Database = {
           withholding_rate?: number | null
         }
         Update: {
-          accountant_id?: string
+          accountant_id?: string | null
           beneficiary_name?: string | null
           beneficiary_nif?: string
           client_id?: string
           confidence?: number | null
-          confidence_score?: number | null
+          confidence_score?: number
           created_at?: string
-          detected_keys?: string[] | null
+          detected_keys?: string[]
           detection_reason?: string | null
-          document_reference?: string | null
+          document_reference?: string
           fiscal_year?: number
           gross_amount?: number
           id?: string
           income_category?: string
-          income_code?: string | null
           notes?: string | null
           payment_date?: string
           promoted_at?: string | null
           promoted_withholding_id?: string | null
-          raw_payload?: Json | null
+          raw_payload?: Json
           rejection_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -600,6 +689,48 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "at_withholding_candidates_accountant_id_fkey"
+            columns: ["accountant_id"]
+            isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "at_withholding_candidates_accountant_id_fkey"
+            columns: ["accountant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "at_withholding_candidates_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "at_withholding_candidates_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "at_withholding_candidates_promoted_withholding_id_fkey"
+            columns: ["promoted_withholding_id"]
+            isOneToOne: false
+            referencedRelation: "tax_withholdings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "at_withholding_candidates_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
+          },
+          {
             foreignKeyName: "at_withholding_candidates_reviewed_by_fkey"
             columns: ["reviewed_by"]
             isOneToOne: false
@@ -611,6 +742,13 @@ export type Database = {
             columns: ["source_sales_invoice_id"]
             isOneToOne: false
             referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "at_withholding_candidates_source_sync_history_id_fkey"
+            columns: ["source_sync_history_id"]
+            isOneToOne: false
+            referencedRelation: "at_sync_history"
             referencedColumns: ["id"]
           },
           {
@@ -754,8 +892,22 @@ export type Database = {
             foreignKeyName: "classification_rules_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "classification_rules_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classification_rules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
           },
           {
             foreignKeyName: "classification_rules_created_by_fkey"
@@ -799,6 +951,13 @@ export type Database = {
             foreignKeyName: "client_accountants_accountant_id_fkey"
             columns: ["accountant_id"]
             isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "client_accountants_accountant_id_fkey"
+            columns: ["accountant_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -806,8 +965,22 @@ export type Database = {
             foreignKeyName: "client_accountants_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "client_accountants_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_accountants_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
           },
           {
             foreignKeyName: "client_accountants_invited_by_fkey"
@@ -860,8 +1033,22 @@ export type Database = {
             foreignKeyName: "client_invitations_accountant_id_fkey"
             columns: ["accountant_id"]
             isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "client_invitations_accountant_id_fkey"
+            columns: ["accountant_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_invitations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
           },
           {
             foreignKeyName: "client_invitations_client_id_fkey"
@@ -906,7 +1093,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           invoice_id: string
-          invoice_type?: string
+          invoice_type: string
           user_id: string
         }
         Update: {
@@ -1102,8 +1289,22 @@ export type Database = {
             foreignKeyName: "invoices_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
           },
           {
             foreignKeyName: "invoices_validated_by_fkey"
@@ -1264,6 +1465,13 @@ export type Database = {
             foreignKeyName: "profiles_accountant_id_fkey"
             columns: ["accountant_id"]
             isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "profiles_accountant_id_fkey"
+            columns: ["accountant_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1337,6 +1545,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "revenue_entries_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
+          },
           {
             foreignKeyName: "revenue_entries_client_id_fkey"
             columns: ["client_id"]
@@ -1449,6 +1664,13 @@ export type Database = {
             foreignKeyName: "sales_invoices_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "sales_invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1525,6 +1747,13 @@ export type Database = {
           total_revenue?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "ss_declarations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
+          },
           {
             foreignKeyName: "ss_declarations_client_id_fkey"
             columns: ["client_id"]
@@ -1810,12 +2039,12 @@ export type Database = {
             foreignKeyName: "client_accountants_accountant_id_fkey"
             columns: ["accountant_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: "at_control_center_view"
+            referencedColumns: ["client_id"]
           },
           {
-            foreignKeyName: "client_accountants_client_id_fkey"
-            columns: ["client_id"]
+            foreignKeyName: "client_accountants_accountant_id_fkey"
+            columns: ["accountant_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1857,6 +2086,7 @@ export type Database = {
         Args: { p_created_after?: string }
         Returns: number
       }
+      cleanup_old_queue_items: { Args: never; Returns: number }
       get_accountant_clients: {
         Args: { accountant_uuid: string }
         Returns: {
@@ -1882,39 +2112,34 @@ export type Database = {
           p_status?: string
         }
         Returns: {
-          accountant_id: string | null
-          client_email: string | null
-          client_id: string | null
-          client_name: string | null
-          client_nif: string | null
-          compras_total: number | null
-          credential_environment: string | null
-          has_credentials: boolean | null
-          jobs_completed: number | null
-          jobs_error: number | null
-          jobs_pending: number | null
-          jobs_processing: number | null
-          last_error_message: string | null
-          last_job_at: string | null
-          last_reason_code: string | null
-          last_sync_at: string | null
-          last_sync_method: string | null
-          last_sync_status: string | null
-          operational_status: string | null
-          vendas_total: number | null
-          withholding_candidates_high_confidence: number | null
-          withholding_candidates_pending: number | null
-          withholding_candidates_rejected: number | null
-          withholdings_total: number | null
+          accountant_id: string
+          client_email: string
+          client_id: string
+          client_name: string
+          client_nif: string
+          compras_total: number
+          credential_environment: string
+          has_credentials: boolean
+          jobs_completed: number
+          jobs_error: number
+          jobs_pending: number
+          jobs_processing: number
+          last_error_message: string
+          last_job_at: string
+          last_reason_code: string
+          last_sync_at: string
+          last_sync_method: string
+          last_sync_status: string
+          operational_status: string
+          vendas_total: number
+          withholding_candidates_high_confidence: number
+          withholding_candidates_pending: number
+          withholding_candidates_rejected: number
+          withholdings_total: number
         }[]
-        SetofOptions: {
-          from: "*"
-          to: "at_control_center_view"
-          isOneToOne: false
-          isSetofReturn: true
-        }
       }
       get_at_control_center_stats: { Args: never; Returns: Json }
+      get_at_sync_health: { Args: never; Returns: Json }
       get_client_accountants: {
         Args: { client_uuid: string }
         Returns: {
@@ -1958,6 +2183,16 @@ export type Database = {
           years_experience: number
         }[]
       }
+      get_queue_stats: {
+        Args: { p_user_id: string }
+        Returns: {
+          completed_count: number
+          failed_count: number
+          pending_count: number
+          processing_count: number
+          total_count: number
+        }[]
+      }
       get_sync_batch_progress: {
         Args: { p_batch_id: string }
         Returns: {
@@ -1976,6 +2211,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_consecutive_failures: {
+        Args: { p_client_id: string }
+        Returns: undefined
+      }
       invite_accountant_to_client: {
         Args: {
           accountant_nif: string
@@ -1987,6 +2226,15 @@ export type Database = {
       is_at_sync_year_override_active: {
         Args: { p_accountant_id: string; p_fiscal_year: number }
         Returns: boolean
+      }
+      log_invoice_validation: {
+        Args: {
+          p_action: string
+          p_changes?: Json
+          p_invoice_id: string
+          p_invoice_type: string
+        }
+        Returns: string
       }
       map_withholding_income_to_revenue_category: {
         Args: { p_income_category: string }

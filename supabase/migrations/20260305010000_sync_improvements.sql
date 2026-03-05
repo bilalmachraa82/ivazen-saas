@@ -43,7 +43,7 @@ GRANT EXECUTE ON FUNCTION public.increment_consecutive_failures(uuid) TO service
 
 -- Webhook key for check_fiscal_deadlines
 INSERT INTO public.internal_webhook_keys (name, token)
-VALUES ('check_fiscal_deadlines', encode(gen_random_bytes(32), 'hex'))
+VALUES ('check_fiscal_deadlines', encode(extensions.gen_random_bytes(32), 'hex'))
 ON CONFLICT (name) DO NOTHING;
 
 -- Add check_deadlines_url to runtime config
