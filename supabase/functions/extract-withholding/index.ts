@@ -205,7 +205,7 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.1-flash-lite-preview',
         messages: [
           {
             role: 'user',
@@ -215,7 +215,8 @@ Deno.serve(async (req) => {
             ]
           }
         ],
-        max_tokens: 1000,
+        max_tokens: 2048,
+        reasoning_effort: 'high',
       }),
     });
 

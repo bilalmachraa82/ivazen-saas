@@ -20,6 +20,7 @@ import { ClientSearchSelector } from '@/components/ui/client-search-selector';
 import { useSelectedClient } from '@/hooks/useSelectedClient';
 import { useExport } from '@/hooks/useExport';
 import { useSalesExport } from '@/hooks/useSalesExport';
+import { DPQuarterlySummary } from '@/components/export/DPQuarterlySummary';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ZenCard, ZenCardHeader, ZenHeader, ZenDecorations, ZenStatsCard } from '@/components/zen';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -467,10 +468,10 @@ export default function Export() {
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
                     <Calculator className="h-4 w-4 text-primary" />
-                    Resumo por Campo DP
+                    Resumo Trimestral DP
                   </CardTitle>
                   <CardDescription>
-                    Agregação para Declaração Periódica
+                    Agregação para Declaração Periódica de IVA
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -481,23 +482,13 @@ export default function Export() {
                       ))}
                     </div>
                   ) : (
-                    <div className="space-y-3 text-sm">
-                      {dpFieldSummaries.map((summary) => (
-                        <div 
-                          key={summary.field} 
-                          className="flex justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors duration-200 group"
-                        >
-                          <span className="text-muted-foreground group-hover:text-foreground transition-colors">
-                            Campo {summary.field} ({summary.label})
-                          </span>
-                          <span className="font-medium text-foreground">{formatCurrency(summary.vatDeductible)}</span>
-                        </div>
-                      ))}
-                      <div className="border-t border-primary/20 pt-3 mt-3 flex justify-between font-medium p-2 rounded-lg bg-green-500/10">
-                        <span className="text-foreground">Total IVA Dedutível</span>
-                        <span className="text-green-600 font-bold">{formatCurrency(purchaseTotals.vatDeductible)}</span>
-                      </div>
-                    </div>
+                    <DPQuarterlySummary
+                      dpFieldSummaries={dpFieldSummaries}
+                      totals={purchaseTotals}
+                      pendingCount={purchaseInvoices?.filter(inv => inv.status === 'pending').length}
+                      duplicatesRemoved={duplicatesRemoved}
+                      period={purchasePeriod}
+                    />
                   )}
                 </CardContent>
               </ZenCard>

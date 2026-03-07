@@ -1,4 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
+import { isServiceRoleToken } from "../_shared/auth.ts";
+import { parseJsonFromAI } from "../_shared/parseJsonFromAI.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://ivazen-saas.vercel.app',
@@ -113,19 +115,25 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Verify user identity with explicit token
     const token = authHeader.replace(/^Bearer\s+/i, '').trim();
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { persistSession: false, autoRefreshToken: false }
     });
 
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-    if (authError || !user) {
-      console.error('Auth error in classify-sales-category:', authError?.message);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Check if caller is service-role (for batch processing)
+    const isServiceRole = isServiceRoleToken(token, supabaseServiceKey);
+
+    let user: { id: string } | null = null;
+    if (!isServiceRole) {
+      const { data: { user: authUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !authUser) {
+        console.error('Auth error in classify-sales-category:', authError?.message);
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      user = authUser;
     }
 
     const { invoice_id } = await req.json();
@@ -155,49 +163,51 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Authorization: user must own the client, be the assigned accountant, or be admin.
-    let isAuthorized = invoice.client_id === user.id;
-    if (!isAuthorized) {
-      const { data: userRoleRows, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id);
-      if (roleError) {
-        console.error('Role lookup error:', roleError);
-        return new Response(
-          JSON.stringify({ error: 'Forbidden' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      const userRoles = new Set((userRoleRows || []).map((r: { role: string }) => r.role));
-      const isAdmin = userRoles.has('admin');
-      if (isAdmin) {
-        isAuthorized = true;
-      } else {
-        const { data: accountantLink, error: accountantLinkError } = await supabase
-          .from('client_accountants')
-          .select('client_id')
-          .eq('client_id', invoice.client_id)
-          .eq('accountant_id', user.id)
-          .limit(1)
-          .maybeSingle();
-        if (accountantLinkError) {
-          console.error('Client-accountant lookup error:', accountantLinkError);
+    // Authorization: service-role bypasses, otherwise user must own/be accountant/admin
+    if (!isServiceRole) {
+      let isAuthorized = invoice.client_id === user!.id;
+      if (!isAuthorized) {
+        const { data: userRoleRows, error: roleError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user!.id);
+        if (roleError) {
+          console.error('Role lookup error:', roleError);
           return new Response(
             JSON.stringify({ error: 'Forbidden' }),
             { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        isAuthorized = Boolean(accountantLink);
-      }
-    }
 
-    if (!isAuthorized) {
-      return new Response(
-        JSON.stringify({ error: 'Forbidden: no access to this sales invoice' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+        const userRoles = new Set((userRoleRows || []).map((r: { role: string }) => r.role));
+        const isAdmin = userRoles.has('admin');
+        if (isAdmin) {
+          isAuthorized = true;
+        } else {
+          const { data: accountantLink, error: accountantLinkError } = await supabase
+            .from('client_accountants')
+            .select('client_id')
+            .eq('client_id', invoice.client_id)
+            .eq('accountant_id', user!.id)
+            .limit(1)
+            .maybeSingle();
+          if (accountantLinkError) {
+            console.error('Client-accountant lookup error:', accountantLinkError);
+            return new Response(
+              JSON.stringify({ error: 'Forbidden' }),
+              { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          isAuthorized = Boolean(accountantLink);
+        }
+      }
+
+      if (!isAuthorized) {
+        return new Response(
+          JSON.stringify({ error: 'Forbidden: no access to this sales invoice' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     const invoiceData: SalesInvoiceData = {
@@ -310,13 +320,15 @@ Responde APENAS com JSON:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.1-flash-lite-preview',
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.1,
-        max_tokens: 512
+        max_tokens: 500,
+        response_format: { type: 'json_object' },
+        reasoning_effort: 'high'
       })
     });
 
@@ -373,24 +385,17 @@ Responde APENAS com JSON:
 
     console.log('AI response:', aiContent);
 
-    // Parse the JSON response
+    // Parse the JSON response using robust shared parser
     let categoryResult: CategoryResult;
     try {
-      categoryResult = JSON.parse(aiContent);
-    } catch {
-      const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('No JSON found in response');
-      }
-      try {
-        categoryResult = JSON.parse(jsonMatch[0]);
-      } catch {
-        categoryResult = {
-          category: 'prestacao_servicos',
-          confidence: 50,
-          reason: 'Classificação automática - verificar manualmente'
-        };
-      }
+      categoryResult = parseJsonFromAI<CategoryResult>(aiContent);
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', parseError, 'Raw:', aiContent?.slice(0, 300));
+      categoryResult = {
+        category: 'prestacao_servicos',
+        confidence: 30,
+        reason: 'Classificação automática (AI parse error) - verificar manualmente'
+      };
     }
 
     // Validate category

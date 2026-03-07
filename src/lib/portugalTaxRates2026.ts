@@ -33,8 +33,8 @@ export const TAXAS_ESPECIAIS_CATEGORIA_B = {
  * Categoria F - Rendimentos Prediais (Rental Income)
  */
 export const TAXAS_RETENCAO_CATEGORIA_F = {
-  HABITACIONAL: 0.25,       // 25% - Residential rentals
-  NAO_HABITACIONAL: 0.28,   // 28% - Commercial/Rural rentals
+  HABITACIONAL: 0.25,       // 25% - Art. 101.º n.1 al. e) CIRS
+  NAO_HABITACIONAL: 0.25,   // 25% - Art. 101.º n.1 al. e) CIRS (taxa única para TODA Cat. F)
 };
 
 /**
@@ -66,14 +66,21 @@ export const TAXAS_RETENCAO = {
  */
 export const LIMITES_DISPENSA_RETENCAO = {
   /**
-   * Categoria F: Annual income threshold
-   * Landlords with F income ≤ €10,000/year may be exempt
+   * Categoria B: Limiar anual de dispensa (Art. 101.º-B n.1 al. a) CIRS)
+   * Trabalhadores independentes com rendimento anual ≤ €15.000 no ano anterior
+   * ficam dispensados de retenção na fonte.
+   */
+  CATEGORIA_B_ANUAL: 15000,
+
+  /**
+   * Categoria F: Limiar anual (Art. 101.º-B n.1 al. b) CIRS)
+   * Senhorios com rendimento Cat. F ≤ €10.000/ano ficam dispensados
    */
   CATEGORIA_F_ANUAL: 10000,
 
   /**
-   * Minimum retention amount
-   * Retentions < €25 are exempt
+   * Valor mínimo de retenção (Art. 101.º-B n.3 CIRS, DL 49/2025)
+   * Retenções < €25 estão dispensadas
    */
   VALOR_MINIMO: 25,
 };
@@ -86,20 +93,30 @@ export function verificarDispensaRetencao(
   categoria: string,
   rendimentoAnual?: number
 ): { dispensado: boolean; motivo?: string } {
-  // Check minimum value
+  // Check minimum value (Art. 101.º-B n.3 CIRS)
   if (rendimento < LIMITES_DISPENSA_RETENCAO.VALOR_MINIMO) {
     return {
       dispensado: true,
-      motivo: `Valor inferior a €${LIMITES_DISPENSA_RETENCAO.VALOR_MINIMO} (Art. 101.º-B CIRS)`,
+      motivo: `Valor inferior a €${LIMITES_DISPENSA_RETENCAO.VALOR_MINIMO} (Art. 101.º-B n.3 CIRS)`,
     };
   }
 
-  // Check Categoria F annual threshold
+  // Check Categoria B annual threshold (Art. 101.º-B n.1 al. a) CIRS)
+  if (categoria === 'B' && rendimentoAnual !== undefined) {
+    if (rendimentoAnual <= LIMITES_DISPENSA_RETENCAO.CATEGORIA_B_ANUAL) {
+      return {
+        dispensado: true,
+        motivo: `Rendimento anual Cat. B ≤ €${LIMITES_DISPENSA_RETENCAO.CATEGORIA_B_ANUAL} (Art. 101.º-B n.1 al. a) CIRS)`,
+      };
+    }
+  }
+
+  // Check Categoria F annual threshold (Art. 101.º-B n.1 al. b) CIRS)
   if (categoria === 'F' && rendimentoAnual !== undefined) {
     if (rendimentoAnual <= LIMITES_DISPENSA_RETENCAO.CATEGORIA_F_ANUAL) {
       return {
         dispensado: true,
-        motivo: `Rendimento anual Cat. F ≤ €${LIMITES_DISPENSA_RETENCAO.CATEGORIA_F_ANUAL} (Art. 101.º-B CIRS)`,
+        motivo: `Rendimento anual Cat. F ≤ €${LIMITES_DISPENSA_RETENCAO.CATEGORIA_F_ANUAL} (Art. 101.º-B n.1 al. b) CIRS)`,
       };
     }
   }
@@ -279,7 +296,7 @@ export const CATEGORIAS_MODELO_10 = {
     nome: 'Rendimentos Prediais',
     descricao: 'Rendimentos de arrendamento de imóveis',
     taxaHabitacional: 0.25,
-    taxaNaoHabitacional: 0.28,
+    taxaNaoHabitacional: 0.25, // Art. 101.º n.1 al. e) CIRS — taxa única 25% para TODA Cat. F
   },
   G: {
     codigo: 'G',

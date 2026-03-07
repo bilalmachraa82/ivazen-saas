@@ -360,41 +360,42 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
       return acc;
     }, {} as Record<string, number>);
 
-    // Fix #2: Separate FR (recibos verdes / services) from FT/FS (goods sales)
-    // FR documents = prestação de serviços (coefficient 0.70)
-    // FT/FS documents = vendas de mercadorias (coefficient 0.20)
-    let salesServicesTotal = 0; // FR - recibos verdes
-    let salesGoodsTotal = 0;    // FT, FS - faturas de venda
-
+    // Group sales by revenue_category using all Art. 162 coefficients
+    // Supports: prestacao_servicos (70%), vendas (20%), hotelaria (20%),
+    // producao_agricola (20%), rendas (95%), capitais (95%),
+    // prop_intelectual (50%), subsidios (70%), outros (70%)
     salesInvoices.forEach(inv => {
       const amount = Number(inv.total_amount);
       const docType = (inv.document_type || '').toUpperCase();
-      const category = inv.revenue_category;
-
       // Use explicit revenue_category if set, otherwise infer from document_type
-      if (category === 'prestacao_servicos' || (!category && (docType === 'FR' || docType === 'FS/FR'))) {
-        salesServicesTotal += amount;
-      } else {
-        salesGoodsTotal += amount;
+      let category = inv.revenue_category;
+      if (!category) {
+        category = (docType === 'FR' || docType === 'FS/FR') ? 'prestacao_servicos' : 'vendas';
       }
+      byCategory[category] = (byCategory[category] || 0) + amount;
     });
-
-    byCategory['prestacao_servicos'] = (byCategory['prestacao_servicos'] || 0) + salesServicesTotal;
-    byCategory['vendas'] = (byCategory['vendas'] || 0) + salesGoodsTotal;
 
     const total = Object.values(byCategory).reduce((sum, val) => sum + val, 0);
 
-    // Calculate relevant income with correct coefficients per document type
+    // Calculate relevant income with correct coefficients per category (Art. 162 Código Contributivo)
     const manualRelevantIncome = calculateRelevantIncome(revenueEntries);
-    const servicesRelevantIncome = salesServicesTotal * REVENUE_COEFFICIENTS['prestacao_servicos']; // 70%
-    const goodsRelevantIncome = salesGoodsTotal * REVENUE_COEFFICIENTS['vendas']; // 20%
-    const relevantIncome = manualRelevantIncome + servicesRelevantIncome + goodsRelevantIncome;
+    let salesRelevantIncome = 0;
+    salesInvoices.forEach(inv => {
+      const amount = Number(inv.total_amount);
+      const docType = (inv.document_type || '').toUpperCase();
+      let category = inv.revenue_category;
+      if (!category) {
+        category = (docType === 'FR' || docType === 'FS/FR') ? 'prestacao_servicos' : 'vendas';
+      }
+      salesRelevantIncome += amount * getSSCoefficient(category);
+    });
+    const relevantIncome = manualRelevantIncome + salesRelevantIncome;
 
     return {
       byCategory,
       total,
       relevantIncome,
-      salesInvoicesTotal: salesServicesTotal + salesGoodsTotal,
+      salesInvoicesTotal: salesInvoices.reduce((sum, inv) => sum + Number(inv.total_amount), 0),
       salesInvoicesCount: salesInvoices.length,
     };
   }, [revenueEntries, salesInvoices]);

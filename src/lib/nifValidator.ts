@@ -134,7 +134,7 @@ export const OFFICIAL_WITHHOLDING_RATES: Record<string, Record<string, number[]>
   },
   // Categoria B - Rendimentos empresariais e profissionais (ACTUALIZADO 2025)
   'B': {
-    'C': [23, 16.5, 11.5], // Continente: 23% geral (2025), 16.5% act. específicas, 11.5% prof. liberais
+    'C': [23, 16.5, 11.5], // Continente: 23% geral (2025), 16.5% act. específicas (Art. 151.º), 11.5% outras prestações
     'RA': [18.4, 13.2, 9.2], // Açores: -20% sobre taxas do Continente
     'RM': [18.4, 13.2, 9.2], // Madeira: igual aos Açores
   },
@@ -214,7 +214,7 @@ export function getAvailableRates(category: string, location: string, isNonResid
     return [
       { rate: locationRates[0], label: `${locationRates[0]}% (Taxa Geral 2025)` },
       { rate: locationRates[1], label: `${locationRates[1]}% (Act. Específicas)` },
-      { rate: locationRates[2], label: `${locationRates[2]}% (Prof. Liberais)` },
+      { rate: locationRates[2], label: `${locationRates[2]}% (Outras Prestações)` },
     ];
   }
   

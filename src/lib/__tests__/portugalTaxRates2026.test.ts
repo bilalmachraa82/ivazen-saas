@@ -33,9 +33,9 @@ describe('portugalTaxRates2026', () => {
       expect(TAXA_RETENCAO_CATEGORIA_B).not.toBe(0.25);
     });
 
-    it('should have correct Categoria F rates', () => {
+    it('should have correct Categoria F rates (Art. 101.º n.1 al. e) — taxa única 25%)', () => {
       expect(TAXAS_RETENCAO_CATEGORIA_F.HABITACIONAL).toBe(0.25);
-      expect(TAXAS_RETENCAO_CATEGORIA_F.NAO_HABITACIONAL).toBe(0.28);
+      expect(TAXAS_RETENCAO_CATEGORIA_F.NAO_HABITACIONAL).toBe(0.25); // Corrigido: taxa única 25% para TODA Cat. F
     });
 
     it('should have correct Categoria E rate (28%)', () => {
@@ -49,7 +49,7 @@ describe('portugalTaxRates2026', () => {
     it('should export unified TAXAS_RETENCAO object', () => {
       expect(TAXAS_RETENCAO.B).toBe(0.23);
       expect(TAXAS_RETENCAO.F_HABITACIONAL).toBe(0.25);
-      expect(TAXAS_RETENCAO.F_NAO_HABITACIONAL).toBe(0.28);
+      expect(TAXAS_RETENCAO.F_NAO_HABITACIONAL).toBe(0.25); // Corrigido: 25% para toda Cat. F
       expect(TAXAS_RETENCAO.E).toBe(0.28);
     });
   });
@@ -174,7 +174,7 @@ describe('portugalTaxRates2026', () => {
       expect(CATEGORIAS_MODELO_10.B.taxaDefault).toBe(0.23);
       expect(CATEGORIAS_MODELO_10.E.taxaDefault).toBe(0.28);
       expect(CATEGORIAS_MODELO_10.F.taxaHabitacional).toBe(0.25);
-      expect(CATEGORIAS_MODELO_10.F.taxaNaoHabitacional).toBe(0.28);
+      expect(CATEGORIAS_MODELO_10.F.taxaNaoHabitacional).toBe(0.25); // Art. 101.º n.1 al. e) CIRS
     });
 
     it('should have all fiscal regions', () => {
@@ -194,8 +194,8 @@ describe('portugalTaxRates2026', () => {
       expect(getTaxaRetencao('F', 'habitacional')).toBe(0.25);
     });
 
-    it('should return 28% for Categoria F não-habitacional', () => {
-      expect(getTaxaRetencao('F', 'nao_habitacional')).toBe(0.28);
+    it('should return 25% for Categoria F não-habitacional (taxa única)', () => {
+      expect(getTaxaRetencao('F', 'nao_habitacional')).toBe(0.25);
     });
 
     it('should return 28% for Categoria E', () => {
@@ -237,13 +237,12 @@ describe('portugalTaxRates2026', () => {
       expect(rateB).not.toBe(0.25);
     });
 
-    it('should distinguish between rental types for Categoria F', () => {
+    it('should apply same 25% rate for all Categoria F rental types (Art. 101.º n.1 al. e) CIRS)', () => {
       const habitacional = getTaxaRetencao('F', 'habitacional');
       const comercial = getTaxaRetencao('F', 'nao_habitacional');
 
       expect(habitacional).toBe(0.25);
-      expect(comercial).toBe(0.28);
-      expect(habitacional).not.toBe(comercial);
+      expect(comercial).toBe(0.25); // Taxa única — Art. 101.º CIRS não distingue tipo de imóvel para retenção
     });
 
     it('should have correct total social security rate', () => {

@@ -8,8 +8,9 @@ interface InvoiceFiltersProps {
     fiscalPeriod: string;
     search: string;
     clientId: string;
+    reviewFilter?: string;
   };
-  onFiltersChange: (filters: { status: string; fiscalPeriod: string; search: string; clientId: string }) => void;
+  onFiltersChange: (filters: { status: string; fiscalPeriod: string; search: string; clientId: string; reviewFilter?: string }) => void;
   fiscalPeriods: string[];
 }
 
@@ -59,6 +60,20 @@ export function InvoiceFilters({
               {period}
             </SelectItem>
           ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={filters.reviewFilter || 'all'}
+        onValueChange={(value) => onFiltersChange({ ...filters, reviewFilter: value })}
+      >
+        <SelectTrigger className="w-full sm:w-[200px]">
+          <SelectValue placeholder="Revisão" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todas</SelectItem>
+          <SelectItem value="needs_review">Pendentes revisão</SelectItem>
+          <SelectItem value="auto_approved">Auto-aprovadas</SelectItem>
         </SelectContent>
       </Select>
     </div>

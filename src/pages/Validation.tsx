@@ -15,12 +15,13 @@ import { InvoiceDetailDialog } from '@/components/validation/InvoiceDetailDialog
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { FiscalSetupWizard } from '@/components/onboarding/FiscalSetupWizard';
 import { DuplicateManager } from '@/components/validation/DuplicateManager';
+import { ReconciliationTab } from '@/components/validation/ReconciliationTab';
 import { ClientSearchSelector } from '@/components/ui/client-search-selector';
 import { ZenCard, ZenCardHeader, ZenHeader, ZenDecorations, ZenStatsCard, ZenLoader } from '@/components/zen';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Clock, CheckCircle, FileText, AlertCircle, Copy, AlertTriangle, RefreshCw, CheckSquare, Download, Trash2, X } from 'lucide-react';
+import { Clock, CheckCircle, FileText, AlertCircle, Copy, AlertTriangle, RefreshCw, CheckSquare, Download, Trash2, X, ArrowLeftRight } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -144,6 +145,8 @@ export default function Validation() {
   const pendingCount = invoices.filter(inv => inv.status === 'pending').length;
   const classifiedCount = invoices.filter(inv => inv.status === 'classified').length;
   const validatedCount = invoices.filter(inv => inv.status === 'validated').length;
+  const needsReviewCount = invoices.filter(inv => inv.requires_accountant_validation === true).length;
+  const autoApprovedCount = invoices.filter(inv => inv.requires_accountant_validation === false).length;
 
   const handleSelectInvoice = (invoice: Invoice) => {
     setSelectedInvoice(invoice);
@@ -224,7 +227,7 @@ export default function Validation() {
 
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <ZenStatsCard
             icon={Clock}
             value={pendingCount}
@@ -233,18 +236,25 @@ export default function Validation() {
             animationDelay="0ms"
           />
           <ZenStatsCard
-            icon={AlertCircle}
-            value={classifiedCount}
-            label="Para validar"
+            icon={AlertTriangle}
+            value={needsReviewCount}
+            label="Requer revisão"
             variant="warning"
             animationDelay="50ms"
+          />
+          <ZenStatsCard
+            icon={CheckCircle}
+            value={autoApprovedCount}
+            label="Auto-aprovadas"
+            variant="success"
+            animationDelay="100ms"
           />
           <ZenStatsCard
             icon={CheckCircle}
             value={validatedCount}
             label="Validadas"
             variant="success"
-            animationDelay="100ms"
+            animationDelay="150ms"
           />
         </div>
 
@@ -258,6 +268,10 @@ export default function Validation() {
             <TabsTrigger value="duplicates" className="gap-2">
               <Copy className="h-4 w-4" />
               Duplicados
+            </TabsTrigger>
+            <TabsTrigger value="reconciliation" className="gap-2">
+              <ArrowLeftRight className="h-4 w-4" />
+              Reconciliação
             </TabsTrigger>
           </TabsList>
 
@@ -361,6 +375,24 @@ export default function Validation() {
               <ZenCardHeader title="Gestão de Duplicados" icon={Copy} />
               <CardContent>
                 <DuplicateManager onCleanupComplete={() => refetch()} />
+              </CardContent>
+            </ZenCard>
+          </TabsContent>
+
+          <TabsContent value="reconciliation">
+            <ZenCard withLine animationDelay="150ms" className="shadow-xl">
+              <ZenCardHeader title="Reconciliação AT" icon={ArrowLeftRight} />
+              <CardContent>
+                {(effectiveClientId || (!isAccountant && user?.id)) ? (
+                  <ReconciliationTab
+                    clientId={(effectiveClientId || user?.id)!}
+                    onCleanupComplete={() => refetch()}
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground py-4">
+                    Seleccione um cliente para ver a reconciliação.
+                  </p>
+                )}
               </CardContent>
             </ZenCard>
           </TabsContent>

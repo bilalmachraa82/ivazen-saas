@@ -109,9 +109,9 @@ describe('ssCoefficients', () => {
       expect(SS_COEFFICIENTS.vendas).toBe(0.20);
     });
 
-    it('hotelaria should be 0.15 (conservative)', () => {
-      expect(COEFF_HOTELARIA).toBe(0.15);
-      expect(SS_COEFFICIENTS.hotelaria).toBe(0.15);
+    it('hotelaria should be 0.20 (Art. 162.º n.2 al. b) — same as vendas)', () => {
+      expect(COEFF_HOTELARIA).toBe(0.20);
+      expect(SS_COEFFICIENTS.hotelaria).toBe(0.20);
     });
 
     it('producao_agricola should be 0.20', () => {
@@ -153,7 +153,7 @@ describe('ssCoefficients', () => {
     it('should return the correct coefficient for known categories', () => {
       expect(getSSCoefficient('prestacao_servicos')).toBe(0.70);
       expect(getSSCoefficient('vendas')).toBe(0.20);
-      expect(getSSCoefficient('hotelaria')).toBe(0.15);
+      expect(getSSCoefficient('hotelaria')).toBe(0.20);
       expect(getSSCoefficient('rendas')).toBe(0.95);
     });
 
@@ -194,23 +194,19 @@ describe('ssCoefficients', () => {
   // PENDING LEGAL VALIDATION audit
   // -------------------------------------------------------------------------
 
-  describe('PENDING LEGAL VALIDATION comments', () => {
-    it('every coefficient constant and map entry should have a PENDING LEGAL VALIDATION comment in the source', () => {
-      // Read the source file and check that the comment appears for each entry
+  describe('validation status comments', () => {
+    it('every coefficient constant and map entry should have a validation status comment in the source', () => {
       const sourceFilePath = path.resolve(__dirname, '../ssCoefficients.ts');
       const source = fs.readFileSync(sourceFilePath, 'utf-8');
 
-      // Check that the file contains at least as many PENDING LEGAL VALIDATION
-      // markers as there are categories
-      const matches = source.match(/PENDING LEGAL VALIDATION/g) || [];
+      // Check that the file contains validation markers (PENDING or VALIDATED)
+      const matches = source.match(/(?:PENDING LEGAL VALIDATION|VALIDATED:|NÃO é Art\. 162)/g) || [];
       const categoryCount = Object.keys(SS_COEFFICIENTS).length;
 
-      // We expect at least: 9 individual constants + 9 map entries + 9 array entries + 1 default = 28
-      // But at minimum, each category should have at least 1 marker per definition site
       expect(matches.length).toBeGreaterThanOrEqual(categoryCount);
     });
 
-    it('every individual COEFF_* constant line should have the PENDING marker', () => {
+    it('every individual COEFF_* constant line should have a validation marker', () => {
       const sourceFilePath = path.resolve(__dirname, '../ssCoefficients.ts');
       const source = fs.readFileSync(sourceFilePath, 'utf-8');
       const lines = source.split('\n');
@@ -222,15 +218,17 @@ describe('ssCoefficients', () => {
       expect(coeffConstantLines.length).toBeGreaterThanOrEqual(9);
 
       for (const line of coeffConstantLines) {
-        expect(line).toContain('PENDING LEGAL VALIDATION');
+        const hasMarker = line.includes('PENDING LEGAL VALIDATION')
+          || line.includes('VALIDATED:')
+          || line.includes('NÃO é Art. 162');
+        expect(hasMarker).toBe(true);
       }
     });
 
-    it('every SS_COEFFICIENTS map entry line should have the PENDING marker', () => {
+    it('every SS_COEFFICIENTS map entry line should have a validation marker', () => {
       const sourceFilePath = path.resolve(__dirname, '../ssCoefficients.ts');
       const source = fs.readFileSync(sourceFilePath, 'utf-8');
 
-      // Extract the block between "SS_COEFFICIENTS" and the closing "} as const;"
       const mapMatch = source.match(
         /export const SS_COEFFICIENTS[\s\S]*?=\s*\{([\s\S]*?)\}\s*as\s*const/
       );
@@ -248,11 +246,10 @@ describe('ssCoefficients', () => {
       }
     });
 
-    it('every SS_REVENUE_CATEGORIES array entry should have the PENDING marker', () => {
+    it('every SS_REVENUE_CATEGORIES array entry should have a validation marker', () => {
       const sourceFilePath = path.resolve(__dirname, '../ssCoefficients.ts');
       const source = fs.readFileSync(sourceFilePath, 'utf-8');
 
-      // Extract the array body
       const arrayMatch = source.match(
         /export const SS_REVENUE_CATEGORIES[\s\S]*?=\s*\[([\s\S]*?)\]\s*as\s*const/
       );

@@ -14,6 +14,7 @@ interface InvoiceFilters {
   fiscalPeriod: string;
   search: string;
   clientId: string; // For accountants to filter by client
+  reviewFilter?: string; // 'all' | 'needs_review' | 'auto_approved'
 }
 
 interface ClassificationUpdate {
@@ -152,6 +153,13 @@ export function useInvoices(externalClientId?: string | null) {
       // Filter by effective client
       if (effectiveClientId && effectiveClientId !== 'all') {
         query = query.eq('client_id', effectiveClientId);
+      }
+
+      // Filter by review status
+      if (filters.reviewFilter === 'needs_review') {
+        query = query.eq('requires_accountant_validation', true);
+      } else if (filters.reviewFilter === 'auto_approved') {
+        query = query.eq('requires_accountant_validation', false);
       }
 
       const { data, error, count } = await query;
@@ -445,12 +453,12 @@ export function useInvoices(externalClientId?: string | null) {
   // Single fetch effect — includes search to avoid double-fetch
   useEffect(() => {
     fetchInvoices();
-  }, [user, filters.status, filters.fiscalPeriod, filters.search, effectiveClientId, page]);
+  }, [user, filters.status, filters.fiscalPeriod, filters.search, filters.reviewFilter, effectiveClientId, page]);
 
   // Reset page when any filter changes
   useEffect(() => {
     setPage(0);
-  }, [filters.status, filters.fiscalPeriod, filters.search, effectiveClientId]);
+  }, [filters.status, filters.fiscalPeriod, filters.search, filters.reviewFilter, effectiveClientId]);
 
   return {
     invoices,

@@ -17,23 +17,29 @@
 // Coefficient values
 // ---------------------------------------------------------------------------
 
-/** SS coefficient for Prestacao de Servicos (Cat. B) */
-export const COEFF_PRESTACAO_SERVICOS = 0.70; // PENDING LEGAL VALIDATION
+/** SS coefficient for Prestação de Serviços (Cat. B) — Art. 162.º n.2 al. a) Código Contributivo */
+export const COEFF_PRESTACAO_SERVICOS = 0.70; // VALIDATED: Art. 162.º n.2 al. a)
 
-/** SS coefficient for Vendas de Mercadorias */
-export const COEFF_VENDAS = 0.20; // PENDING LEGAL VALIDATION
+/** SS coefficient for Vendas de Mercadorias — Art. 162.º n.2 al. b) Código Contributivo */
+export const COEFF_VENDAS = 0.20; // VALIDATED: Art. 162.º n.2 al. b)
 
-/** SS coefficient for Hotelaria e Restauracao (conservative value) */
-export const COEFF_HOTELARIA = 0.15; // PENDING LEGAL VALIDATION
+/** SS coefficient for Hotelaria e Restauracao — Art. 162.º n.2 al. b) Código Contributivo
+ *  Equiparado a "produção e venda de bens" = 20% */
+export const COEFF_HOTELARIA = 0.20; // VALIDATED: Art. 162.º n.2 al. b) — mesma base que vendas
 
 /** SS coefficient for Producao Agricola */
 export const COEFF_PRODUCAO_AGRICOLA = 0.20; // PENDING LEGAL VALIDATION
 
-/** SS coefficient for Rendimentos Prediais (Cat. F) */
-export const COEFF_RENDAS = 0.95; // PENDING LEGAL VALIDATION
+/** SS coefficient for Rendimentos Prediais (Cat. F)
+ *  NOTA: Art. 162.º Código Contributivo aplica-se APENAS a Cat. B (trabalhadores independentes).
+ *  Cat. F (rendas) NÃO entra no cálculo de rendimento relevante para SS.
+ *  Este valor é usado apenas para estimativas na UI — NÃO é base legal. */
+export const COEFF_RENDAS = 0.95; // NÃO é Art. 162.º — Cat. F não sujeita a SS via coeficientes
 
-/** SS coefficient for Rendimentos de Capitais (Cat. E) */
-export const COEFF_CAPITAIS = 0.95; // PENDING LEGAL VALIDATION
+/** SS coefficient for Rendimentos de Capitais (Cat. E)
+ *  NOTA: Art. 162.º aplica-se APENAS a Cat. B. Cat. E NÃO entra no cálculo SS.
+ *  Este valor é usado apenas para estimativas na UI — NÃO é base legal. */
+export const COEFF_CAPITAIS = 0.95; // NÃO é Art. 162.º — Cat. E não sujeita a SS via coeficientes
 
 /** SS coefficient for Propriedade Intelectual (primeira transmissao) */
 export const COEFF_PROP_INTELECTUAL = 0.50; // PENDING LEGAL VALIDATION

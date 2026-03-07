@@ -306,7 +306,7 @@ async function callAI(params: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.1-flash-lite-preview',
       messages: [
         {
           role: 'user',
@@ -318,6 +318,7 @@ async function callAI(params: {
       ],
       temperature: params.temperature ?? 0.1,
       max_tokens: 4096,
+      reasoning_effort: 'high',
     }),
   });
 
@@ -698,7 +699,7 @@ Deno.serve(async (req) => {
         arithmetic_validated: arithmeticValidated,
         arithmetic_corrected: arithmeticCorrected,
         corrected_values: Object.keys(correctedValues).length > 0 ? correctedValues : undefined,
-        model: 'gemini-2.5-flash'
+        model: 'gemini-3.1-flash-lite-preview'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

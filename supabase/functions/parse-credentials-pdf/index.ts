@@ -69,7 +69,8 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.1-flash-lite-preview',
+        reasoning_effort: 'high',
         messages: [
           {
             role: 'user',

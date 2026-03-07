@@ -2,6 +2,7 @@ import http from 'node:http';
 import https from 'node:https';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
+import { scrapeRecibosVerdes } from './portalScraper.js';
 
 const PORT = Number(process.env.PORT || 8787);
 const CONNECTOR_TOKEN = process.env.CONNECTOR_TOKEN || '';
@@ -551,7 +552,7 @@ const server = http.createServer(async (req, res) => {
     }
     return json(res, 200, {
       status: 'ok',
-      version: '2.0.0',
+      version: '2.1.0',
       pfx: hasPfxIdentity,
       pem: hasPemIdentity,
       atPublicCert: Boolean(AT_PUBLIC_CERT_PATH),
@@ -560,6 +561,7 @@ const server = http.createServer(async (req, res) => {
       ns: AT_INVOICES_NS,
       docsPerPage: AT_DOCS_PER_PAGE,
       usernameFallbackBase: AT_USERNAME_FALLBACK_BASE,
+      capabilities: ['invoices', 'recibos-verdes'],
       ts: new Date().toISOString(),
     });
   }
@@ -643,6 +645,51 @@ const server = http.createServer(async (req, res) => {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       return json(res, 502, { success: false, error: msg });
+    }
+  }
+
+  // ── Recibos Verdes (Portal Scraping) ──────────────────────────
+  if (req.method === 'POST' && req.url === '/v1/recibos-verdes') {
+    if (!requireAuth(req)) {
+      return json(res, 401, { success: false, error: 'Unauthorized' });
+    }
+
+    let body;
+    try {
+      body = await readJson(req);
+    } catch (e) {
+      return json(res, 400, { success: false, error: e.message || 'Bad request' });
+    }
+
+    const { nif, password, startDate, endDate, debug } = body || {};
+
+    if (!nif || typeof nif !== 'string' || !/^\d{9}$/.test(nif)) {
+      return json(res, 400, { success: false, error: 'nif must be a 9-digit string' });
+    }
+    if (!password || typeof password !== 'string') {
+      return json(res, 400, { success: false, error: 'password is required' });
+    }
+
+    const startedAt = Date.now();
+
+    try {
+      const result = await scrapeRecibosVerdes({
+        nif,
+        password,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        debug: debug || false,
+      });
+
+      result.timingMs = Date.now() - startedAt;
+      return json(res, result.success ? 200 : 502, result);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return json(res, 502, {
+        success: false,
+        error: msg,
+        timingMs: Date.now() - startedAt,
+      });
     }
   }
 

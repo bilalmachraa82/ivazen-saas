@@ -1,4 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
+import { isServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
+import { parseJsonFromAI } from "../_shared/parseJsonFromAI.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://ivazen-saas.vercel.app',
@@ -185,21 +187,28 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Extract bearer token and verify user identity
+    // Extract bearer token
     const token = authHeader.replace(/^Bearer\s+/i, '').trim();
 
-    // Use service role client to validate the user's JWT
+    // Check if caller is service-role (for batch processing)
+    const isServiceRole = isServiceRoleToken(token, supabaseServiceKey);
+
+    // Use service role client for DB operations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { persistSession: false, autoRefreshToken: false }
     });
 
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-    if (authError || !user) {
-      console.error('[classify-invoice] Auth failed:', authError?.message);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    let user: { id: string } | null = null;
+    if (!isServiceRole) {
+      const { data: { user: authUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !authUser) {
+        console.error('[classify-invoice] Auth failed:', authError?.message);
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      user = authUser;
     }
 
     const { invoice_id } = await req.json();
@@ -229,49 +238,51 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Authorization: user must own the client, be the assigned accountant, or be admin.
-    let isAuthorized = invoice.client_id === user.id;
-    if (!isAuthorized) {
-      const { data: userRoleRows, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id);
-      if (roleError) {
-        console.error('Role lookup error:', roleError);
-        return new Response(
-          JSON.stringify({ error: 'Forbidden' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      const userRoles = new Set((userRoleRows || []).map((r: { role: string }) => r.role));
-      const isAdmin = userRoles.has('admin');
-      if (isAdmin) {
-        isAuthorized = true;
-      } else {
-        const { data: accountantLink, error: accountantLinkError } = await supabase
-          .from('client_accountants')
-          .select('client_id')
-          .eq('client_id', invoice.client_id)
-          .eq('accountant_id', user.id)
-          .limit(1)
-          .maybeSingle();
-        if (accountantLinkError) {
-          console.error('Client-accountant lookup error:', accountantLinkError);
+    // Authorization: service-role bypasses, otherwise user must own/be accountant/admin
+    if (!isServiceRole) {
+      let isAuthorized = invoice.client_id === user!.id;
+      if (!isAuthorized) {
+        const { data: userRoleRows, error: roleError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user!.id);
+        if (roleError) {
+          console.error('Role lookup error:', roleError);
           return new Response(
             JSON.stringify({ error: 'Forbidden' }),
             { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        isAuthorized = Boolean(accountantLink);
-      }
-    }
 
-    if (!isAuthorized) {
-      return new Response(
-        JSON.stringify({ error: 'Forbidden: no access to this invoice' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+        const userRoles = new Set((userRoleRows || []).map((r: { role: string }) => r.role));
+        const isAdmin = userRoles.has('admin');
+        if (isAdmin) {
+          isAuthorized = true;
+        } else {
+          const { data: accountantLink, error: accountantLinkError } = await supabase
+            .from('client_accountants')
+            .select('client_id')
+            .eq('client_id', invoice.client_id)
+            .eq('accountant_id', user!.id)
+            .limit(1)
+            .maybeSingle();
+          if (accountantLinkError) {
+            console.error('Client-accountant lookup error:', accountantLinkError);
+            return new Response(
+              JSON.stringify({ error: 'Forbidden' }),
+              { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          isAuthorized = Boolean(accountantLink);
+        }
+      }
+
+      if (!isAuthorized) {
+        return new Response(
+          JSON.stringify({ error: 'Forbidden: no access to this invoice' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     const invoiceData: InvoiceData = {
@@ -324,6 +335,7 @@ Deno.serve(async (req) => {
         ai_confidence: intraResult.confidence,
         ai_reason: intraResult.reason,
         status: 'classified',
+        requires_accountant_validation: false, // Deterministic rule, high confidence
       }).eq('id', invoice_id);
 
       return new Response(
@@ -345,7 +357,7 @@ Deno.serve(async (req) => {
         .select('*')
         .eq('supplier_nif', ruleSupplierTaxId)
         .eq('client_id', invoice.client_id)
-        .gte('confidence', 85)
+        .gte('confidence', 70)
         .order('usage_count', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -353,7 +365,7 @@ Deno.serve(async (req) => {
       if (clientRule) {
         rule = clientRule;
       } else {
-        // Fallback to global rule
+        // Fallback to global rule (keep higher threshold for safety)
         const { data: globalRule } = await supabase
           .from('classification_rules')
           .select('*')
@@ -372,6 +384,9 @@ Deno.serve(async (req) => {
       if (rule) {
         console.log(`Deterministic classification for supplier ***${ruleSupplierTaxId?.slice(-3)}: ${rule.classification} (rule ID: ${rule.id})`);
 
+        // Auto-approve if rule is high confidence AND well-tested (≥3 uses)
+        const autoApprove = rule.confidence >= 90 && (rule.usage_count || 0) >= 3;
+
         // Update invoice with rule-based classification
         const { error: updateError } = await supabase
           .from('invoices')
@@ -382,6 +397,7 @@ Deno.serve(async (req) => {
             ai_confidence: rule.confidence,
             ai_reason: `Regra automática por NIF (${rule.is_global ? 'global' : 'cliente'})`,
             status: 'classified',
+            requires_accountant_validation: !autoApprove,
           })
           .eq('id', invoice_id);
 
@@ -508,13 +524,15 @@ Responde APENAS com um objecto JSON válido no seguinte formato:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.1-flash-lite-preview',
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.1,
-        max_tokens: 1024
+        max_tokens: 500,
+        response_format: { type: 'json_object' },
+        reasoning_effort: 'high'
       })
     });
 
@@ -548,27 +566,19 @@ Responde APENAS com um objecto JSON válido no seguinte formato:
 
     console.log('AI response:', aiContent);
 
-    // Parse the JSON response
+    // Parse the JSON response using robust shared parser
     let classification: ClassificationResult;
     try {
-      classification = JSON.parse(aiContent);
-    } catch {
-      const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('No JSON found in response');
-      }
-      try {
-        classification = JSON.parse(jsonMatch[0]);
-      } catch (parseError) {
-        console.error('Failed to parse AI response:', parseError);
-        classification = {
-          classification: 'ACTIVIDADE',
-          dp_field: 24,
-          deductibility: 100,
-          confidence: 50,
-          reason: 'Classificação automática - verificar manualmente'
-        };
-      }
+      classification = parseJsonFromAI<ClassificationResult>(aiContent);
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', parseError, 'Raw:', aiContent?.slice(0, 300));
+      classification = {
+        classification: 'ACTIVIDADE',
+        dp_field: 24,
+        deductibility: 100,
+        confidence: 30,
+        reason: 'Classificação automática (AI parse error) - verificar manualmente'
+      };
     }
 
     // Normalize AI output to avoid DB constraint failures and inconsistent values.
@@ -604,6 +614,9 @@ Responde APENAS com um objecto JSON válido no seguinte formato:
       ? Math.max(0, Math.min(100, Math.round(confNum)))
       : 50;
 
+    // MISTA always needs human review (Art. 21 CIVA — partial deductibility)
+    const needsReview = classification.confidence < 85 || classification.classification === 'MISTA';
+
     // Update the invoice with AI classification
     const { error: updateError } = await supabase
       .from('invoices')
@@ -614,6 +627,7 @@ Responde APENAS com um objecto JSON válido no seguinte formato:
         ai_confidence: classification.confidence,
         ai_reason: classification.reason,
         status: 'classified',
+        requires_accountant_validation: needsReview,
       })
       .eq('id', invoice_id);
 
@@ -636,10 +650,10 @@ Responde APENAS com um objecto JSON válido no seguinte formato:
             classification: classification.classification,
             dp_field: classification.dp_field,
             deductibility: classification.deductibility,
-            confidence: Math.min(classification.confidence, 75), // Cap at 75 for AI-learned rules
+            confidence: Math.min(classification.confidence, 80), // Cap at 80 — above 70 lookup threshold
             client_id: invoice.client_id,
             is_global: false,
-            created_by: user.id,
+            created_by: user?.id || null,
             notes: `Auto-learned from AI: ${classification.reason}`,
             usage_count: 1,
             last_used_at: new Date().toISOString(),
@@ -661,7 +675,7 @@ Responde APENAS com um objecto JSON válido no seguinte formato:
         success: true,
         classification,
         source: 'ai',
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.1-flash-lite-preview',
         message: 'Invoice classified successfully via AI'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
