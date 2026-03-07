@@ -562,6 +562,7 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
       date: Date;
       documentNumber: string;
       customerNif: string;
+      supplierName?: string;
       baseValue: number;
       vatValue: number;
       totalValue: number;
@@ -611,15 +612,17 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
         document_date: invoice.date.toISOString().split('T')[0],
         document_number: invoice.documentNumber,
         customer_nif: invoice.customerNif || null,
+        customer_name: invoice.supplierName || null,
         total_amount: invoice.totalValue,
         total_vat: invoice.vatValue,
         base_standard: invoice.baseValue,
         document_type: invoice.documentType || 'FT',
         fiscal_period: invoice.quarter,
+        revenue_category: invoice.selectedCategory || null,
         status: 'validated', // Auto-validate imported invoices
         validated_at: new Date().toISOString(),
-        image_path: `imported/saft_${Date.now()}.json`, // Placeholder path
-        notes: 'Importado do SAF-T',
+        image_path: `imported/${invoice.documentType === 'FR' ? 'recibo_verde' : 'saft'}_${Date.now()}.json`,
+        notes: invoice.documentType === 'FR' ? 'Importado de Recibos Verdes (Excel AT)' : 'Importado do SAF-T',
       }));
 
       const { error } = await supabase

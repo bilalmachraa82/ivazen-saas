@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { parseInvoiceFile, ParsedInvoice, aggregateByQuarter, formatCurrency, ParseResult, detectCategoryFromCAE, CategoryDetectionResult } from '@/lib/csvParser';
 import { parseATExcel, ATReciboRecord } from '@/lib/atRecibosParser';
+import { parseRecibosVerdesExcel, ReciboVerdeRecord } from '@/lib/reciboVerdeParser';
 import { toast } from 'sonner';
 import { REVENUE_CATEGORIES } from '@/hooks/useSocialSecurity';
 import { useCategoryPreferences } from '@/hooks/useCategoryPreferences';
@@ -102,30 +103,64 @@ export function RevenueImporter({ onImport, onCreateSalesInvoices, currentQuarte
     }
   }, []);
 
-  // Convert AT Excel records to ParsedInvoice format
-  const convertATRecordsToInvoices = (records: ATReciboRecord[]): { invoices: InvoiceWithCategory[]; warnings: string[] } => {
+  // Convert ReciboVerdeRecord to ParsedInvoice format
+  const convertReciboVerdeRecords = (records: ReciboVerdeRecord[]): { invoices: InvoiceWithCategory[]; warnings: string[] } => {
     const warnings: string[] = [];
     const invoices: InvoiceWithCategory[] = records.map(record => {
-      // Determine category: Cat. B = services, Cat. F = rental income
       let category = 'prestacao_servicos';
       if (record.categoria === 'F_PREDIAIS') {
         category = 'rendas';
-        warnings.push(`Recibo ${record.numero}: Rendas prediais (Cat. F) — não contam para SS`);
+        warnings.push(`Recibo ${record.numeroRecibo}: Rendas prediais (Cat. F) — não contam para SS`);
       } else if (record.categoria === 'E_CAPITAIS') {
         category = 'capitais';
       }
 
-      const date = new Date(record.data);
+      const date = record.dataEmissao instanceof Date ? record.dataEmissao : new Date(record.dataEmissao);
       const quarter = Math.ceil((date.getMonth() + 1) / 3);
       const quarterStr = `${date.getFullYear()}-Q${quarter}`;
 
       return {
         date,
-        documentNumber: record.numero,
+        documentNumber: record.numeroRecibo,
         customerNif: record.nifAdquirente || '',
-        baseValue: record.valorBase,
-        vatValue: record.valorIVA || 0,
-        totalValue: record.valorTotal,
+        supplierName: record.nomeAdquirente || '',
+        baseValue: record.valorBruto,
+        vatValue: record.iva || 0,
+        totalValue: record.valorBruto,
+        documentType: 'FR',
+        quarter: quarterStr,
+        selectedCategory: category,
+        selected: true,
+      };
+    });
+
+    return { invoices, warnings };
+  };
+
+  // Convert ATReciboRecord (generic AT Excel) to ParsedInvoice format
+  const convertATRecordsToInvoices = (records: ATReciboRecord[]): { invoices: InvoiceWithCategory[]; warnings: string[] } => {
+    const warnings: string[] = [];
+    const invoices: InvoiceWithCategory[] = records.map(record => {
+      let category = 'prestacao_servicos';
+      if (record.categoria === 'F_PREDIAIS') {
+        category = 'rendas';
+        warnings.push(`Recibo ${record.numRecibo}: Rendas prediais (Cat. F) — não contam para SS`);
+      } else if (record.categoria === 'E_CAPITAIS') {
+        category = 'capitais';
+      }
+
+      const date = record.dataInicio instanceof Date ? record.dataInicio : new Date(record.dataInicio);
+      const quarter = Math.ceil((date.getMonth() + 1) / 3);
+      const quarterStr = `${date.getFullYear()}-Q${quarter}`;
+
+      return {
+        date,
+        documentNumber: record.numRecibo,
+        customerNif: record.nif || '',
+        supplierName: record.nomeCliente || '',
+        baseValue: record.valorBruto,
+        vatValue: 0,
+        totalValue: record.valorBruto,
         documentType: 'FR',
         quarter: quarterStr,
         selectedCategory: category,
@@ -150,17 +185,35 @@ export function RevenueImporter({ onImport, onCreateSalesInvoices, currentQuarte
     // Handle Excel files (AT recibos verdes export)
     if (isExcel) {
       try {
-        const result = await parseATExcel(file);
-        if (!result.success || result.records.length === 0) {
-          toast.error(result.errors[0] || 'Nenhum recibo encontrado no ficheiro Excel');
-          setErrors(result.errors);
-          return;
+        // Try recibos verdes parser first (more specific)
+        const rvResult = await parseRecibosVerdesExcel(file);
+        let invoices: InvoiceWithCategory[] = [];
+        let allWarnings: string[] = [];
+        let allErrors: string[] = [];
+        let recordCount = 0;
+
+        if (rvResult.success && rvResult.records.length > 0) {
+          const converted = convertReciboVerdeRecords(rvResult.records);
+          invoices = converted.invoices;
+          allWarnings = [...rvResult.warnings, ...converted.warnings];
+          allErrors = rvResult.errors;
+          recordCount = rvResult.records.length;
+        } else {
+          // Fallback to generic AT Excel parser
+          const atResult = await parseATExcel(file);
+          if (!atResult.success || atResult.records.length === 0) {
+            const errors = [...(rvResult.errors || []), ...(atResult.errors || [])];
+            toast.error(errors[0] || 'Nenhum recibo encontrado no ficheiro Excel');
+            setErrors(errors);
+            return;
+          }
+          const converted = convertATRecordsToInvoices(atResult.records);
+          invoices = converted.invoices;
+          allWarnings = [...atResult.warnings, ...converted.warnings];
+          allErrors = atResult.errors;
+          recordCount = atResult.records.length;
         }
 
-        const { invoices, warnings: excelWarnings } = convertATRecordsToInvoices(result.records);
-        const allWarnings = [...result.warnings, ...excelWarnings];
-
-        // Default to services for recibos verdes
         setDefaultCategory('prestacao_servicos');
         setDetectedCategory({
           category: 'prestacao_servicos',
@@ -169,11 +222,11 @@ export function RevenueImporter({ onImport, onCreateSalesInvoices, currentQuarte
         });
 
         setInvoicesWithCategories(invoices);
-        setErrors(result.errors);
+        setErrors(allErrors);
         setWarnings(allWarnings);
-        setFileType('csv'); // Reuse csv display style
+        setFileType('csv');
         setStep('preview');
-        toast.success(`${result.records.length} recibos verdes encontrados (Excel AT)`);
+        toast.success(`${recordCount} recibos verdes encontrados (Excel AT)`);
       } catch (err) {
         console.error('Excel parse error:', err);
         toast.error('Erro ao processar ficheiro Excel');
