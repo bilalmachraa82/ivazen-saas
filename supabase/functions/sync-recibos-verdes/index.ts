@@ -1,9 +1,9 @@
 /**
  * sync-recibos-verdes Edge Function
  *
- * Syncs recibos verdes (green receipts) from Portal das Finanças via the AT
- * connector's portal scraper. Recibos verdes are NOT available via the SOAP
- * API (fatshareFaturas), so this uses authenticated HTTP scraping.
+ * Syncs recibos verdes from AT using the official invoices connector first,
+ * and falls back to portal scraping only when the official query does not
+ * return FR/FS documents for the requested period.
  *
  * Flow:
  * 1. Authenticate caller (service-role or user JWT)
@@ -45,6 +45,18 @@ async function decryptPassword(
   const salt = fromBase64(saltB64);
   const iv = fromBase64(ivB64);
   const ciphertext = fromBase64(ciphertextB64);
+  const saltBuffer = salt.buffer.slice(
+    salt.byteOffset,
+    salt.byteOffset + salt.byteLength,
+  ) as ArrayBuffer;
+  const ivBuffer = iv.buffer.slice(
+    iv.byteOffset,
+    iv.byteOffset + iv.byteLength,
+  ) as ArrayBuffer;
+  const ciphertextBuffer = ciphertext.buffer.slice(
+    ciphertext.byteOffset,
+    ciphertext.byteOffset + ciphertext.byteLength,
+  ) as ArrayBuffer;
 
   const encoder = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
@@ -58,7 +70,7 @@ async function decryptPassword(
   const key = await crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt: salt.buffer.slice(salt.byteOffset, salt.byteOffset + salt.byteLength),
+      salt: saltBuffer,
       iterations: 100000,
       hash: "SHA-256",
     },
@@ -69,9 +81,9 @@ async function decryptPassword(
   );
 
   const decrypted = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: iv.buffer.slice(iv.byteOffset, iv.byteOffset + iv.byteLength) },
+    { name: "AES-GCM", iv: ivBuffer },
     key,
-    ciphertext.buffer.slice(ciphertext.byteOffset, ciphertext.byteOffset + ciphertext.byteLength),
+    ciphertextBuffer,
   );
 
   return new TextDecoder().decode(decrypted);
@@ -109,6 +121,207 @@ interface RecibosRecord {
   netTotal: number;
   status: string;
   atcud: string;
+}
+
+interface ATLineSummary {
+  taxCode: string;
+  taxPercentage: number;
+  taxCountryRegion: string;
+  amount: number;
+  taxAmount: number;
+}
+
+interface ATInvoice {
+  customerNif: string;
+  customerName?: string;
+  documentNumber: string;
+  documentDate: string;
+  documentType: string;
+  atcud?: string;
+  grossTotal: number;
+  taxPayable: number;
+  lineSummary: ATLineSummary[];
+}
+
+type ConnectorQuery = {
+  success: boolean;
+  totalRecords: number;
+  invoices: ATInvoice[];
+  errorMessage?: string;
+};
+
+type ConnectorResponse = {
+  success: boolean;
+  vendas?: ConnectorQuery;
+  error?: string;
+};
+
+type ConnectorFetchInit = RequestInit & { client?: unknown };
+
+const TAX_CODE_MAPPING: Record<string, { base: string; vat: string | null }> = {
+  NOR: { base: "base_standard", vat: "vat_standard" },
+  INT: { base: "base_intermediate", vat: "vat_intermediate" },
+  RED: { base: "base_reduced", vat: "vat_reduced" },
+  ISE: { base: "base_exempt", vat: null },
+};
+
+function isLikelyWfaUsername(value: string | null): boolean {
+  if (!value) return false;
+  return /^\d{9}\/\d+$/.test(value.trim());
+}
+
+function isLikelyAuthMessage(message: string | null | undefined): boolean {
+  const normalized = String(message || '').toLowerCase();
+  return normalized.includes('autentic') ||
+    normalized.includes('credencia') ||
+    normalized.includes('não autorizado') ||
+    normalized.includes('nao autorizado') ||
+    normalized.includes('unauthorized') ||
+    normalized.includes('forbidden');
+}
+
+function isReciboVerdeDocumentType(documentType: string | null | undefined): boolean {
+  const normalized = String(documentType || '').trim().toUpperCase();
+  return normalized === 'FR' || normalized === 'FS' || normalized === 'FS/FR';
+}
+
+function normalizeDate(dateStr: string): string {
+  if (!dateStr) return '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) return dateStr.slice(0, 10);
+  const dmy = dateStr.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
+  return dateStr;
+}
+
+function getFiscalPeriodYYYYMM(dateYYYYMMDD: string): string {
+  const y = dateYYYYMMDD.slice(0, 4);
+  const m = dateYYYYMMDD.slice(5, 7);
+  return `${y}${m}`;
+}
+
+function mergeVatTotals(lineSummary: ATLineSummary[]): Record<string, number> {
+  const vatTotals: Record<string, number> = {
+    base_exempt: 0,
+    base_reduced: 0,
+    base_intermediate: 0,
+    base_standard: 0,
+    vat_reduced: 0,
+    vat_intermediate: 0,
+    vat_standard: 0,
+  };
+
+  for (const line of lineSummary || []) {
+    const mapping = TAX_CODE_MAPPING[line.taxCode];
+    if (!mapping) continue;
+    vatTotals[mapping.base] += Number(line.amount) || 0;
+    if (mapping.vat) {
+      vatTotals[mapping.vat] += Number(line.taxAmount) || 0;
+    }
+  }
+
+  return vatTotals;
+}
+
+function buildConnectorFetchInit(
+  connectorToken: string,
+  body: unknown,
+): ConnectorFetchInit {
+  const fetchInit: ConnectorFetchInit = {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${connectorToken}`,
+    },
+    body: JSON.stringify(body),
+  };
+
+  const caCertPem = Deno.env.get('AT_CONNECTOR_CA_CERT') ||
+    (Deno.env.get('AT_CONNECTOR_CA_CERT_B64')
+      ? (() => {
+          const b64 = Deno.env.get('AT_CONNECTOR_CA_CERT_B64')!;
+          const binary = atob(b64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          return new TextDecoder().decode(bytes);
+        })()
+      : null);
+
+  if (caCertPem) {
+    try {
+      const httpClient = Deno.createHttpClient({ caCerts: [caCertPem] });
+      fetchInit.client = httpClient;
+      console.log('[sync-recibos] Using custom CA for connector');
+    } catch (error: any) {
+      console.warn('[sync-recibos] Failed to create custom HTTP client:', error?.message);
+    }
+  }
+
+  return fetchInit;
+}
+
+async function insertSalesInvoicesFromAT(
+  supabase: any,
+  clientId: string,
+  clientNif: string,
+  invoices: ATInvoice[],
+): Promise<{ inserted: number; skipped: number; errors: number }> {
+  let inserted = 0;
+  let skipped = 0;
+  let errors = 0;
+
+  for (const inv of invoices) {
+    const documentDate = normalizeDate(inv.documentDate);
+    const fiscalPeriod = documentDate ? getFiscalPeriodYYYYMM(documentDate) : null;
+    const documentNumber = inv.documentNumber || null;
+    const customerNif = inv.customerNif || null;
+    const customerName = inv.customerName || inv.customerNif || null;
+    const vatTotals = mergeVatTotals(inv.lineSummary || []);
+
+    if (documentNumber) {
+      const { data: existing } = await supabase
+        .from('sales_invoices')
+        .select('id')
+        .eq('client_id', clientId)
+        .eq('supplier_nif', clientNif)
+        .eq('document_number', documentNumber)
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        skipped++;
+        continue;
+      }
+    }
+
+    const { error } = await supabase
+      .from('sales_invoices')
+      .insert({
+        client_id: clientId,
+        supplier_nif: clientNif,
+        customer_nif: customerNif,
+        customer_name: customerName,
+        document_type: inv.documentType || 'FR',
+        document_date: documentDate,
+        document_number: documentNumber,
+        atcud: inv.atcud || null,
+        fiscal_region: 'PT',
+        ...vatTotals,
+        total_amount: Number(inv.grossTotal) || 0,
+        total_vat: Number(inv.taxPayable) || 0,
+        image_path: `at-webservice-sales/${clientId}/${documentNumber || Date.now()}`,
+        status: 'validated',
+        validated_at: new Date().toISOString(),
+        fiscal_period: fiscalPeriod,
+      });
+
+    if (error) {
+      errors++;
+      console.error('[sync-recibos] Official insert error:', error.message);
+    } else {
+      inserted++;
+    }
+  }
+
+  return { inserted, skipped, errors };
 }
 
 Deno.serve(async (req: Request) => {
@@ -242,17 +455,6 @@ Deno.serve(async (req: Request) => {
       "encrypted_password",
     ));
 
-    if (!portalNif || !portalPassword) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          reasonCode: "AT_AUTH_FAILED",
-          error: "Missing portal NIF or password for recibos verdes sync",
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
     // Get client NIF for verification
     const { data: profile } = await supabase
       .from("profiles")
@@ -261,66 +463,255 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     const clientNif = profile?.nif || portalNif;
+    if (!clientNif) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          reasonCode: "AT_AUTH_FAILED",
+          error: "Missing client NIF for recibos verdes sync",
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
-    // Call AT connector's recibos-verdes endpoint (portal scraper on VPS)
-    // Use separate portal URL if available, fallback to standard connector URL
-    const connectorUrl = Deno.env.get("AT_PORTAL_CONNECTOR_URL") || Deno.env.get("AT_CONNECTOR_URL");
-    const connectorToken = Deno.env.get("AT_PORTAL_CONNECTOR_TOKEN") || Deno.env.get("AT_CONNECTOR_TOKEN");
+    const portalConnectorUrl = Deno.env.get("AT_PORTAL_CONNECTOR_URL") ||
+      Deno.env.get("AT_CONNECTOR_URL");
+    const portalConnectorToken = Deno.env.get("AT_PORTAL_CONNECTOR_TOKEN") ||
+      Deno.env.get("AT_CONNECTOR_TOKEN");
+    const officialConnectorUrl = Deno.env.get("AT_CONNECTOR_URL") ||
+      portalConnectorUrl;
+    const officialConnectorToken = Deno.env.get("AT_CONNECTOR_TOKEN") ||
+      portalConnectorToken;
 
-    if (!connectorUrl || !connectorToken) {
+    if (
+      (!officialConnectorUrl || !officialConnectorToken) &&
+      (!portalConnectorUrl || !portalConnectorToken)
+    ) {
       return new Response(
         JSON.stringify({ success: false, error: "AT connector not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    const url = `${connectorUrl.replace(/\/$/, "")}/v1/recibos-verdes`;
+    const rowUsername =
+      (cred.subuser_id ? String(cred.subuser_id).trim() : "") ||
+      (await decodeStoredSecret(
+        cred.encrypted_username,
+        encryptionSecrets,
+        "encrypted_username",
+      ))?.trim() ||
+      portalNif;
+    const rowPassword = (await decodeStoredSecret(
+      cred.encrypted_password,
+      encryptionSecrets,
+      "encrypted_password",
+    )) || portalPassword;
 
-    // Reuse custom CA if configured (same as sync-efatura)
-    const connFetchInit: RequestInit & { client?: unknown } = {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${connectorToken}`,
-      },
-      body: JSON.stringify({
+    let resolvedAccountantId: string | null = cred.accountant_id || null;
+    if (!resolvedAccountantId) {
+      const { data: associations } = await supabase
+        .from("client_accountants")
+        .select("accountant_id, is_primary, created_at")
+        .eq("client_id", clientId)
+        .order("is_primary", { ascending: false })
+        .order("created_at", { ascending: true })
+        .limit(1);
+      resolvedAccountantId = associations?.[0]?.accountant_id || null;
+    }
+
+    let cfgUsername: string | null = null;
+    let cfgPassword: string | null = null;
+
+    if (resolvedAccountantId) {
+      const { data: accountantConfig } = await supabase
+        .from("accountant_at_config")
+        .select("subuser_id, subuser_password_encrypted")
+        .eq("accountant_id", resolvedAccountantId)
+        .eq("is_active", true)
+        .limit(1);
+
+      const cfg = accountantConfig?.[0];
+      cfgUsername = cfg?.subuser_id ? String(cfg.subuser_id).trim() : null;
+      if (cfg?.subuser_password_encrypted) {
+        cfgPassword = await decodeStoredSecret(
+          cfg.subuser_password_encrypted,
+          encryptionSecrets,
+          "accountant_at_config.subuser_password_encrypted",
+        );
+      }
+    }
+
+    const officialAttempts: Array<{ source: string; username: string; password: string }> = [];
+    if (rowUsername && rowPassword) {
+      officialAttempts.push({
+        source: "client_row",
+        username: rowUsername,
+        password: rowPassword,
+      });
+    }
+    if (
+      cfgUsername &&
+      cfgPassword &&
+      !officialAttempts.some((attempt) =>
+        attempt.username === cfgUsername && attempt.password === cfgPassword
+      )
+    ) {
+      officialAttempts.push({
+        source: "accountant_config",
+        username: cfgUsername,
+        password: cfgPassword,
+      });
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
+    const environment = cred.environment === "test" ? "test" : "production";
+
+    try {
+      if (officialConnectorUrl && officialConnectorToken && officialAttempts.length > 0) {
+        const officialUrl = `${officialConnectorUrl.replace(/\/$/, "")}/v1/invoices`;
+
+        for (let index = 0; index < officialAttempts.length; index++) {
+          const attempt = officialAttempts[index];
+          const officialFetchInit = buildConnectorFetchInit(officialConnectorToken, {
+            environment,
+            clientNif,
+            username: attempt.username,
+            password: attempt.password,
+            type: "vendas",
+            startDate: startDate || undefined,
+            endDate: endDate || undefined,
+          });
+          officialFetchInit.signal = controller.signal;
+
+          console.log(
+            "[sync-recibos] Calling official vendas connector:",
+            officialUrl,
+            `source=${attempt.source}`,
+            `username_kind=${isLikelyWfaUsername(attempt.username) ? "wfa" : "nif"}`,
+          );
+
+          const officialResp = await fetch(officialUrl, officialFetchInit);
+          const officialText = await officialResp.text();
+          console.log(
+            "[sync-recibos] Official connector response:",
+            officialResp.status,
+            officialText.slice(0, 500),
+          );
+
+          let officialData: ConnectorResponse;
+          try {
+            officialData = JSON.parse(officialText);
+          } catch {
+            officialData = {
+              success: false,
+              error: `Connector returned non-JSON: ${officialText.slice(0, 200)}`,
+            };
+          }
+
+          if (officialData.success && officialData.vendas?.success) {
+            const recibos = (officialData.vendas.invoices || []).filter((invoice) =>
+              isReciboVerdeDocumentType(invoice.documentType)
+            );
+
+            if (recibos.length > 0) {
+              const result = await insertSalesInvoicesFromAT(
+                supabase,
+                clientId,
+                clientNif,
+                recibos,
+              );
+
+              await supabase
+                .from("at_credentials")
+                .update({
+                  last_sync_status: "success",
+                  last_sync_error: null,
+                  last_sync_at: new Date().toISOString(),
+                })
+                .eq("client_id", clientId);
+
+              return new Response(
+                JSON.stringify({
+                  success: true,
+                  source: "official_webservice",
+                  totalRecords: recibos.length,
+                  inserted: result.inserted,
+                  skipped: result.skipped,
+                  errors: result.errors,
+                  message: `Imported ${result.inserted} recibos verdes via webservice oficial`,
+                }),
+                { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+              );
+            }
+
+            const shouldRetryWithFallback = index === 0 &&
+              officialAttempts.length > 1 &&
+              !isLikelyWfaUsername(attempt.username) &&
+              isLikelyWfaUsername(officialAttempts[1].username) &&
+              (officialData.vendas.totalRecords || 0) === 0;
+
+            if (shouldRetryWithFallback) {
+              console.warn(
+                "[sync-recibos] Official vendas query returned empty with client_row; retrying with accountant_config",
+              );
+              continue;
+            }
+          } else {
+            const vendasError = officialData.vendas?.errorMessage || officialData.error;
+            const shouldRetryWithFallback = index === 0 &&
+              officialAttempts.length > 1 &&
+              !isLikelyWfaUsername(attempt.username) &&
+              isLikelyWfaUsername(officialAttempts[1].username) &&
+              isLikelyAuthMessage(vendasError);
+
+            if (shouldRetryWithFallback) {
+              console.warn(
+                "[sync-recibos] Official vendas auth/context issue with client_row; retrying with accountant_config",
+              );
+              continue;
+            }
+          }
+
+          break;
+        }
+      }
+
+      if (!portalConnectorUrl || !portalConnectorToken || !portalNif || !portalPassword) {
+        await supabase
+          .from("at_credentials")
+          .update({
+            last_sync_status: "success",
+            last_sync_error: null,
+            last_sync_at: new Date().toISOString(),
+          })
+          .eq("client_id", clientId);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            reasonCode: "AT_EMPTY_LIST",
+            message: "No recibos verdes found in this period",
+            totalRecords: 0,
+            inserted: 0,
+            skipped: 0,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      const url = `${portalConnectorUrl.replace(/\/$/, "")}/v1/recibos-verdes`;
+      const connFetchInit = buildConnectorFetchInit(portalConnectorToken, {
         nif: portalNif,
         password: portalPassword,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
         debug: false,
-      }),
-    };
+      });
+      connFetchInit.signal = controller.signal;
 
-    // Trust private CA for connector (Caddy tls internal)
-    const caCertPem = Deno.env.get("AT_CONNECTOR_CA_CERT") ||
-      (Deno.env.get("AT_CONNECTOR_CA_CERT_B64")
-        ? (() => {
-            const b64 = Deno.env.get("AT_CONNECTOR_CA_CERT_B64")!;
-            const binary = atob(b64);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-            return new TextDecoder().decode(bytes);
-          })()
-        : null);
+      console.log("[sync-recibos] Calling portal fallback connector:", url);
 
-    if (caCertPem) {
-      try {
-        const httpClient = Deno.createHttpClient({ caCerts: [caCertPem] });
-        (connFetchInit as any).client = httpClient;
-        console.log("[sync-recibos] Using custom CA for connector");
-      } catch (e: any) {
-        console.warn("[sync-recibos] Failed to create custom HTTP client:", e?.message);
-      }
-    }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000);
-    connFetchInit.signal = controller.signal;
-
-    console.log("[sync-recibos] Calling connector:", url);
-
-    try {
       const connResp = await fetch(url, connFetchInit);
 
       const connText = await connResp.text();

@@ -14,6 +14,10 @@ import {
   Euro
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  isFiscallyEffectivePurchase,
+  isPurchasePendingReview,
+} from '@/lib/fiscalStatus';
 
 interface Client {
   id: string;
@@ -34,6 +38,7 @@ interface Invoice {
   total_vat?: number | null;
   final_deductibility?: number | null;
   document_date: string;
+  requires_accountant_validation?: boolean | null;
 }
 
 interface AggregatedMetricsWidgetProps {
@@ -49,8 +54,9 @@ export function AggregatedMetricsWidget({
 }: AggregatedMetricsWidgetProps) {
   const metrics = useMemo(() => {
     // Total VAT calculation from validated invoices
+    const fiscallyEffectiveInvoices = invoices.filter(isFiscallyEffectivePurchase);
     const validatedInvoices = invoices.filter(inv => inv.status === 'validated');
-    const totalVatDeductible = validatedInvoices.reduce((sum, inv) => {
+    const totalVatDeductible = fiscallyEffectiveInvoices.reduce((sum, inv) => {
       const vat = inv.total_vat || 0;
       const deductibility = (inv.final_deductibility || 0) / 100;
       return sum + (vat * deductibility);
@@ -61,7 +67,7 @@ export function AggregatedMetricsWidget({
 
     // Pending invoices per client
     const clientPendingMap = new Map<string, number>();
-    invoices.filter(inv => inv.status === 'classified').forEach(inv => {
+    invoices.filter(isPurchasePendingReview).forEach(inv => {
       const count = clientPendingMap.get(inv.client_id) || 0;
       clientPendingMap.set(inv.client_id, count + 1);
     });
@@ -74,7 +80,7 @@ export function AggregatedMetricsWidget({
     const ssTotalContributions = clients.reduce((sum, c) => sum + (c.ssContribution || 0), 0);
 
     // Validation progress
-    const totalPending = invoices.filter(inv => inv.status === 'classified').length;
+    const totalPending = invoices.filter(isPurchasePendingReview).length;
     const totalValidated = validatedInvoices.length;
     const validationProgress = invoices.length > 0 
       ? Math.round((totalValidated / invoices.length) * 100) 

@@ -23,6 +23,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { getSSCoefficient } from '@/lib/ssCoefficients';
+import { applyFiscallyEffectivePurchaseFilter } from '@/lib/fiscalStatus';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -62,13 +63,16 @@ export function FiscalSummary({ clientId, year, compact = false }: FiscalSummary
       const liquidado = salesData?.reduce((sum, inv) => sum + (Number(inv.total_vat) || 0), 0) || 0;
 
       // IVA dedutível (compras validadas)
-      const { data: purchaseData } = await supabase
-        .from('invoices')
-        .select('vat_reduced, vat_intermediate, vat_standard, ai_deductibility, final_deductibility')
-        .eq('client_id', effectiveClientId)
-        .eq('status', 'validated')
-        .gte('document_date', `${fiscalYear}-01-01`)
-        .lte('document_date', `${fiscalYear}-12-31`);
+      const purchaseQuery = applyFiscallyEffectivePurchaseFilter(
+        supabase
+          .from('invoices')
+          .select('vat_reduced, vat_intermediate, vat_standard, ai_deductibility, final_deductibility')
+          .eq('client_id', effectiveClientId)
+          .gte('document_date', `${fiscalYear}-01-01`)
+          .lte('document_date', `${fiscalYear}-12-31`),
+      );
+
+      const { data: purchaseData } = await purchaseQuery;
 
       let dedutivel = 0;
       purchaseData?.forEach(inv => {

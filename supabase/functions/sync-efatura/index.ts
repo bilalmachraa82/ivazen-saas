@@ -394,6 +394,23 @@ function isConnectorAuthFailure(
   return errors.some((e) => isLikelyAuthMessage(e));
 }
 
+function isConnectorSuccessfulEmptyResponse(query?: ConnectorQuery): boolean {
+  return Boolean(query?.success) && (query?.totalRecords || 0) === 0;
+}
+
+function shouldRetryVendasWithFallback(
+  resp: ConnectorResponse,
+  type: "compras" | "vendas" | "ambos",
+  primaryUsername: string | null,
+  fallbackUsername: string | null,
+): boolean {
+  if (type !== "vendas" && type !== "ambos") return false;
+  if (!isLikelyWfaUsername(fallbackUsername)) return false;
+  if (isLikelyWfaUsername(primaryUsername)) return false;
+  return isConnectorSuccessfulEmptyResponse(resp.vendas) ||
+    isAtEmptyListMessage(resp.vendas?.errorMessage);
+}
+
 let connectorHttpClientInit = false;
 let connectorHttpClient: any | undefined = undefined;
 
@@ -1264,11 +1281,23 @@ Deno.serve(async (req: Request) => {
         endDate: effectiveEndDate,
       });
 
-      if (attempts.length > 1 && isConnectorAuthFailure(connectorResp, type)) {
-        const fallbackAttempt = attempts[1];
+      const fallbackAttempt = attempts[1];
+      const retryWithFallback = fallbackAttempt &&
+        (
+          isConnectorAuthFailure(connectorResp, type) ||
+          shouldRetryVendasWithFallback(
+            connectorResp,
+            type,
+            usedCredentials.username,
+            fallbackAttempt.username,
+          )
+        );
+
+      if (retryWithFallback) {
         fallbackAttempted = true;
         console.warn(
-          `[sync-efatura] Connector auth failed with ${usedCredentials.source}; retrying with ${fallbackAttempt.source}`,
+          `[sync-efatura] Retrying connector with ${fallbackAttempt.source} ` +
+            `(previous source=${usedCredentials.source}, type=${type})`,
         );
         usedCredentials = fallbackAttempt;
         connectorResp = await callAtConnector({
@@ -1513,9 +1542,15 @@ Deno.serve(async (req: Request) => {
           last_sync_error: overallError,
         }).eq("client_id", clientId);
         // Atomic increment via RPC
-        await supabase.rpc("increment_consecutive_failures", {
+        const { error: incrementError } = await supabase.rpc("increment_consecutive_failures", {
           p_client_id: clientId,
-        }).catch(() => {/* RPC not yet deployed — non-critical */});
+        });
+        if (incrementError) {
+          console.warn(
+            "[sync-efatura] increment_consecutive_failures RPC unavailable:",
+            incrementError.message,
+          );
+        }
       }
 
       if (overallStatus === "error") {

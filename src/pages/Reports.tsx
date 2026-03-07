@@ -15,7 +15,8 @@ import { format, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinI
 import { pt } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
-import { SS_COEFFICIENTS, getSSCoefficient, getSSCategoryLabel } from '@/lib/ssCoefficients';
+import { SS_COEFFICIENTS, getSSCoefficient, getSSCategoryLabel, normalizeSSCategory } from '@/lib/ssCoefficients';
+import { isFiscallyEffectivePurchase } from '@/lib/fiscalStatus';
 
 type PeriodType = 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'year';
 type ReportType = 'vat' | 'ss' | 'expenses';
@@ -76,14 +77,14 @@ export default function Reports() {
   const filteredPurchases = useMemo(() => {
     return (invoices || []).filter(inv => {
       const date = new Date(inv.document_date);
-      return isWithinInterval(date, dateRange) && inv.status === 'validated';
+      return isWithinInterval(date, dateRange) && isFiscallyEffectivePurchase(inv);
     });
   }, [invoices, dateRange]);
 
   const filteredSales = useMemo(() => {
     return (salesInvoices || []).filter(inv => {
       const date = new Date(inv.document_date);
-      return isWithinInterval(date, dateRange);
+      return isWithinInterval(date, dateRange) && inv.status === 'validated';
     });
   }, [salesInvoices, dateRange]);
 
@@ -111,7 +112,7 @@ export default function Reports() {
     const byCategory: Record<string, number> = {};
 
     filteredSales.forEach(inv => {
-      const category = inv.revenue_category || 'prestacao_servicos';
+      const category = normalizeSSCategory(inv.revenue_category || 'prestacao_servicos');
       byCategory[category] = (byCategory[category] || 0) + Number(inv.total_amount || 0);
     });
 
@@ -292,7 +293,7 @@ export default function Reports() {
         inv.customer_nif || '-',
         Number(inv.total_amount),
         Number(inv.total_vat || 0),
-        inv.revenue_category || 'prestacao_servicos',
+        normalizeSSCategory(inv.revenue_category || 'prestacao_servicos'),
       ]),
     ];
     const salesSheet = XLSX.utils.aoa_to_sheet(salesRows);

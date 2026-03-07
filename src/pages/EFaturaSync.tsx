@@ -39,6 +39,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useATConfig, useSyncHistory } from '@/hooks/useATCredentials';
 import { formatDistanceToNow } from 'date-fns';
 import { pt } from 'date-fns/locale';
+import { isFiscallyEffectivePurchase, isPurchasePendingReview } from '@/lib/fiscalStatus';
 
 type DataSource = 'csv' | 'api_test' | 'api_prod';
 
@@ -106,9 +107,9 @@ export default function EFaturaSync() {
       if (error || !data) return { imported: 0, classified: 0, pending: 0, vatDeductible: 0 };
       const imported = data.length;
       const classified = data.filter(i => i.ai_confidence && i.ai_confidence >= 80).length;
-      const pending = data.filter(i => i.status === 'pending' || i.status === 'classified').length;
+      const pending = data.filter(isPurchasePendingReview).length;
       const vatDeductible = data
-        .filter(i => i.status === 'validated')
+        .filter(isFiscallyEffectivePurchase)
         .reduce((sum, i) => sum + (i.total_vat || 0) * ((i.ai_deductibility || 0) / 100), 0);
       return { imported, classified, pending, vatDeductible };
     },
