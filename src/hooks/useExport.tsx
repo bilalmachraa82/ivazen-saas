@@ -12,6 +12,10 @@ import {
 } from '@/lib/dpExcelGenerator';
 import { fetchAllPages } from '@/lib/supabasePagination';
 import type { Database } from '@/integrations/supabase/types';
+import {
+  applyFiscallyEffectivePurchaseFilter,
+  isFiscallyEffectivePurchase,
+} from '@/lib/fiscalStatus';
 
 type InvoiceRow = Database['public']['Tables']['invoices']['Row'];
 type SalesInvoiceRow = Database['public']['Tables']['sales_invoices']['Row'];
@@ -78,16 +82,16 @@ export function useExport(clientId?: string) {
       if (fiscalPeriods.length === 0 || !clientId) return [];
 
       return fetchAllPages<InvoiceRow>((from, to) =>
-        supabase
-          .from('invoices')
-          .select('*')
-          .eq('client_id', clientId)
-          .in('status', ['validated', 'classified'])
-          .in('fiscal_period', fiscalPeriods)
-          .order('document_date', { ascending: true })
-          .order('id', { ascending: true })
-          .range(from, to)
-          .then(r => r)
+        applyFiscallyEffectivePurchaseFilter(
+          supabase
+            .from('invoices')
+            .select('*')
+            .eq('client_id', clientId)
+            .in('fiscal_period', fiscalPeriods)
+            .order('document_date', { ascending: true })
+            .order('id', { ascending: true })
+            .range(from, to),
+        ).then(r => r)
       );
     },
     enabled: fiscalPeriods.length > 0 && !!clientId,
@@ -133,7 +137,10 @@ export function useExport(clientId?: string) {
         seen.set(key, inv);
       } else {
         removed++;
-        if (inv.status === 'validated' && existing.status !== 'validated') {
+        if (
+          isFiscallyEffectivePurchase(inv) &&
+          !isFiscallyEffectivePurchase(existing)
+        ) {
           seen.set(key, inv);
         }
       }

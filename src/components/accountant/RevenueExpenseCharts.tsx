@@ -19,6 +19,7 @@ import { pt } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
+import { isFiscallyEffectivePurchase } from '@/lib/fiscalStatus';
 
 interface Invoice {
   id: string;
@@ -28,6 +29,7 @@ interface Invoice {
   status?: string | null;
   final_deductibility?: number | null;
   client_id: string;
+  requires_accountant_validation?: boolean | null;
 }
 
 interface SalesInvoice {
@@ -76,7 +78,7 @@ export function RevenueExpenseCharts({
     }
 
     // Aggregate expenses
-    expenseInvoices.forEach(inv => {
+    expenseInvoices.filter(isFiscallyEffectivePurchase).forEach(inv => {
       const key = inv.document_date.slice(0, 7);
       if (monthsData[key]) {
         monthsData[key].expenses += Number(inv.total_amount) || 0;

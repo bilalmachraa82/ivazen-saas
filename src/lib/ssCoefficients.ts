@@ -73,6 +73,14 @@ export const SS_COEFFICIENTS: Record<string, number> = {
 /** Default coefficient when category is unknown */
 export const SS_DEFAULT_COEFFICIENT = COEFF_OUTROS; // PENDING LEGAL VALIDATION
 
+const SS_CATEGORY_ALIASES: Record<string, string> = {
+  restauracao: 'hotelaria',
+  alojamento_local: 'hotelaria',
+  producao_venda: 'producao_agricola',
+  propriedade_intelectual: 'prop_intelectual',
+  comercio: 'vendas',
+};
+
 // ---------------------------------------------------------------------------
 // Category metadata (labels, IRS category codes, display order)
 // ---------------------------------------------------------------------------
@@ -113,7 +121,8 @@ export const SS_REVENUE_CATEGORIES: readonly SSCategoryMeta[] = [
  * Returns the default coefficient (0.70) for unknown categories.
  */
 export function getSSCoefficient(category: string): number {
-  return SS_COEFFICIENTS[category] ?? SS_DEFAULT_COEFFICIENT;
+  const normalizedCategory = normalizeSSCategory(category);
+  return SS_COEFFICIENTS[normalizedCategory] ?? SS_DEFAULT_COEFFICIENT;
 }
 
 /**
@@ -121,7 +130,15 @@ export function getSSCoefficient(category: string): number {
  * Returns the slug itself if the category is not found.
  */
 export function getSSCategoryLabel(category: string): string {
-  return SS_REVENUE_CATEGORIES.find(c => c.value === category)?.label ?? category;
+  const normalizedCategory = normalizeSSCategory(category);
+  return SS_REVENUE_CATEGORIES.find(c => c.value === normalizedCategory)?.label ??
+    normalizedCategory;
+}
+
+export function normalizeSSCategory(category: string | null | undefined): string {
+  const normalizedCategory = String(category || '').trim();
+  if (!normalizedCategory) return 'outros';
+  return SS_CATEGORY_ALIASES[normalizedCategory] ?? normalizedCategory;
 }
 
 /**

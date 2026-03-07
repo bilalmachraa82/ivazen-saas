@@ -3,6 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  isFiscallyEffectivePurchase,
+  isPurchasePendingReview,
+} from '@/lib/fiscalStatus';
 
 interface ClientProfile {
   id: string;
@@ -31,6 +35,7 @@ interface ClientInvoice {
   final_dp_field: number | null;
   final_deductibility: number | null;
   fiscal_period: string | null;
+  requires_accountant_validation?: boolean | null;
 }
 
 interface SSDeclaration {
@@ -198,13 +203,13 @@ export function useAccountant() {
 
     return clients.map(client => {
       const clientInvoices = allInvoices.filter(inv => inv.client_id === client.id);
-      const pending = clientInvoices.filter(inv => inv.status === 'pending').length;
+      const pending = clientInvoices.filter(isPurchasePendingReview).length;
       const classified = clientInvoices.filter(inv => inv.status === 'classified').length;
       const validated = clientInvoices.filter(inv => inv.status === 'validated').length;
       
       const totalVat = clientInvoices.reduce((sum, inv) => sum + (inv.total_vat || 0), 0);
       const totalDeductible = clientInvoices
-        .filter(inv => inv.status === 'validated')
+        .filter(isFiscallyEffectivePurchase)
         .reduce((sum, inv) => {
           const vat = inv.total_vat || 0;
           const deductibility = (inv.final_deductibility || 0) / 100;
@@ -259,11 +264,11 @@ export function useAccountant() {
     ).length;
 
     const pendingValidation = allInvoices.filter(
-      inv => inv.status === 'classified'
+      isPurchasePendingReview
     ).length;
 
     const totalVatDeductible = allInvoices
-      .filter(inv => inv.status === 'validated')
+      .filter(isFiscallyEffectivePurchase)
       .reduce((sum, inv) => {
         const vat = inv.total_vat || 0;
         const deductibility = (inv.final_deductibility || 0) / 100;
@@ -296,7 +301,7 @@ export function useAccountant() {
   // Get invoices pending validation (classified but not validated)
   const pendingInvoices = useMemo(() => {
     if (!allInvoices) return [];
-    return allInvoices.filter(inv => inv.status === 'classified');
+    return allInvoices.filter(isPurchasePendingReview);
   }, [allInvoices]);
 
 

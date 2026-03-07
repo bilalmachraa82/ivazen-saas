@@ -18,6 +18,10 @@ import { AggregatedMetricsWidget } from '@/components/accountant/AggregatedMetri
 import { RevenueExpenseCharts } from '@/components/accountant/RevenueExpenseCharts';
 import { AttentionItems } from '@/components/dashboard/AttentionItems';
 import { SyncHealthWidget } from '@/components/accountant/SyncHealthWidget';
+import {
+  isFiscallyEffectivePurchase,
+  isPurchasePendingReview,
+} from '@/lib/fiscalStatus';
 import { 
   Users, 
   FileText, 
@@ -100,10 +104,10 @@ export default function AccountantDashboard() {
     return {
       totalClients: 1,
       totalInvoices: clientInvoices.length,
-      pendingValidation: clientInvoices.filter(inv => inv.status === 'classified').length,
+      pendingValidation: clientInvoices.filter(isPurchasePendingReview).length,
       validatedThisMonth: clientInvoices.filter(inv => inv.status === 'validated' && inv.fiscal_period === currentMonth).length,
       totalVatDeductible: clientInvoices
-        .filter(inv => inv.status === 'validated')
+        .filter(isFiscallyEffectivePurchase)
         .reduce((sum, inv) => {
           const vat = inv.total_vat || 0;
           const deductibility = (inv.final_deductibility || 0) / 100;

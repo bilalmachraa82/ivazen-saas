@@ -10,6 +10,7 @@ import {
   Percent,
   Building2
 } from 'lucide-react';
+import { isFiscallyEffectivePurchase } from '@/lib/fiscalStatus';
 
 interface ClientWithStats {
   id: string;
@@ -34,6 +35,7 @@ interface ClientInvoice {
   final_classification: string | null;
   final_deductibility: number | null;
   fiscal_period: string | null;
+  requires_accountant_validation?: boolean | null;
 }
 
 interface AggregatedFiscalSummaryProps {
@@ -87,7 +89,7 @@ export function AggregatedFiscalSummary({ clients, invoices }: AggregatedFiscalS
       periods[period].totalVat += inv.total_vat || 0;
       periods[period].invoiceCount++;
       
-      if (inv.status === 'validated') {
+      if (isFiscallyEffectivePurchase(inv)) {
         periods[period].validatedCount++;
         const deductibility = (inv.final_deductibility || 0) / 100;
         periods[period].totalDeductible += (inv.total_vat || 0) * deductibility;
@@ -101,7 +103,7 @@ export function AggregatedFiscalSummary({ clients, invoices }: AggregatedFiscalS
   const classificationBreakdown = useMemo(() => {
     const breakdown: Record<string, { amount: number; vat: number; count: number }> = {};
     
-    invoices.filter(i => i.status === 'validated' && i.final_classification).forEach(inv => {
+    invoices.filter(i => isFiscallyEffectivePurchase(i) && i.final_classification).forEach(inv => {
       const classification = inv.final_classification!;
       if (!breakdown[classification]) {
         breakdown[classification] = { amount: 0, vat: 0, count: 0 };
@@ -140,7 +142,7 @@ export function AggregatedFiscalSummary({ clients, invoices }: AggregatedFiscalS
     const totalAmount = qInvoices.reduce((sum, inv) => sum + inv.total_amount, 0);
     const totalVat = qInvoices.reduce((sum, inv) => sum + (inv.total_vat || 0), 0);
     const totalDeductible = qInvoices
-      .filter(i => i.status === 'validated')
+      .filter(isFiscallyEffectivePurchase)
       .reduce((sum, inv) => {
         const deductibility = (inv.final_deductibility || 0) / 100;
         return sum + (inv.total_vat || 0) * deductibility;

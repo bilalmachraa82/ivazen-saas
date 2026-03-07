@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { applyFiscallyEffectivePurchaseFilter } from '@/lib/fiscalStatus';
 
 interface VATCalculationData {
   vatCollected: number;
@@ -66,13 +67,16 @@ export function useVATCalculation(options: UseVATCalculationOptions = {}) {
     queryFn: async () => {
       if (!effectiveClientId) return null;
 
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('total_vat, vat_standard, vat_intermediate, vat_reduced, final_deductibility')
-        .eq('client_id', effectiveClientId)
-        .eq('status', 'validated')
-        .gte('document_date', dateRange.start)
-        .lte('document_date', dateRange.end);
+      const query = applyFiscallyEffectivePurchaseFilter(
+        supabase
+          .from('invoices')
+          .select('total_vat, vat_standard, vat_intermediate, vat_reduced, final_deductibility')
+          .eq('client_id', effectiveClientId)
+          .gte('document_date', dateRange.start)
+          .lte('document_date', dateRange.end),
+      );
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data;

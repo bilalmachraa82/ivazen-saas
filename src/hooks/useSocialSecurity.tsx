@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
-import { SS_COEFFICIENTS, SS_REVENUE_CATEGORIES, getSSCoefficient } from '@/lib/ssCoefficients';
+import { SS_COEFFICIENTS, SS_REVENUE_CATEGORIES, getSSCoefficient, normalizeSSCategory } from '@/lib/ssCoefficients';
 
 interface RevenueEntry {
   id: string;
@@ -372,6 +372,7 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
       if (!category) {
         category = (docType === 'FR' || docType === 'FS/FR') ? 'prestacao_servicos' : 'vendas';
       }
+      category = normalizeSSCategory(category);
       byCategory[category] = (byCategory[category] || 0) + amount;
     });
 
@@ -387,6 +388,7 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
       if (!category) {
         category = (docType === 'FR' || docType === 'FS/FR') ? 'prestacao_servicos' : 'vendas';
       }
+      category = normalizeSSCategory(category);
       salesRelevantIncome += amount * getSSCoefficient(category);
     });
     const relevantIncome = manualRelevantIncome + salesRelevantIncome;

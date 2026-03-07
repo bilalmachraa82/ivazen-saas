@@ -9,6 +9,7 @@ import {
   SS_CATEGORY_VALUES,
   getSSCoefficient,
   getSSCategoryLabel,
+  normalizeSSCategory,
   COEFF_PRESTACAO_SERVICOS,
   COEFF_VENDAS,
   COEFF_HOTELARIA,
@@ -162,6 +163,14 @@ describe('ssCoefficients', () => {
       expect(getSSCoefficient('')).toBe(SS_DEFAULT_COEFFICIENT);
     });
 
+    it('should normalize classifier aliases to the canonical SS coefficients', () => {
+      expect(getSSCoefficient('restauracao')).toBe(COEFF_HOTELARIA);
+      expect(getSSCoefficient('alojamento_local')).toBe(COEFF_HOTELARIA);
+      expect(getSSCoefficient('producao_venda')).toBe(COEFF_PRODUCAO_AGRICOLA);
+      expect(getSSCoefficient('propriedade_intelectual')).toBe(COEFF_PROP_INTELECTUAL);
+      expect(getSSCoefficient('comercio')).toBe(COEFF_VENDAS);
+    });
+
     it('default coefficient should be 0.70', () => {
       expect(SS_DEFAULT_COEFFICIENT).toBe(0.70);
     });
@@ -176,6 +185,21 @@ describe('ssCoefficients', () => {
 
     it('should return the slug for unknown categories', () => {
       expect(getSSCategoryLabel('foo_bar')).toBe('foo_bar');
+    });
+
+    it('should normalize alias labels to the canonical category label', () => {
+      expect(getSSCategoryLabel('restauracao')).toContain('Hotelaria');
+      expect(getSSCategoryLabel('propriedade_intelectual')).toContain('Propriedade');
+    });
+  });
+
+  describe('normalizeSSCategory()', () => {
+    it('maps classifier aliases to canonical SS categories', () => {
+      expect(normalizeSSCategory('restauracao')).toBe('hotelaria');
+      expect(normalizeSSCategory('alojamento_local')).toBe('hotelaria');
+      expect(normalizeSSCategory('producao_venda')).toBe('producao_agricola');
+      expect(normalizeSSCategory('propriedade_intelectual')).toBe('prop_intelectual');
+      expect(normalizeSSCategory('comercio')).toBe('vendas');
     });
   });
 

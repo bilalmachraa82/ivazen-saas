@@ -26,6 +26,7 @@ import { ZenCard, ZenCardHeader, ZenHeader, ZenDecorations, ZenStatsCard } from 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useQueryClient } from '@tanstack/react-query';
 import { generateSaftXml, downloadSaftXml, dbInvoiceToSaft, dbSalesInvoiceToSaft, SaftCompanyInfo } from '@/lib/saftExporter';
+import { applyFiscallyEffectivePurchaseFilter } from '@/lib/fiscalStatus';
 import { toast } from 'sonner';
 
 export default function Export() {
@@ -166,14 +167,17 @@ export default function Export() {
       }
 
       // Fetch validated purchase invoices
-      const { data: purchases } = await supabase
-        .from('invoices')
-        .select('id, document_number, document_date, document_type, supplier_nif, supplier_name, total_amount, total_vat, base_standard, base_intermediate, base_reduced, base_exempt, vat_standard, vat_intermediate, vat_reduced')
-        .eq('client_id', effectiveClientId)
-        .in('status', ['validated', 'classified'])
-        .gte('document_date', startDate)
-        .lte('document_date', endDate)
-        .order('document_date');
+      const purchaseQuery = applyFiscallyEffectivePurchaseFilter(
+        supabase
+          .from('invoices')
+          .select('id, document_number, document_date, document_type, supplier_nif, supplier_name, total_amount, total_vat, base_standard, base_intermediate, base_reduced, base_exempt, vat_standard, vat_intermediate, vat_reduced')
+          .eq('client_id', effectiveClientId)
+          .gte('document_date', startDate)
+          .lte('document_date', endDate)
+          .order('document_date'),
+      );
+
+      const { data: purchases } = await purchaseQuery;
 
       // Fetch validated sales invoices
       const { data: sales } = await supabase
