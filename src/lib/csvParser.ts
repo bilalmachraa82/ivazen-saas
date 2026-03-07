@@ -5,10 +5,14 @@ export interface ParsedInvoice {
   baseValue: number;
   vatValue: number;
   totalValue: number;
+  withholdingAmount?: number;
   documentType: string;
   quarter: string;
   description?: string;
   supplierName?: string;
+  atcud?: string;
+  status?: string;
+  sourceSystem?: 'csv' | 'saft' | 'at_sire';
 }
 
 export interface ParseResult {
@@ -84,6 +88,34 @@ function parseNumber(value: string): number {
   return isNaN(num) ? 0 : num;
 }
 
+function splitDelimitedLine(line: string, delimiter: string): string[] {
+  const values: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const next = line[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === delimiter && !inQuotes) {
+      values.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+
+  values.push(current.trim());
+  return values;
+}
+
 export function getQuarterFromDate(date: Date): string {
   const quarter = Math.ceil((date.getMonth() + 1) / 3);
   return `${date.getFullYear()}-Q${quarter}`;
@@ -109,7 +141,7 @@ export function parseCSV(content: string): ParseResult {
   const delimiter = firstLine.includes(';') ? ';' : ',';
   
   // Parse headers
-  const headers = firstLine.split(delimiter).map(h => h.replace(/"/g, '').trim());
+  const headers = splitDelimitedLine(firstLine, delimiter).map(h => h.replace(/"/g, '').trim());
   
   // Find column indices
   const columnMap = {
@@ -141,21 +173,7 @@ export function parseCSV(content: string): ParseResult {
     if (!line.trim()) continue;
 
     // Handle quoted fields with delimiters inside
-    const values: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    
-    for (const char of line) {
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === delimiter && !inQuotes) {
-        values.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    values.push(current.trim());
+    const values = splitDelimitedLine(line, delimiter);
 
     try {
       const dateValue = values[columnMap.date]?.replace(/"/g, '');
@@ -195,6 +213,7 @@ export function parseCSV(content: string): ParseResult {
         totalValue: totalValue > 0 ? totalValue : finalBaseValue,
         documentType: values[columnMap.documentType]?.replace(/"/g, '') || 'Fatura',
         quarter: getQuarterFromDate(date),
+        sourceSystem: 'csv',
       };
 
       result.invoices.push(invoice);
@@ -205,6 +224,152 @@ export function parseCSV(content: string): ParseResult {
 
   if (result.invoices.length === 0 && result.errors.length === 0) {
     result.errors.push('Nenhuma factura válida encontrada no ficheiro');
+  }
+
+  return result;
+}
+
+function isATSireCSV(headers: string[]): boolean {
+  const normalized = headers.map(normalizeHeader);
+  const requiredHeaders = [
+    'referencia',
+    'tipo documento',
+    'data de emissao',
+    'nif adquirente',
+    'nome do adquirente',
+    'valor tributavel (em euros)',
+  ];
+
+  return requiredHeaders.every((header) =>
+    normalized.some((value) => value.includes(header) || header.includes(value))
+  );
+}
+
+function mapATSireDocumentType(reference: string, typeLabel: string): string {
+  const refPrefix = (reference || '').trim().split(/\s+/)[0]?.toUpperCase();
+  if (['FT', 'FR', 'FS', 'FS/FR', 'RG', 'RC'].includes(refPrefix)) {
+    return refPrefix;
+  }
+
+  const normalizedType = normalizeHeader(typeLabel);
+  if (normalizedType.includes('fatura-recibo')) return 'FR';
+  if (normalizedType.includes('fatura simplificada')) return 'FS';
+  if (normalizedType.includes('fatura')) return 'FT';
+  if (normalizedType.includes('recibo')) return 'RG';
+
+  return 'FT';
+}
+
+function parseATSireCSV(content: string): ParseResult {
+  const result: ParseResult = {
+    invoices: [],
+    errors: [],
+    warnings: [],
+    fileType: 'csv',
+  };
+
+  const lines = content.split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length < 2) {
+    result.errors.push('Ficheiro CSV AT vazio ou sem dados');
+    return result;
+  }
+
+  const delimiter = ';';
+  const headers = splitDelimitedLine(lines[0].replace(/^\uFEFF/, ''), delimiter).map((h) => h.trim());
+  const columnMap = {
+    reference: findColumnIndex(headers, ['referência', 'referencia']),
+    documentType: findColumnIndex(headers, ['tipo documento']),
+    atcud: findColumnIndex(headers, ['atcud']),
+    status: findColumnIndex(headers, ['situação', 'situacao', 'estado']),
+    issueDate: findColumnIndex(headers, ['data de emissão', 'data emissao']),
+    customerNif: findColumnIndex(headers, ['nif adquirente']),
+    customerName: findColumnIndex(headers, ['nome do adquirente']),
+    baseValue: findColumnIndex(headers, ['valor tributável (em euros)', 'valor tributavel (em euros)']),
+    vatValue: findColumnIndex(headers, ['valor do iva (em euros)', 'iva']),
+    withholdingValue: findColumnIndex(headers, ['total de retenções na fonte (em euros)', 'valor do irs (em euros)']),
+    totalWithTaxes: findColumnIndex(headers, ['total do documento (em euros)', 'total com impostos (em euros)']),
+  };
+
+  if (columnMap.reference === -1 || columnMap.issueDate === -1 || columnMap.baseValue === -1) {
+    result.errors.push('CSV AT sem colunas mínimas esperadas');
+    result.warnings.push(`Colunas detectadas: ${headers.join(', ')}`);
+    return result;
+  }
+
+  let skippedCancelled = 0;
+  let skippedReceipts = 0;
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = splitDelimitedLine(lines[i], delimiter).map((value) => value.replace(/"/g, '').trim());
+    if (values.every((value) => !value)) continue;
+
+    const reference = values[columnMap.reference] || `AT-${i}`;
+    const status = (columnMap.status !== -1 ? values[columnMap.status] : '') || '';
+    const normalizedStatus = normalizeHeader(status);
+
+    if (normalizedStatus.includes('anulad') || normalizedStatus.includes('cancel')) {
+      skippedCancelled++;
+      continue;
+    }
+
+    const documentType = mapATSireDocumentType(
+      reference,
+      columnMap.documentType !== -1 ? values[columnMap.documentType] : '',
+    );
+
+    // RG/RC are payment receipts. Importing them into sales_invoices would double-count
+    // revenue when the corresponding FT/FR is already present.
+    if (documentType === 'RG' || documentType === 'RC') {
+      skippedReceipts++;
+      continue;
+    }
+
+    const date = parseDate(values[columnMap.issueDate] || '');
+    if (!date) {
+      result.warnings.push(`Linha ${i + 1}: data inválida para ${reference}`);
+      continue;
+    }
+
+    const baseValue = parseNumber(values[columnMap.baseValue] || '');
+    const vatValue = columnMap.vatValue !== -1 ? parseNumber(values[columnMap.vatValue] || '') : 0;
+    const withholdingAmount = columnMap.withholdingValue !== -1
+      ? parseNumber(values[columnMap.withholdingValue] || '')
+      : 0;
+    const totalValue = columnMap.totalWithTaxes !== -1
+      ? parseNumber(values[columnMap.totalWithTaxes] || '')
+      : baseValue + vatValue;
+
+    if (baseValue <= 0 && totalValue <= 0) {
+      result.warnings.push(`Linha ${i + 1}: valor inválido para ${reference}`);
+      continue;
+    }
+
+    result.invoices.push({
+      date,
+      documentNumber: reference,
+      customerNif: columnMap.customerNif !== -1 ? values[columnMap.customerNif] || '' : '',
+      supplierName: columnMap.customerName !== -1 ? values[columnMap.customerName] || '' : '',
+      baseValue: baseValue > 0 ? baseValue : totalValue,
+      vatValue,
+      totalValue: totalValue > 0 ? totalValue : baseValue + vatValue,
+      withholdingAmount,
+      documentType,
+      quarter: getQuarterFromDate(date),
+      atcud: columnMap.atcud !== -1 ? values[columnMap.atcud] || '' : '',
+      status,
+      sourceSystem: 'at_sire',
+    });
+  }
+
+  if (skippedCancelled > 0) {
+    result.warnings.push(`${skippedCancelled} documento(s) anulados ignorados`);
+  }
+  if (skippedReceipts > 0) {
+    result.warnings.push(`${skippedReceipts} recibo(s) RG/RC ignorados para evitar dupla contagem`);
+  }
+
+  if (result.invoices.length === 0 && result.errors.length === 0) {
+    result.errors.push('Nenhum documento AT elegível encontrado no CSV');
   }
 
   return result;
@@ -374,6 +539,15 @@ export function parseInvoiceFile(content: string, fileName: string): ParseResult
     return parseSAFT(content);
   }
   
+  const lines = content.split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length > 0) {
+    const delimiter = lines[0].includes(';') ? ';' : ',';
+    const headers = splitDelimitedLine(lines[0].replace(/^\uFEFF/, ''), delimiter).map((header) => header.trim());
+    if (delimiter === ';' && isATSireCSV(headers)) {
+      return parseATSireCSV(content);
+    }
+  }
+
   // Default to CSV
   return parseCSV(content);
 }

@@ -282,6 +282,12 @@ export async function parseATExcel(
 
     // Detect file type based on columns
     const headers = Object.keys(jsonData[0] || {});
+
+    const sireCsvGuard = guardATSireRecibosCSV(headers, jsonData);
+    if (sireCsvGuard) {
+      return sireCsvGuard;
+    }
+
     const fileType = detectFileType(headers, file.name);
 
     // Auto-detect category if not provided
@@ -383,6 +389,73 @@ function detectFileType(headers: string[], filename: string): 'recibos_verdes' |
   }
 
   return 'unknown';
+}
+
+function guardATSireRecibosCSV(
+  headers: string[],
+  rows: Record<string, any>[]
+): ATParseResult | null {
+  const normalized = headers.map(h => h.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+  const requiredHeaders = [
+    'referencia',
+    'tipo documento',
+    'atcud',
+    'data de emissao',
+    'nif adquirente',
+    'valor do irs (em euros)',
+    'total de retencoes na fonte (em euros)',
+  ];
+
+  const isATSire = requiredHeaders.every((header) =>
+    normalized.some((value) => value.includes(header) || header.includes(value))
+  );
+
+  if (!isATSire) {
+    return null;
+  }
+
+  const totalDocs = rows.length;
+  const docsWithRetention = rows.filter((row) => {
+    const totalRetencao = parseAmount(
+      row['Total de Retenções na Fonte (em euros)'] ??
+      row['Total de Retencoes na Fonte (em euros)'] ??
+      ''
+    );
+    const valorIRS = parseAmount(
+      row['Valor do IRS (em euros)'] ??
+      ''
+    );
+    return totalRetencao > 0 || valorIRS > 0;
+  }).length;
+
+  if (docsWithRetention === 0) {
+    return {
+      success: false,
+      records: [],
+      errors: [
+        'Ficheiro CSV da nova aplicação AT detetado. Este export não contém retenções na fonte, por isso não há dados para importar no Modelo 10.',
+      ],
+      warnings: [
+        `${totalDocs} documento(s) analisados no formato atual da AT.`,
+      ],
+      summary: createEmptySummary(),
+      fileType: 'unknown',
+    };
+  }
+
+  return {
+    success: false,
+    records: [],
+    errors: [
+      'Ficheiro CSV da nova aplicação AT detetado com retenções. O importador antigo do Modelo 10 ainda não suporta este formato diretamente.',
+    ],
+    warnings: [
+      `${docsWithRetention} documento(s) com retenção encontrados neste formato.`,
+      'Use o fluxo de vendas importadas + candidatos de retenção, ou adapte este importador para o formato SIRE atual.',
+    ],
+    summary: createEmptySummary(),
+    fileType: 'unknown',
+  };
 }
 
 /**

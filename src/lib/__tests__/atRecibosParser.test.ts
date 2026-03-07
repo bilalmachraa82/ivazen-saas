@@ -27,6 +27,10 @@ function createMockExcelFile(data: Record<string, any>[], filename = 'test.xlsx'
   return new File([buffer], filename, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 
+function createMockCsvFile(content: string, filename = 'test.csv'): File {
+  return new File([content], filename, { type: 'text/csv' });
+}
+
 describe('AT Recibos Parser', () => {
 
   describe('Taxas de Retenção (OE2026)', () => {
@@ -205,6 +209,35 @@ describe('AT Recibos Parser', () => {
       const result = await parseATExcel(file);
 
       expect(result.fileType).toBe('recibos_verdes');
+    });
+
+    it('deve bloquear o CSV novo da AT sem retenções para o importador de Modelo 10', async () => {
+      const content = [
+        '\uFEFFReferência;Tipo Documento;ATCUD;Situação;Data da Transação;Motivo Emissão;Data de Emissão;País do Adquirente;NIF Adquirente;Nome do Adquirente;Valor Tributável (em euros);Valor do IVA (em euros);Imposto do Selo como Retenção na Fonte;Valor do Imposto do Selo (em euros);Valor do IRS (em euros);Total de Impostos (em euros);Total com Impostos (em euros);Total de Retenções na Fonte (em euros);Contribuição Cultura (em euros);Total do Documento (em euros)',
+        'FR ATSIRE01FR/17;Fatura-Recibo;JJ37MMGM-17;Emitido;2025-10-10;Pagamento dos bens ou dos serviços;2025-12-31;PORTUGAL;518326390;BRILHANTENTUSIASMO UNIPESSOAL LDA;500;0;;0;0;;500;0;0;500',
+      ].join('\n');
+
+      const file = createMockCsvFile(content, 'Bilal_2025.csv');
+      const result = await parseATExcel(file, { categoria: 'B_INDEPENDENTES' });
+
+      expect(result.success).toBe(false);
+      expect(result.records).toHaveLength(0);
+      expect(result.errors[0]).toContain('não contém retenções na fonte');
+    });
+
+    it('deve falhar com mensagem explícita quando o CSV novo da AT traz retenções', async () => {
+      const content = [
+        '\uFEFFReferência;Tipo Documento;ATCUD;Situação;Data da Transação;Motivo Emissão;Data de Emissão;País do Adquirente;NIF Adquirente;Nome do Adquirente;Valor Tributável (em euros);Valor do IVA (em euros);Imposto do Selo como Retenção na Fonte;Valor do Imposto do Selo (em euros);Valor do IRS (em euros);Total de Impostos (em euros);Total com Impostos (em euros);Total de Retenções na Fonte (em euros);Contribuição Cultura (em euros);Total do Documento (em euros)',
+        'FR ATSIRE01FR/18;Fatura-Recibo;JJ37MMGM-18;Emitido;2025-10-10;Pagamento dos bens ou dos serviços;2025-12-31;PORTUGAL;518326390;EMPRESA TESTE LDA;1000;0;;0;230;;1000;230;0;1000',
+      ].join('\n');
+
+      const file = createMockCsvFile(content, 'Bilal_2025_retencao.csv');
+      const result = await parseATExcel(file, { categoria: 'B_INDEPENDENTES' });
+
+      expect(result.success).toBe(false);
+      expect(result.records).toHaveLength(0);
+      expect(result.errors[0]).toContain('não suporta este formato');
+      expect(result.warnings[0]).toContain('1 documento(s) com retenção');
     });
   });
 

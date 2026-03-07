@@ -566,9 +566,12 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
       baseValue: number;
       vatValue: number;
       totalValue: number;
+      withholdingAmount?: number;
       documentType: string;
       quarter: string;
       selectedCategory?: string;
+      atcud?: string;
+      sourceSystem?: string;
     }>) => {
       const clientNif = activeProfile?.nif || profile?.nif;
       if (!effectiveClientId || !clientNif) throw new Error('No client selected');
@@ -606,7 +609,9 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
         return { inserted: 0, duplicates: duplicatesCount };
       }
 
-      const insertData = uniqueInvoices.map(invoice => ({
+      const insertData = uniqueInvoices.map(invoice => {
+        const explicitWithholding = Number(invoice.withholdingAmount || 0);
+        return {
         client_id: effectiveClientId,
         supplier_nif: clientNif, // User is the supplier (issuer) of sales invoices
         document_date: invoice.date.toISOString().split('T')[0],
@@ -615,15 +620,28 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
         customer_name: invoice.supplierName || null,
         total_amount: invoice.totalValue,
         total_vat: invoice.vatValue,
-        base_standard: invoice.baseValue,
+        base_standard: invoice.vatValue > 0 ? invoice.baseValue : null,
+        base_exempt: invoice.vatValue > 0 ? null : invoice.baseValue,
         document_type: invoice.documentType || 'FT',
         fiscal_period: invoice.quarter,
         revenue_category: invoice.selectedCategory || null,
+        atcud: invoice.atcud || null,
         status: 'validated', // Auto-validate imported invoices
         validated_at: new Date().toISOString(),
-        image_path: `imported/${invoice.documentType === 'FR' ? 'recibo_verde' : 'saft'}_${Date.now()}.json`,
-        notes: invoice.documentType === 'FR' ? 'Importado de Recibos Verdes (Excel AT)' : 'Importado do SAF-T',
-      }));
+        image_path: `imported/${
+          invoice.sourceSystem === 'at_sire'
+            ? 'at_faturas_recibos'
+            : invoice.documentType === 'FR'
+              ? 'recibo_verde'
+              : 'saft'
+        }_${Date.now()}.json`,
+        notes: invoice.sourceSystem === 'at_sire'
+          ? `Importado de Faturas e Recibos AT (CSV); AT_SIRE_WITHHOLDING=${explicitWithholding.toFixed(2)}`
+          : invoice.documentType === 'FR'
+            ? 'Importado de Recibos Verdes (Excel AT)'
+            : 'Importado do SAF-T',
+      };
+      });
 
       const { error } = await supabase
         .from('sales_invoices')

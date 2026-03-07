@@ -26,6 +26,14 @@ const WITHHOLDING_RATES: Record<number, number> = {
 };
 const DEFAULT_RATE = 23.0;
 
+function parseExplicitWithholdingFromNotes(notes: string | null): number | null {
+  if (!notes) return null;
+  const match = notes.match(/AT_SIRE_WITHHOLDING=([0-9]+(?:\.[0-9]+)?)/);
+  if (!match) return null;
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? value : null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -56,7 +64,7 @@ Deno.serve(async (req) => {
     // Fetch FR/FS sales invoices with cursor pagination
     let query = supabase
       .from('sales_invoices')
-      .select('id, client_id, document_type, document_number, document_date, customer_nif, customer_name, supplier_nif, total_amount, total_vat, base_exempt, fiscal_period')
+      .select('id, client_id, document_type, document_number, document_date, customer_nif, customer_name, supplier_nif, total_amount, total_vat, base_exempt, fiscal_period, notes')
       .in('document_type', ['FR', 'FS', 'FS/FR'])
       .gte('document_date', `${fiscalYear}-01-01`)
       .lte('document_date', `${fiscalYear}-12-31`)
@@ -148,8 +156,20 @@ Deno.serve(async (req) => {
       // Get fiscal year from document date
       const docDate = inv.document_date;
       const docYear = docDate ? new Date(docDate).getFullYear() : fiscalYear;
-      const rate = WITHHOLDING_RATES[docYear] || DEFAULT_RATE;
-      const withholdingAmount = Math.round(baseAmount * (rate / 100) * 100) / 100;
+      const explicitWithholding = parseExplicitWithholdingFromNotes(inv.notes);
+
+      if (explicitWithholding !== null && explicitWithholding <= 0.009) {
+        skipped++;
+        continue;
+      }
+
+      const fallbackRate = WITHHOLDING_RATES[docYear] || DEFAULT_RATE;
+      const withholdingAmount = explicitWithholding !== null
+        ? explicitWithholding
+        : Math.round(baseAmount * (fallbackRate / 100) * 100) / 100;
+      const rate = explicitWithholding !== null && baseAmount > 0
+        ? Math.round((withholdingAmount / baseAmount) * 10000) / 100
+        : fallbackRate;
 
       // Confidence score based on data completeness
       let confidence = 70;
@@ -158,6 +178,7 @@ Deno.serve(async (req) => {
       if (inv.document_number) confidence += 5;
       if (docDate) confidence += 5;
       if (totalVat > 0) confidence += 5; // Has explicit VAT breakdown
+      if (explicitWithholding !== null) confidence += 10;
       confidence = Math.min(confidence, 95);
 
       candidatesToInsert.push({
@@ -173,14 +194,19 @@ Deno.serve(async (req) => {
         withholding_amount: withholdingAmount,
         withholding_rate: rate,
         confidence_score: confidence,
-        detection_reason: `Auto-detected: FR/FS to empresa (NIF ${customerNif}), Cat B ${rate}%`,
-        detected_keys: ['document_type:FR', `customer_nif:${customerNif.slice(0, 3)}***`],
+        detection_reason: explicitWithholding !== null
+          ? `AT explicit withholding imported from sales invoice note (${withholdingAmount.toFixed(2)} EUR)`
+          : `Auto-detected: FR/FS to empresa (NIF ${customerNif}), Cat B ${rate}%`,
+        detected_keys: explicitWithholding !== null
+          ? ['source:at_sire', 'withholding:explicit', `customer_nif:${customerNif.slice(0, 3)}***`]
+          : ['document_type:FR', `customer_nif:${customerNif.slice(0, 3)}***`],
         raw_payload: {
           document_type: inv.document_type,
           total_amount: totalAmount,
           total_vat: totalVat,
           base_exempt: baseExempt,
           base_amount: baseAmount,
+          explicit_withholding: explicitWithholding,
         },
         status: 'pending',
       });
