@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { resolveScopedClientId } from '@/lib/clientScope';
 import { applyFiscallyEffectivePurchaseFilter } from '@/lib/fiscalStatus';
 import { useTaxpayerKind } from '@/hooks/useTaxpayerKind';
+import { getQuarterDateRange, getQuarterLabel } from '@/lib/fiscalQuarter';
 
 const PENDING_PURCHASE_FILTER =
   'status.eq.pending,and(status.eq.classified,requires_accountant_validation.is.true),and(status.eq.classified,requires_accountant_validation.is.null)';
@@ -27,7 +28,20 @@ interface SyncEntry {
   records_errors: number;
 }
 
+interface UseClientFiscalCenterOptions {
+  clientId?: string | null;
+  fiscalYear?: number;
+  quarter?: number;
+}
+
 export interface ClientFiscalCenterData {
+  period: {
+    fiscalYear: number;
+    quarter: number;
+    quarterLabel: string;
+    rangeStart: string;
+    rangeEnd: string;
+  };
   client: ClientSummary | null;
   at: {
     hasCredentials: boolean;
@@ -46,12 +60,12 @@ export interface ClientFiscalCenterData {
     total: number;
     ready: number;
     pending: number;
+    readyRevenue: number;
   };
   ss: {
     declarationCount: number;
-    latestDeclarationQuarter: string | null;
-    latestDeclarationStatus: string | null;
-    latestRevenue: number | null;
+    currentDeclarationStatus: string | null;
+    currentRevenue: number;
   };
   modelo10: {
     fiscalYear: number;
@@ -60,18 +74,22 @@ export interface ClientFiscalCenterData {
   };
 }
 
-export function useClientFiscalCenter(forClientId?: string | null) {
+export function useClientFiscalCenter(options: UseClientFiscalCenterOptions = {}) {
   const { user } = useAuth();
-  const effectiveClientId = resolveScopedClientId(forClientId, user?.id);
-  const { taxpayerKind, isLoading: isLoadingTaxpayerKind } = useTaxpayerKind(forClientId);
+  const effectiveClientId = resolveScopedClientId(options.clientId, user?.id);
+  const { taxpayerKind, isLoading: isLoadingTaxpayerKind } = useTaxpayerKind(options.clientId);
+  const currentYear = new Date().getFullYear();
+  const currentQuarter = Math.ceil((new Date().getMonth() + 1) / 3);
+  const fiscalYear = options.fiscalYear ?? currentYear;
+  const quarter = options.quarter ?? currentQuarter;
+  const quarterRange = getQuarterDateRange(fiscalYear, quarter);
+  const quarterLabel = getQuarterLabel(fiscalYear, quarter);
 
   const query = useQuery({
-    queryKey: ['client-fiscal-center', effectiveClientId],
+    queryKey: ['client-fiscal-center', effectiveClientId, fiscalYear, quarter],
     queryFn: async (): Promise<ClientFiscalCenterData | null> => {
       if (!effectiveClientId) return null;
-
-      const currentYear = new Date().getFullYear();
-      const previousYear = currentYear - 1;
+      const previousYear = fiscalYear - 1;
 
       const [
         clientRes,
@@ -81,10 +99,9 @@ export function useClientFiscalCenter(forClientId?: string | null) {
         purchasesPendingRes,
         purchasesEffectiveRes,
         purchasesLowConfidenceRes,
-        salesTotalRes,
-        salesReadyRes,
+        salesRowsRes,
         ssCountRes,
-        latestSsRes,
+        currentQuarterSsRes,
         withholdingsCurrentRes,
         withholdingsPreviousRes,
         candidatesCurrentRes,
@@ -110,33 +127,38 @@ export function useClientFiscalCenter(forClientId?: string | null) {
         supabase
           .from('invoices')
           .select('id', { count: 'exact', head: true })
-          .eq('client_id', effectiveClientId),
+          .eq('client_id', effectiveClientId)
+          .gte('document_date', quarterRange.start)
+          .lte('document_date', quarterRange.end),
         supabase
           .from('invoices')
           .select('id', { count: 'exact', head: true })
           .eq('client_id', effectiveClientId)
+          .gte('document_date', quarterRange.start)
+          .lte('document_date', quarterRange.end)
           .or(PENDING_PURCHASE_FILTER),
         applyFiscallyEffectivePurchaseFilter(
           supabase
             .from('invoices')
             .select('id', { count: 'exact', head: true })
-            .eq('client_id', effectiveClientId),
+            .eq('client_id', effectiveClientId)
+            .gte('document_date', quarterRange.start)
+            .lte('document_date', quarterRange.end),
         ),
         supabase
           .from('invoices')
           .select('id', { count: 'exact', head: true })
           .eq('client_id', effectiveClientId)
+          .gte('document_date', quarterRange.start)
+          .lte('document_date', quarterRange.end)
           .lt('ai_confidence', 80)
           .neq('status', 'validated'),
         supabase
           .from('sales_invoices')
-          .select('id', { count: 'exact', head: true })
-          .eq('client_id', effectiveClientId),
-        supabase
-          .from('sales_invoices')
-          .select('id', { count: 'exact', head: true })
+          .select('id, status, total_amount')
           .eq('client_id', effectiveClientId)
-          .in('status', ['validated', 'classified']),
+          .gte('document_date', quarterRange.start)
+          .lte('document_date', quarterRange.end),
         supabase
           .from('ss_declarations')
           .select('id', { count: 'exact', head: true })
@@ -145,14 +167,13 @@ export function useClientFiscalCenter(forClientId?: string | null) {
           .from('ss_declarations')
           .select('period_quarter, status, total_revenue')
           .eq('client_id', effectiveClientId)
-          .order('created_at', { ascending: false })
-          .limit(1)
+          .eq('period_quarter', `${fiscalYear}-Q${quarter}`)
           .maybeSingle(),
         supabase
           .from('tax_withholdings')
           .select('id', { count: 'exact', head: true })
           .eq('client_id', effectiveClientId)
-          .eq('fiscal_year', currentYear),
+          .eq('fiscal_year', fiscalYear),
         supabase
           .from('tax_withholdings')
           .select('id', { count: 'exact', head: true })
@@ -162,7 +183,7 @@ export function useClientFiscalCenter(forClientId?: string | null) {
           .from('at_withholding_candidates')
           .select('id', { count: 'exact', head: true })
           .eq('client_id', effectiveClientId)
-          .eq('fiscal_year', currentYear)
+          .eq('fiscal_year', fiscalYear)
           .eq('status', 'pending'),
         supabase
           .from('at_withholding_candidates')
@@ -192,10 +213,20 @@ export function useClientFiscalCenter(forClientId?: string | null) {
           ? (candidatesCurrentRes.count ?? 0)
           : (candidatesPreviousRes.count ?? 0);
 
-      const salesTotal = salesTotalRes.count ?? 0;
-      const salesReady = salesReadyRes.count ?? 0;
+      const salesRows = salesRowsRes.data || [];
+      const salesTotal = salesRows.length;
+      const salesReadyRows = salesRows.filter((row) => row.status === 'validated' || row.status === 'classified');
+      const salesReady = salesReadyRows.length;
+      const readyRevenue = salesReadyRows.reduce((sum, row) => sum + Number(row.total_amount || 0), 0);
 
       return {
+        period: {
+          fiscalYear,
+          quarter,
+          quarterLabel,
+          rangeStart: quarterRange.start,
+          rangeEnd: quarterRange.end,
+        },
         client: (clientRes.data || null) as ClientSummary | null,
         at: {
           hasCredentials: !!atCredentialsRes.data,
@@ -214,12 +245,12 @@ export function useClientFiscalCenter(forClientId?: string | null) {
           total: salesTotal,
           ready: salesReady,
           pending: Math.max(0, salesTotal - salesReady),
+          readyRevenue,
         },
         ss: {
           declarationCount: ssCountRes.count ?? 0,
-          latestDeclarationQuarter: latestSsRes.data?.period_quarter ?? null,
-          latestDeclarationStatus: latestSsRes.data?.status ?? null,
-          latestRevenue: latestSsRes.data?.total_revenue ?? null,
+          currentDeclarationStatus: currentQuarterSsRes.data?.status ?? null,
+          currentRevenue: currentQuarterSsRes.data?.total_revenue ?? readyRevenue,
         },
         modelo10: {
           fiscalYear: modelo10FiscalYear,

@@ -25,6 +25,7 @@ Características:
 - funciona para cliente normal e para contabilista
 - para contabilista, exige cliente explícito
 - mostra cabeçalho do cliente, `taxpayer_kind` e NIF
+- permite selecionar `ano + trimestre`
 - mostra 3 cards principais:
   - IVA
   - Segurança Social
@@ -32,6 +33,7 @@ Características:
 - mostra bloco de origem dos dados
 - mostra bloco de próximas ações
 - mostra atalhos rápidos para sync/import/export
+- mostra atalho explícito para reconciliação
 
 ### 2. Hook isolado de métricas
 
@@ -43,9 +45,10 @@ O hook agrega, por cliente:
 
 - perfil fiscal mínimo
 - credenciais e histórico AT
-- compras: total, pendentes, efetivas, baixa confiança
-- vendas: total, prontas, pendentes
-- SS: declarações e última declaração
+- período fiscal ativo (`ano + trimestre`)
+- compras do período: total, pendentes, efetivas, baixa confiança
+- vendas do período: total, prontas, pendentes, receita pronta
+- SS: declarações e receita do trimestre selecionado
 - Modelo 10: ano fiscal ativo, retenções e candidatos pendentes
 
 Isto evita mexer nos hooks já usados pelas páginas fiscais existentes.
@@ -77,6 +80,14 @@ Bug resolvido:
 
 Isto reduz risco de contexto errado na navegação adaptada por `taxpayer_kind`.
 
+### 5. Refinamento operacional após auditoria
+
+Depois da primeira auditoria independente, foram feitos mais 3 ajustes:
+
+- clientes normais deixaram de ter links para `/efatura`
+- o cockpit passa a trabalhar por trimestre para `IVA` e `SS`
+- o card de `Segurança Social` passou a mostrar receita do período em vez de só contagem de documentos
+
 ## Validação feita
 
 ### Build
@@ -85,7 +96,7 @@ Isto reduz risco de contexto errado na navegação adaptada por `taxpayer_kind`.
 
 ### Testes
 
-- `npm test` — `34` suites, `812` testes, `0` falhas
+- `npm test` — `35` suites, `815` testes, `0` falhas
 
 ## Compatibilidade / não regressão
 
@@ -98,6 +109,14 @@ A implementação foi desenhada para ser aditiva:
 - não altera schema nem edge functions
 
 O único ajuste transversal foi a correção segura em `useTaxpayerKind`.
+
+Foi também criada a utilidade:
+
+- `/Users/bilal/Programaçao/ivazen-saas/ivazen-saas/src/lib/fiscalQuarter.ts`
+
+com testes em:
+
+- `/Users/bilal/Programaçao/ivazen-saas/ivazen-saas/src/lib/__tests__/fiscalQuarter.test.ts`
 
 ## O que continua por fazer
 

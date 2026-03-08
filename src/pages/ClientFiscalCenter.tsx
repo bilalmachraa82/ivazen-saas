@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -22,11 +22,13 @@ import { ClientSearchSelector } from '@/components/ui/client-search-selector';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ZenCard, ZenDecorations, ZenEmptyState, ZenHeader, ZenLoader } from '@/components/zen';
 import { useAuth } from '@/hooks/useAuth';
 import { useAccountantClients } from '@/hooks/useAccountantClients';
 import { useSelectedClient } from '@/hooks/useSelectedClient';
 import { useClientFiscalCenter } from '@/hooks/useClientFiscalCenter';
+import { getCurrentQuarter, getQuarterLabel } from '@/lib/fiscalQuarter';
 import { taxpayerKindBadge, taxpayerKindLabel, isObligationPrimary } from '@/lib/taxpayerKind';
 import { cn } from '@/lib/utils';
 
@@ -171,11 +173,23 @@ export default function ClientFiscalCenter() {
   const { user, loading: authLoading, roles } = useAuth();
   const navigate = useNavigate();
   const isAccountant = roles?.includes('accountant');
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [selectedQuarter, setSelectedQuarter] = useState(getCurrentQuarter());
   const { selectedClientId, setSelectedClientId } = useSelectedClient();
   const { clients, isLoading: isLoadingClients, getClientById } = useAccountantClients();
   const effectiveClientId = isAccountant ? selectedClientId : (user?.id ?? undefined);
   const selectedClient = selectedClientId ? getClientById(selectedClientId) : null;
-  const { data, taxpayerKind, isLoading } = useClientFiscalCenter(effectiveClientId);
+  const { data, taxpayerKind, isLoading } = useClientFiscalCenter({
+    clientId: effectiveClientId,
+    fiscalYear: selectedYear,
+    quarter: selectedQuarter,
+  });
+  const periodLabel = getQuarterLabel(selectedYear, selectedQuarter);
+  const yearOptions = Array.from({ length: 5 }, (_, index) => currentYear - index);
+  const quarterOptions = [1, 2, 3, 4];
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(value);
 
   const displayName =
     data?.client?.company_name ||
@@ -192,7 +206,7 @@ export default function ClientFiscalCenter() {
     if (data.purchases.pending > 0) {
       actions.push({
         title: `${data.purchases.pending} compra(s) por validar`,
-        description: 'Existem compras pendentes ou classificações que ainda precisam de revisão contabilística.',
+        description: `Existem compras pendentes ou classificações com impacto fiscal em ${periodLabel}.`,
         route: '/validation',
         label: 'Rever compras',
       });
@@ -201,14 +215,14 @@ export default function ClientFiscalCenter() {
     if (data.sales.total === 0) {
       actions.push({
         title: 'Sem vendas importadas',
-        description: 'Importe vendas ou recibos verdes para destravar Segurança Social e apuramento de IVA.',
+        description: `Importe vendas ou recibos verdes para destravar Segurança Social e apuramento de IVA em ${periodLabel}.`,
         route: isAccountant ? '/efatura' : '/upload',
         label: isAccountant ? 'Importar vendas' : 'Carregar documentos',
       });
     } else if (data.sales.pending > 0) {
       actions.push({
         title: `${data.sales.pending} venda(s) por rever`,
-        description: 'Ainda existem vendas pendentes que não entram totalmente nas obrigações fiscais.',
+        description: `Ainda existem vendas pendentes que não entram totalmente nas obrigações fiscais de ${periodLabel}.`,
         route: '/sales',
         label: 'Rever vendas',
       });
@@ -312,6 +326,32 @@ export default function ClientFiscalCenter() {
                 className="w-full sm:w-[320px]"
               />
             )}
+            <div className="grid grid-cols-2 gap-3">
+              <Select value={String(selectedYear)} onValueChange={(value) => setSelectedYear(Number(value))}>
+                <SelectTrigger className="w-full bg-background/80">
+                  <SelectValue placeholder="Ano fiscal" />
+                </SelectTrigger>
+                <SelectContent>
+                  {yearOptions.map((year) => (
+                    <SelectItem key={year} value={String(year)}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={String(selectedQuarter)} onValueChange={(value) => setSelectedQuarter(Number(value))}>
+                <SelectTrigger className="w-full bg-background/80">
+                  <SelectValue placeholder="Trimestre" />
+                </SelectTrigger>
+                <SelectContent>
+                  {quarterOptions.map((quarter) => (
+                    <SelectItem key={quarter} value={String(quarter)}>
+                      {getQuarterLabel(selectedYear, quarter)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
@@ -358,14 +398,19 @@ export default function ClientFiscalCenter() {
                     <div>
                       <CardTitle className="text-xl">Estado operacional</CardTitle>
                       <p className="mt-2 text-sm text-muted-foreground">
-                        Obrigações principais priorizadas para {taxpayerKind ? taxpayerKindBadge(taxpayerKind) : 'o perfil atual'}, sem esconder as restantes.
+                        Obrigações principais priorizadas para {taxpayerKind ? taxpayerKindBadge(taxpayerKind) : 'o perfil atual'}, sem esconder as restantes, com foco em {periodLabel}.
                       </p>
                     </div>
-                    {taxpayerKind && (
-                      <Badge variant="outline" className="text-xs uppercase tracking-wide">
-                        {taxpayerKindBadge(taxpayerKind)}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="secondary" className="text-xs uppercase tracking-wide">
+                        {periodLabel}
                       </Badge>
-                    )}
+                      {taxpayerKind && (
+                        <Badge variant="outline" className="text-xs uppercase tracking-wide">
+                          {taxpayerKindBadge(taxpayerKind)}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -374,9 +419,9 @@ export default function ClientFiscalCenter() {
                     icon={Landmark}
                     status={ivaStatus}
                     primary={isObligationPrimary('iva', taxpayerKind)}
-                    description="Compras e vendas prontas para apuramento e exportação."
+                    description={`Compras e vendas prontas para apuramento e exportação em ${periodLabel}.`}
                     metrics={[
-                      { label: 'Compras efetivas', value: `${data.purchases.effective}` },
+                      { label: 'Compras no período', value: `${data.purchases.effective}` },
                       { label: 'Por validar', value: `${data.purchases.pending}` },
                     ]}
                     route="/export"
@@ -387,10 +432,10 @@ export default function ClientFiscalCenter() {
                     icon={Shield}
                     status={ssStatus}
                     primary={isObligationPrimary('ss', taxpayerKind)}
-                    description="Receita importada, base contributiva e declarações do cliente."
+                    description={`Receita e declaração trimestral de ${periodLabel}.`}
                     metrics={[
-                      { label: 'Vendas prontas', value: `${data.sales.ready}` },
-                      { label: 'Declarações', value: `${data.ss.declarationCount}` },
+                      { label: 'Receita', value: formatCurrency(data.ss.currentRevenue) },
+                      { label: 'Declaração', value: data.ss.currentDeclarationStatus || 'Por preparar' },
                     ]}
                     route="/seguranca-social"
                     actionLabel="Abrir SS"
@@ -429,11 +474,11 @@ export default function ClientFiscalCenter() {
                         <div className="mt-1 text-sm font-semibold">{formatSyncStatus(data.at.lastSyncStatus)}</div>
                       </div>
                       <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
-                        <div className="text-xs uppercase tracking-wide text-muted-foreground">Compras</div>
+                        <div className="text-xs uppercase tracking-wide text-muted-foreground">Compras no período</div>
                         <div className="mt-1 text-sm font-semibold">{data.purchases.total} documento(s)</div>
                       </div>
                       <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
-                        <div className="text-xs uppercase tracking-wide text-muted-foreground">Vendas</div>
+                        <div className="text-xs uppercase tracking-wide text-muted-foreground">Vendas no período</div>
                         <div className="mt-1 text-sm font-semibold">{data.sales.total} documento(s)</div>
                       </div>
                     </div>
@@ -479,7 +524,7 @@ export default function ClientFiscalCenter() {
                   <CardContent className="space-y-3">
                     {nextActions.length === 0 ? (
                       <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-4 text-sm text-emerald-700 dark:text-emerald-300">
-                        Este cliente está num estado fiscal limpo. O próximo passo provável é só revisão final e exportação.
+                        Este cliente está num estado fiscal limpo para {periodLabel}. O próximo passo provável é só revisão final e exportação.
                       </div>
                     ) : (
                       nextActions.map((action) => (
@@ -513,20 +558,20 @@ export default function ClientFiscalCenter() {
                   <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-4">
                     <div className="text-xs uppercase tracking-wide text-muted-foreground">Baixa confiança</div>
                     <div className="mt-1 text-2xl font-semibold">{data.purchases.lowConfidence}</div>
-                    <div className="text-xs text-muted-foreground">classificações a rever</div>
+                    <div className="text-xs text-muted-foreground">em {periodLabel}</div>
                   </div>
                   <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-4">
                     <div className="text-xs uppercase tracking-wide text-muted-foreground">Regime IVA</div>
                     <div className="mt-1 text-base font-semibold">{data.client?.vat_regime || 'Não definido'}</div>
                   </div>
                   <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-4">
-                    <div className="text-xs uppercase tracking-wide text-muted-foreground">SS mais recente</div>
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground">SS do período</div>
                     <div className="mt-1 text-base font-semibold">
-                      {data.ss.latestDeclarationQuarter || 'Sem declaração'}
+                      {data.ss.currentDeclarationStatus || 'Sem declaração'}
                     </div>
-                    {data.ss.latestRevenue !== null && (
+                    {data.ss.currentRevenue !== null && (
                       <div className="text-xs text-muted-foreground">
-                        Receita {new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(data.ss.latestRevenue)}
+                        Receita {formatCurrency(data.ss.currentRevenue)}
                       </div>
                     )}
                   </div>
