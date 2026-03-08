@@ -202,8 +202,8 @@ export default function ClientFiscalCenter() {
       actions.push({
         title: 'Sem vendas importadas',
         description: 'Importe vendas ou recibos verdes para destravar Segurança Social e apuramento de IVA.',
-        route: '/efatura',
-        label: 'Importar vendas',
+        route: isAccountant ? '/efatura' : '/upload',
+        label: isAccountant ? 'Importar vendas' : 'Carregar documentos',
       });
     } else if (data.sales.pending > 0) {
       actions.push({
@@ -227,13 +227,13 @@ export default function ClientFiscalCenter() {
       actions.push({
         title: 'Convém reexecutar o sync AT',
         description: 'As credenciais estão configuradas, mas o último sync não ficou concluído com sucesso.',
-        route: '/efatura',
-        label: 'Ver sync AT',
+        route: isAccountant ? '/efatura' : '/upload',
+        label: isAccountant ? 'Ver sync AT' : 'Ver importações',
       });
     }
 
     return actions.slice(0, 4);
-  }, [data]);
+  }, [data, isAccountant]);
 
   if (authLoading) {
     return <ZenLoader fullScreen text="A carregar..." />;
@@ -539,20 +539,32 @@ export default function ClientFiscalCenter() {
                 </CardContent>
               </ZenCard>
 
-              <ZenCard gradient="primary" withCircle className="shadow-lg">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Atalhos rápidos</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Button asChild variant="outline" className="w-full justify-between">
-                    <Link to="/efatura">
-                      <span className="flex items-center gap-2">
-                        <RefreshCw className="h-4 w-4" />
-                        Sincronizar AT
-                      </span>
-                      <ArrowRight className="h-4 w-4" />
-                    </Link>
-                  </Button>
+                <ZenCard gradient="primary" withCircle className="shadow-lg">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">Atalhos rápidos</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                  {isAccountant ? (
+                    <Button asChild variant="outline" className="w-full justify-between">
+                      <Link to="/efatura">
+                        <span className="flex items-center gap-2">
+                          <RefreshCw className="h-4 w-4" />
+                          Sincronizar AT
+                        </span>
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                  ) : (
+                    <Button asChild variant="outline" className="w-full justify-between">
+                      <Link to="/upload">
+                        <span className="flex items-center gap-2">
+                          <RefreshCw className="h-4 w-4" />
+                          Importar documentos
+                        </span>
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                  )}
                   <Button asChild variant="outline" className="w-full justify-between">
                     <Link to="/upload">
                       <span className="flex items-center gap-2">
@@ -567,6 +579,15 @@ export default function ClientFiscalCenter() {
                       <span className="flex items-center gap-2">
                         <FileOutput className="h-4 w-4" />
                         Exportar obrigações
+                      </span>
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" className="w-full justify-between">
+                    <Link to="/reconciliation">
+                      <span className="flex items-center gap-2">
+                        <Receipt className="h-4 w-4" />
+                        Reconciliação
                       </span>
                       <ArrowRight className="h-4 w-4" />
                     </Link>
