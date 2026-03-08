@@ -183,10 +183,19 @@ export default function ATControlCenter() {
     });
   }, [rows]);
 
-  // Recompute attention count using semantic classification (not raw operational_status)
+  // Global semantic attention count using stats (not page-scoped rows).
+  // Subtract known informational reason codes from the raw error count.
   const realAttentionCount = useMemo(() => {
-    return rows.filter(r => isRealBlocker(r.operational_status, r.last_reason_code)).length;
-  }, [rows]);
+    const authFailed = stats.status_counts.auth_failed || 0;
+    const noCreds = stats.status_counts.no_credentials || 0;
+    const rawErrors = stats.status_counts.error || 0;
+    // Informational reasons that appear as operational_status='error' but aren't real blockers
+    const informationalInErrors = INFORMATIONAL_REASONS.reduce(
+      (sum, key) => sum + (stats.reason_counts[key] || 0), 0
+    );
+    const realErrors = Math.max(0, rawErrors - informationalInErrors);
+    return authFailed + noCreds + realErrors;
+  }, [stats]);
 
   const exportCsv = () => {
     if (sortedRows.length === 0) {
@@ -289,9 +298,16 @@ export default function ATControlCenter() {
                 {(stats.status_counts.no_credentials || 0) > 0 && (
                   <li>{stats.status_counts.no_credentials} sem credenciais — configurar acesso AT</li>
                 )}
-                {(stats.status_counts.error || 0) > 0 && (
-                  <li>{stats.status_counts.error} com erro técnico — verificar detalhes na tabela</li>
-                )}
+                {(() => {
+                  const rawErrors = stats.status_counts.error || 0;
+                  const informational = INFORMATIONAL_REASONS.reduce(
+                    (sum, key) => sum + (stats.reason_counts[key] || 0), 0
+                  );
+                  const realErrors = Math.max(0, rawErrors - informational);
+                  return realErrors > 0 ? (
+                    <li>{realErrors} com erro técnico real — verificar detalhes na tabela</li>
+                  ) : null;
+                })()}
               </ul>
             </AlertDescription>
           </Alert>

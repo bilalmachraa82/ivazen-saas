@@ -85,17 +85,17 @@ export function SyncHealthWidget() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Primary metric: SOAP rate */}
+        {/* Primary metric */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">{primaryLabel}</span>
-            <span className={`font-medium ${statusColor}`}>{data.completed_24h}/{data.total_syncs_24h}</span>
+            <span className={`font-medium ${statusColor}`}>{primaryRate}%</span>
           </div>
           <Progress value={primaryRate} className="h-2" />
-          {hasSoapRate && rawRate !== primaryRate && (
+          {hasSoapRate && (
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Taxa bruta 24h (inclui portal)</span>
-              <span>{rawRate}%</span>
+              <span>Bruto 24h (fila completa)</span>
+              <span>{data.completed_24h}/{data.total_syncs_24h} ({rawRate}%)</span>
             </div>
           )}
           {portalErrors > 0 && (
