@@ -219,7 +219,8 @@ export function EmailNotificationImporter({
           payment_date: emailData.dataDocumento?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
           fiscal_year: selectedYear,
           is_non_resident: false,
-          status: 'pending',
+          status: 'draft',
+          import_source: 'email',
           notes: `Importado de email: ${getEmailTypeDisplayName(item.parseResult.emailType)}`,
         });
 

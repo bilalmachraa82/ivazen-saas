@@ -594,6 +594,11 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
 
       const insertData = uniqueInvoices.map(invoice => {
         const explicitWithholding = Number(invoice.withholdingAmount || 0);
+        const importSource = invoice.sourceSystem === 'at_sire'
+          ? 'at_sire'
+          : invoice.documentType === 'FR'
+            ? 'recibos_verdes_excel'
+            : 'saft';
         return {
         client_id: effectiveClientId,
         supplier_nif: clientNif, // User is the supplier (issuer) of sales invoices
@@ -611,6 +616,9 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
         atcud: invoice.atcud || null,
         status: 'validated', // Auto-validate imported invoices
         validated_at: new Date().toISOString(),
+        // Proper columns for provenance tracking
+        withholding_amount_imported: invoice.sourceSystem === 'at_sire' ? explicitWithholding : null,
+        import_source: importSource,
         image_path: `imported/${
           invoice.sourceSystem === 'at_sire'
             ? 'at_faturas_recibos'
@@ -618,6 +626,7 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
               ? 'recibo_verde'
               : 'saft'
         }_${Date.now()}.json`,
+        // Notes kept for human readability; AT_SIRE_WITHHOLDING still written for backward compat
         notes: invoice.sourceSystem === 'at_sire'
           ? `Importado de Faturas e Recibos AT (CSV); AT_SIRE_WITHHOLDING=${explicitWithholding.toFixed(2)}`
           : invoice.documentType === 'FR'

@@ -13,7 +13,17 @@ import { parseInvoiceFile, ParsedInvoice } from '../csvParser';
 
 // ---- helpers mirroring edge function logic ----
 
-function parseExplicitWithholdingFromNotes(notes: string | null): number | null {
+/**
+ * Resolve explicit withholding: column first, notes regex fallback.
+ * Mirrors detect-withholding-candidates/index.ts after schema hardening.
+ */
+function resolveExplicitWithholding(
+  withholdingAmountImported: number | null | undefined,
+  notes: string | null,
+): number | null {
+  if (withholdingAmountImported != null && Number.isFinite(withholdingAmountImported)) {
+    return withholdingAmountImported;
+  }
   if (!notes) return null;
   const match = notes.match(/AT_SIRE_WITHHOLDING=([0-9]+(?:\.[0-9]+)?)/);
   if (!match) return null;
@@ -42,6 +52,8 @@ interface SalesInvoiceRow {
   status: string;
   image_path: string;
   notes: string;
+  withholding_amount_imported: number | null;
+  import_source: string;
 }
 
 interface WithholdingCandidate {
@@ -69,6 +81,7 @@ function buildSalesInvoiceRow(
   category: string | null,
 ): SalesInvoiceRow {
   const explicitWithholding = Number(invoice.withholdingAmount || 0);
+  const importSource = invoice.sourceSystem === 'at_sire' ? 'at_sire' : 'saft';
   return {
     client_id: clientId,
     supplier_nif: clientNif,
@@ -85,9 +98,12 @@ function buildSalesInvoiceRow(
     revenue_category: category,
     atcud: invoice.atcud || null,
     status: 'validated',
+    withholding_amount_imported: invoice.sourceSystem === 'at_sire' ? explicitWithholding : null,
+    import_source: importSource,
     image_path: `imported/${
       invoice.sourceSystem === 'at_sire' ? 'at_faturas_recibos' : 'saft'
     }_${Date.now()}.json`,
+    // Notes kept for backward compat; AT_SIRE_WITHHOLDING still written
     notes:
       invoice.sourceSystem === 'at_sire'
         ? `Importado de Faturas e Recibos AT (CSV); AT_SIRE_WITHHOLDING=${explicitWithholding.toFixed(2)}`
@@ -119,7 +135,7 @@ function detectWithholdingCandidate(
   if (baseAmount <= 0) return null;
 
   const docYear = new Date(inv.document_date).getFullYear();
-  const explicitWithholding = parseExplicitWithholdingFromNotes(inv.notes);
+  const explicitWithholding = resolveExplicitWithholding(inv.withholding_amount_imported, inv.notes);
 
   if (explicitWithholding !== null && explicitWithholding <= 0.009) return null;
 
@@ -221,7 +237,7 @@ describe('Modelo 10 end-to-end pipeline', () => {
     expect(fr33!.withholdingAmount).toBe(172.5);
   });
 
-  it('Step 2: sales_invoices rows have correct shape and AT_SIRE_WITHHOLDING in notes', () => {
+  it('Step 2: sales_invoices rows have correct shape with provenance columns', () => {
     const rows = parsed.invoices.map((inv) =>
       buildSalesInvoiceRow(inv, CLIENT_ID, CLIENT_NIF, 'prestacao_servicos'),
     );
@@ -237,9 +253,13 @@ describe('Modelo 10 end-to-end pipeline', () => {
     expect(row30.base_exempt).toBe(1000); // no VAT → base_exempt
     expect(row30.base_standard).toBeNull();
     expect(row30.document_type).toBe('FR');
-    expect(row30.notes).toContain('AT_SIRE_WITHHOLDING=230.00');
     expect(row30.atcud).toBe('KK11ABCD-30');
     expect(row30.status).toBe('validated');
+    // Schema hardening: proper columns
+    expect(row30.withholding_amount_imported).toBe(230);
+    expect(row30.import_source).toBe('at_sire');
+    // Backward compat: notes still written
+    expect(row30.notes).toContain('AT_SIRE_WITHHOLDING=230.00');
 
     // FT/31 — withholding 0
     const row31 = rows.find((r) => r.document_number.includes('FT/31'))!;
@@ -247,10 +267,14 @@ describe('Modelo 10 end-to-end pipeline', () => {
     expect(row31.total_vat).toBe(460);
     expect(row31.base_standard).toBe(2000); // has VAT → base_standard
     expect(row31.base_exempt).toBeNull();
+    expect(row31.withholding_amount_imported).toBe(0);
+    expect(row31.import_source).toBe('at_sire');
     expect(row31.notes).toContain('AT_SIRE_WITHHOLDING=0.00');
 
     // FR/33 — withholding 172.50
     const row33 = rows.find((r) => r.document_number.includes('FR/33'))!;
+    expect(row33.withholding_amount_imported).toBe(172.5);
+    expect(row33.import_source).toBe('at_sire');
     expect(row33.notes).toContain('AT_SIRE_WITHHOLDING=172.50');
   });
 
@@ -344,7 +368,7 @@ describe('Modelo 10 end-to-end pipeline', () => {
   });
 
   it('Step 5: explicit zero withholding does NOT create false positive candidates', () => {
-    // FT/31 has explicit AT_SIRE_WITHHOLDING=0.00 to empresa 503998680
+    // FT/31 has explicit withholding_amount_imported=0 to empresa 503998680
     // The detector must NOT create a candidate (would have been a heuristic false positive)
     const ft31 = parsed.invoices.find((i) => i.documentNumber.includes('FT/31'))!;
     const row = buildSalesInvoiceRow(ft31, CLIENT_ID, CLIENT_NIF, 'prestacao_servicos');
@@ -357,8 +381,8 @@ describe('Modelo 10 end-to-end pipeline', () => {
     const candidate = detectWithholdingCandidate(row, 'fake-id-ft31');
     expect(candidate).toBeNull();
 
-    // Without the explicit zero (old heuristic flow), this WOULD have created a candidate
-    const rowWithoutExplicit = { ...row, notes: 'Importado do SAF-T' };
+    // Without the explicit zero (clear both column and notes), this WOULD have created a candidate
+    const rowWithoutExplicit = { ...row, withholding_amount_imported: null, notes: 'Importado do SAF-T' };
     const heuristicCandidate = detectWithholdingCandidate(rowWithoutExplicit, 'fake-id-ft31');
     expect(heuristicCandidate).not.toBeNull();
     expect(heuristicCandidate!.withholding_amount).toBeGreaterThan(0);

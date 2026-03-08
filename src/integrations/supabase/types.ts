@@ -1590,6 +1590,7 @@ export type Database = {
           fiscal_region: string | null
           id: string
           image_path: string
+          import_source: string | null
           notes: string | null
           qr_raw: string | null
           revenue_category: string | null
@@ -1601,6 +1602,7 @@ export type Database = {
           vat_intermediate: number | null
           vat_reduced: number | null
           vat_standard: number | null
+          withholding_amount_imported: number | null
         }
         Insert: {
           ai_category_confidence?: number | null
@@ -1620,6 +1622,7 @@ export type Database = {
           fiscal_region?: string | null
           id?: string
           image_path: string
+          import_source?: string | null
           notes?: string | null
           qr_raw?: string | null
           revenue_category?: string | null
@@ -1631,6 +1634,7 @@ export type Database = {
           vat_intermediate?: number | null
           vat_reduced?: number | null
           vat_standard?: number | null
+          withholding_amount_imported?: number | null
         }
         Update: {
           ai_category_confidence?: number | null
@@ -1650,6 +1654,7 @@ export type Database = {
           fiscal_region?: string | null
           id?: string
           image_path?: string
+          import_source?: string | null
           notes?: string | null
           qr_raw?: string | null
           revenue_category?: string | null
@@ -1661,6 +1666,7 @@ export type Database = {
           vat_intermediate?: number | null
           vat_reduced?: number | null
           vat_standard?: number | null
+          withholding_amount_imported?: number | null
         }
         Relationships: [
           {
@@ -1780,11 +1786,13 @@ export type Database = {
           fiscal_year: number
           gross_amount: number
           id: string
+          import_source: string | null
           income_category: string
           income_code: string | null
           is_non_resident: boolean | null
           location_code: string
           notes: string | null
+          payer_nif: string | null
           payment_date: string
           source_invoice_id: string | null
           source_sales_invoice_id: string | null
@@ -1792,6 +1800,8 @@ export type Database = {
           updated_at: string | null
           withholding_amount: number
           withholding_rate: number | null
+          withholding_reason_text: string | null
+          withholding_semantic_status: string | null
         }
         Insert: {
           beneficiary_address?: string | null
@@ -1806,11 +1816,13 @@ export type Database = {
           fiscal_year: number
           gross_amount: number
           id?: string
+          import_source?: string | null
           income_category: string
           income_code?: string | null
           is_non_resident?: boolean | null
           location_code?: string
           notes?: string | null
+          payer_nif?: string | null
           payment_date: string
           source_invoice_id?: string | null
           source_sales_invoice_id?: string | null
@@ -1818,6 +1830,8 @@ export type Database = {
           updated_at?: string | null
           withholding_amount?: number
           withholding_rate?: number | null
+          withholding_reason_text?: string | null
+          withholding_semantic_status?: string | null
         }
         Update: {
           beneficiary_address?: string | null
@@ -1832,11 +1846,13 @@ export type Database = {
           fiscal_year?: number
           gross_amount?: number
           id?: string
+          import_source?: string | null
           income_category?: string
           income_code?: string | null
           is_non_resident?: boolean | null
           location_code?: string
           notes?: string | null
+          payer_nif?: string | null
           payment_date?: string
           source_invoice_id?: string | null
           source_sales_invoice_id?: string | null
@@ -1844,6 +1860,8 @@ export type Database = {
           updated_at?: string | null
           withholding_amount?: number
           withholding_rate?: number | null
+          withholding_reason_text?: string | null
+          withholding_semantic_status?: string | null
         }
         Relationships: [
           {

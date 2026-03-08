@@ -26,7 +26,19 @@ const WITHHOLDING_RATES: Record<number, number> = {
 };
 const DEFAULT_RATE = 23.0;
 
-function parseExplicitWithholdingFromNotes(notes: string | null): number | null {
+/**
+ * Resolve explicit withholding amount.
+ * Priority: dedicated column → notes regex fallback (backward compat).
+ */
+function resolveExplicitWithholding(
+  withholdingAmountImported: number | null | undefined,
+  notes: string | null,
+): number | null {
+  // Prefer the proper column (set by import after schema hardening migration)
+  if (withholdingAmountImported != null && Number.isFinite(withholdingAmountImported)) {
+    return withholdingAmountImported;
+  }
+  // Fallback: parse from notes regex (pre-migration data)
   if (!notes) return null;
   const match = notes.match(/AT_SIRE_WITHHOLDING=([0-9]+(?:\.[0-9]+)?)/);
   if (!match) return null;
@@ -64,7 +76,7 @@ Deno.serve(async (req) => {
     // Fetch FR/FS sales invoices with cursor pagination
     let query = supabase
       .from('sales_invoices')
-      .select('id, client_id, document_type, document_number, document_date, customer_nif, customer_name, supplier_nif, total_amount, total_vat, base_exempt, fiscal_period, notes')
+      .select('id, client_id, document_type, document_number, document_date, customer_nif, customer_name, supplier_nif, total_amount, total_vat, base_exempt, fiscal_period, notes, withholding_amount_imported')
       .in('document_type', ['FR', 'FS', 'FS/FR'])
       .gte('document_date', `${fiscalYear}-01-01`)
       .lte('document_date', `${fiscalYear}-12-31`)
@@ -156,7 +168,7 @@ Deno.serve(async (req) => {
       // Get fiscal year from document date
       const docDate = inv.document_date;
       const docYear = docDate ? new Date(docDate).getFullYear() : fiscalYear;
-      const explicitWithholding = parseExplicitWithholdingFromNotes(inv.notes);
+      const explicitWithholding = resolveExplicitWithholding(inv.withholding_amount_imported, inv.notes);
 
       if (explicitWithholding !== null && explicitWithholding <= 0.009) {
         skipped++;

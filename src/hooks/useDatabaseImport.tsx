@@ -412,7 +412,8 @@ export function useDatabaseImport() {
             income_category: data.income_category || 'B',
             document_reference: data.document_reference,
             location_code: data.location_code || 'C',
-            status: 'pending',
+            status: 'draft',
+            import_source: 'csv',
           });
           if (error) return { success: false, error: error.message };
           return { success: true, action: 'created' };
@@ -452,6 +453,7 @@ export function useDatabaseImport() {
             total_vat: data.total_vat || 0,
             image_path: 'imported',
             status: 'pending',
+            import_source: 'csv',
           });
           if (error) return { success: false, error: error.message };
           return { success: true, action: 'created' };

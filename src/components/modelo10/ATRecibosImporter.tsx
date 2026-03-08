@@ -451,6 +451,7 @@ export function ATRecibosImporter({
           fiscal_year: selectedYear,
           is_non_resident: false,
           status: 'draft',
+          import_source: 'at_csv',
         });
 
         if (error) {
