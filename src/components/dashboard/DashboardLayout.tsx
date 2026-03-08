@@ -9,6 +9,8 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAccountantClients } from '@/hooks/useAccountantClients';
 import { useSelectedClient } from '@/hooks/useSelectedClient';
+import { useTaxpayerKind } from '@/hooks/useTaxpayerKind';
+import { taxpayerKindBadge, isObligationPrimary } from '@/lib/taxpayerKind';
 import { ClientSearchSelector } from '@/components/ui/client-search-selector';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -95,8 +97,8 @@ const navGroups = [
     label: 'Obrigações Fiscais',
     icon: Receipt,
     items: [
-      { href: '/modelo-10', label: 'Modelo 10 (Retenções)', icon: Receipt, tourId: 'nav-modelo10' },
-      { href: '/seguranca-social', label: 'Segurança Social', icon: Shield, tourId: 'nav-ss' },
+      { href: '/modelo-10', label: 'Modelo 10 (Retenções)', icon: Receipt, tourId: 'nav-modelo10', obligation: 'modelo10' as const },
+      { href: '/seguranca-social', label: 'Segurança Social', icon: Shield, tourId: 'nav-ss', obligation: 'ss' as const },
       { href: '/iva-calculator', label: 'Calculadora IVA', icon: Calculator, tourId: 'nav-vat' },
     ]
   },
@@ -134,9 +136,10 @@ interface NavGroupProps {
   onToggle: () => void;
   location: ReturnType<typeof useLocation>;
   onItemClick?: () => void;
+  taxpayerKind?: import('@/lib/taxpayerKind').TaxpayerKind | null;
 }
 
-function NavGroup({ group, isOpen, onToggle, location, onItemClick }: NavGroupProps) {
+function NavGroup({ group, isOpen, onToggle, location, onItemClick, taxpayerKind }: NavGroupProps) {
   const GroupIcon = group.icon;
   const hasActiveItem = group.items.some(item => location.pathname === item.href);
 
@@ -168,6 +171,8 @@ function NavGroup({ group, isOpen, onToggle, location, onItemClick }: NavGroupPr
           {group.items.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.href;
+            const obligation = (item as any).obligation as 'iva' | 'ss' | 'modelo10' | undefined;
+            const isPrimary = !obligation || isObligationPrimary(obligation, taxpayerKind ?? null);
             return (
               <Link
                 key={item.href}
@@ -178,7 +183,9 @@ function NavGroup({ group, isOpen, onToggle, location, onItemClick }: NavGroupPr
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
                   isActive
                     ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
-                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                    : isPrimary
+                      ? "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                      : "text-sidebar-foreground/40 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground/60"
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -200,6 +207,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { isInstalled } = usePWAInstall();
   const { clients, isAccountant, isLoading: isLoadingClients } = useAccountantClients();
   const { selectedClientId, setSelectedClientId } = useSelectedClient();
+  const { taxpayerKind } = useTaxpayerKind(isAccountant ? (selectedClientId ?? null) : undefined);
 
   // Resolve selected client for display
   const selectedClient = selectedClientId
@@ -351,6 +359,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 {selectedClient && selectedClient.nif && (
                   <p className="text-[10px] text-sidebar-foreground/50 font-mono mt-1 px-2">NIF: {selectedClient.nif}</p>
                 )}
+                {selectedClient && taxpayerKind && (
+                  <Badge variant="outline" className="ml-2 mt-1 text-[10px] px-1.5 py-0">
+                    {taxpayerKindBadge(taxpayerKind)}
+                  </Badge>
+                )}
               </div>
             </div>
           )}
@@ -363,6 +376,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               onToggle={() => toggleMobileGroup(group.id)}
               location={location}
               onItemClick={() => setMobileMenuOpen(false)}
+              taxpayerKind={taxpayerKind}
             />
           ))}
 
@@ -473,6 +487,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 {selectedClient && selectedClient.nif && (
                   <p className="text-[10px] text-sidebar-foreground/50 font-mono mt-1 px-2">NIF: {selectedClient.nif}</p>
                 )}
+                {selectedClient && taxpayerKind && (
+                  <Badge variant="outline" className="ml-2 mt-1 text-[10px] px-1.5 py-0">
+                    {taxpayerKindBadge(taxpayerKind)}
+                  </Badge>
+                )}
               </div>
             </div>
           )}
@@ -484,6 +503,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               isOpen={openGroups[group.id]}
               onToggle={() => toggleGroup(group.id)}
               location={location}
+              taxpayerKind={taxpayerKind}
             />
           ))}
 

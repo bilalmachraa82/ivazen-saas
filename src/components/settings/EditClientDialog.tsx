@@ -41,6 +41,7 @@ const editClientSchema = z.object({
   phone: z.string().optional(),
   address: z.string().optional(),
   // Fiscal fields
+  taxpayer_kind: z.string().optional(),
   niss: z.string().optional(),
   cae: z.string().optional(),
   worker_type: z.string().optional(),
@@ -49,6 +50,8 @@ const editClientSchema = z.object({
   ss_contribution_rate: z.string().optional(),
   is_first_year: z.boolean().optional(),
 });
+
+const AUTO_TAXPAYER_KIND = '__auto__';
 
 type EditClientForm = z.infer<typeof editClientSchema>;
 
@@ -72,6 +75,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSuccess }: Edit
       email: '',
       phone: '',
       address: '',
+      taxpayer_kind: AUTO_TAXPAYER_KIND,
       niss: '',
       cae: '',
       worker_type: '',
@@ -89,7 +93,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSuccess }: Edit
     if (client?.id) {
       supabase
         .from('profiles')
-        .select('niss, cae, worker_type, accounting_regime, vat_regime, ss_contribution_rate, is_first_year')
+        .select('taxpayer_kind, niss, cae, worker_type, accounting_regime, vat_regime, ss_contribution_rate, is_first_year')
         .eq('id', client.id)
         .single()
         .then(({ data }) => {
@@ -108,6 +112,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSuccess }: Edit
         email: client.email || '',
         phone: client.phone || '',
         address: client.address || '',
+        taxpayer_kind: (fiscalData.taxpayer_kind as string) || AUTO_TAXPAYER_KIND,
         niss: (fiscalData.niss as string) || '',
         cae: (fiscalData.cae as string) || '',
         worker_type: (fiscalData.worker_type as string) || '',
@@ -140,6 +145,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSuccess }: Edit
           phone: data.phone || null,
           address: data.address || null,
           // Fiscal fields
+          taxpayer_kind: !data.taxpayer_kind || data.taxpayer_kind === AUTO_TAXPAYER_KIND ? null : data.taxpayer_kind,
           niss: data.niss || null,
           cae: data.cae || null,
           worker_type: data.worker_type || null,
@@ -280,6 +286,33 @@ export function EditClientDialog({ open, onOpenChange, client, onSuccess }: Edit
             {/* Fiscal Fields Section */}
             <Separator className="my-2" />
             <p className="text-sm font-medium text-muted-foreground">Dados Fiscais</p>
+
+            <FormField
+              control={form.control}
+              name="taxpayer_kind"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tipo de Contribuinte</FormLabel>
+                  <Select value={field.value || AUTO_TAXPAYER_KIND} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Auto-detectar..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value={AUTO_TAXPAYER_KIND}>Auto-detectar</SelectItem>
+                      <SelectItem value="eni">ENI / Independente (IVA + SS)</SelectItem>
+                      <SelectItem value="company">Empresa (IVA + Modelo 10)</SelectItem>
+                      <SelectItem value="mixed">Misto (todas as obrigações)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Define as obrigações fiscais principais. Se vazio, é inferido automaticamente.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
