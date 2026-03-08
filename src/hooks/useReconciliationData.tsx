@@ -61,14 +61,14 @@ export function useReconciliationData(options: UseReconciliationDataOptions) {
           .gte('document_date', rangeStart)
           .lte('document_date', rangeEnd)
           .in('efatura_source', ['webservice', 'csv_portal']),
-        // Purchases from manual upload/OCR (efatura_source = manual or null)
+        // Purchases from manual upload/OCR (efatura_source = manual, null, or any non-AT value)
         supabase
           .from('invoices')
           .select('id', { count: 'exact', head: true })
           .eq('client_id', clientId)
           .gte('document_date', rangeStart)
           .lte('document_date', rangeEnd)
-          .not('efatura_source', 'in', '(webservice,csv_portal)'),
+          .or('efatura_source.is.null,efatura_source.not.in.(webservice,csv_portal)'),
         // Modelo 10 withholdings from AT source
         supabase
           .from('tax_withholdings')
