@@ -6,14 +6,14 @@ import { useProfile } from '@/hooks/useProfile';
 import { useAccountant } from '@/hooks/useAccountant';
 import { useClientManagement } from '@/hooks/useClientManagement';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
-import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, FileSpreadsheet, Table as TableIcon, Loader2, Receipt, Calculator, TrendingUp, AlertTriangle, TrendingDown, Euro, Info, Copy, ChevronDown, CheckCircle2, XCircle, Save, FileCode } from 'lucide-react';
+import { Download, FileSpreadsheet, Table as TableIcon, Loader2, Receipt, Calculator, TrendingUp, AlertTriangle, TrendingDown, Euro, Info, Copy, ChevronDown, CheckCircle2, XCircle, Save, FileCode, Users } from 'lucide-react';
 import { StepNavigator } from '@/components/dashboard/StepNavigator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ClientSearchSelector } from '@/components/ui/client-search-selector';
@@ -22,7 +22,7 @@ import { useExport } from '@/hooks/useExport';
 import { useSalesExport } from '@/hooks/useSalesExport';
 import { DPQuarterlySummary } from '@/components/export/DPQuarterlySummary';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ZenCard, ZenCardHeader, ZenHeader, ZenDecorations, ZenStatsCard } from '@/components/zen';
+import { ZenCard, ZenCardHeader, ZenHeader, ZenDecorations, ZenStatsCard, ZenEmptyState } from '@/components/zen';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useQueryClient } from '@tanstack/react-query';
 import { generateSaftXml, downloadSaftXml, dbInvoiceToSaft, dbSalesInvoiceToSaft, SaftCompanyInfo } from '@/lib/saftExporter';
@@ -221,6 +221,45 @@ export default function Export() {
   const hasExclusionEdits = Object.keys(exclusionEdits).length > 0;
 
   if (loading || !user) return null;
+
+  // Accountant without client: show selector + empty state
+  if (isAccountant && clients.length > 0 && !selectedClientId) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <ZenHeader
+            icon={Download}
+            title="Apuramento"
+            description="Declaração Periódica de IVA — exporte os dados validados"
+          />
+
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="pt-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  <Label>Cliente:</Label>
+                </div>
+                <ClientSearchSelector
+                  clients={clients}
+                  selectedClientId={selectedClientId}
+                  onSelect={setSelectedClientId}
+                  placeholder="Selecione um cliente"
+                  className="w-full sm:w-[320px]"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <ZenEmptyState
+            icon={Users}
+            title="Selecione um cliente"
+            description="Escolha explicitamente o cliente antes de exportar a Declaração Periódica de IVA."
+          />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const availableYears = [currentYear, currentYear - 1, currentYear - 2];
 

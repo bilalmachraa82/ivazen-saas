@@ -30,6 +30,7 @@ Ficheiros-chave:
 - `/Users/bilal/Programaçao/ivazen-saas/ivazen-saas/src/pages/Validation.tsx`
 - `/Users/bilal/Programaçao/ivazen-saas/ivazen-saas/src/pages/Upload.tsx`
 - `/Users/bilal/Programaçao/ivazen-saas/ivazen-saas/src/pages/EFaturaSync.tsx`
+- `/Users/bilal/Programaçao/ivazen-saas/ivazen-saas/src/pages/Export.tsx`
 - `/Users/bilal/Programaçao/ivazen-saas/ivazen-saas/src/pages/Modelo10.tsx`
 - `/Users/bilal/Programaçao/ivazen-saas/ivazen-saas/src/components/upload/BulkInvoiceUpload.tsx`
 - `/Users/bilal/Programaçao/ivazen-saas/ivazen-saas/src/components/upload/SAFTInvoiceImporter.tsx`
@@ -41,6 +42,7 @@ Resultado:
 - contabilistas deixam de cair implicitamente no primeiro cliente
 - importações e syncs exigem contexto explícito
 - `SS` deixa de usar o perfil do contabilista em vez do cliente
+- `Export` deixou de ficar vazio sem instrução quando falta cliente
 
 ### 2. Modelo 10 — import AT/OCR e reconciliação
 
@@ -87,7 +89,7 @@ Capacidades agora disponíveis:
 
 Nota:
 
-- a edição individual depende de deploy da edge function `review-withholding-candidate`
+- a edge function `review-withholding-candidate` já foi deployada no projeto `dmprkdvkzzjtixlatnlx`
 
 ### 4. `taxpayer_kind`
 
@@ -129,12 +131,10 @@ Correções já incluídas:
 - `deno check /Users/bilal/Programaçao/ivazen-saas/ivazen-saas/supabase/functions/process-queue/index.ts` passou
 - `deno check /Users/bilal/Programaçao/ivazen-saas/ivazen-saas/supabase/functions/review-withholding-candidate/index.ts` passou
 
-### O que não foi validado de forma E2E nesta ronda
+### Estado operacional remoto desta ronda
 
-- deploy real da edge function `review-withholding-candidate`
-- fluxo de edição individual em produção após deploy
-
-O código compila e o contrato está fechado, mas a validação desta peça ainda é local/estática.
+- migration `20260308120000_add_taxpayer_kind.sql` aplicada no projeto `dmprkdvkzzjtixlatnlx`
+- edge function `review-withholding-candidate` deployada no projeto `dmprkdvkzzjtixlatnlx`
 
 ## O que fica efetivamente pronto para entrega
 
@@ -159,7 +159,7 @@ Estado: `operacional com review`
 - import AT empresa validado
 - pipeline OCR/manual validado no caso `CAAD`
 - review de candidatos disponível
-- edição individual pronta no código, dependente de deploy da função
+- edição individual disponível e deployada
 
 ## O que ainda falta para chamar "100% premium"
 
@@ -177,10 +177,6 @@ Nada disto invalida a entrega funcional. São os blocos seguintes de produto:
 4. performance frontend
 - code-splitting nas páginas mais pesadas
 
-5. deploy operacional
-- correr migration `taxpayer_kind`
-- deployar `review-withholding-candidate`
-
 ## Self-audit honesto
 
 ### O que considero fechado
@@ -193,7 +189,8 @@ Nada disto invalida a entrega funcional. São os blocos seguintes de produto:
 
 - cockpit premium unificado
 - centro de importação
-- deploy/operação remota da nova edge function
+- schema hardening
+- performance frontend em páginas mais pesadas
 
 ### O que não foi removido por prudência
 
@@ -210,6 +207,7 @@ Não foram apagados nesta ronda para evitar destruir material potencialmente út
 - `23d3f6f` `fix: finalize modelo 10 import and ocr guardrails`
 - `f4c7399` `fix: scope import flows to explicit accountant clients`
 - `c839983` `fix: correct taxpayer kind inference and selection ux`
+- `2573362` `feat: finalize taxpayer kind and modelo 10 review editing`
 
 ## Perguntas certas para auditoria externa
 
