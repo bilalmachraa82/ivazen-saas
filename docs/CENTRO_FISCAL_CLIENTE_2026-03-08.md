@@ -88,6 +88,14 @@ Depois da primeira auditoria independente, foram feitos mais 3 ajustes:
 - o cockpit passa a trabalhar por trimestre para `IVA` e `SS`
 - o card de `Segurança Social` passou a mostrar receita do período em vez de só contagem de documentos
 
+### 6. Fecho dos bugs finais do cockpit
+
+Depois da última ronda de auditoria, foram fechados mais 3 pontos:
+
+- o ano resolvido no card de `Modelo 10` passou a usar o `fiscalYear` selecionado no cockpit, em vez do ano civil atual
+- o botão duplicado `Importar documentos` para não-contabilistas foi removido
+- o memo de `Próximas ações` passou a depender explicitamente do `periodLabel`, para manter o texto consistente quando o período muda
+
 ## Validação feita
 
 ### Build

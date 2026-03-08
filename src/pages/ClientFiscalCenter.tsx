@@ -247,7 +247,7 @@ export default function ClientFiscalCenter() {
     }
 
     return actions.slice(0, 4);
-  }, [data, isAccountant]);
+  }, [data, isAccountant, periodLabel]);
 
   if (authLoading) {
     return <ZenLoader fullScreen text="A carregar..." />;
@@ -610,15 +610,17 @@ export default function ClientFiscalCenter() {
                       </Link>
                     </Button>
                   )}
-                  <Button asChild variant="outline" className="w-full justify-between">
-                    <Link to="/upload">
-                      <span className="flex items-center gap-2">
-                        <FileSearch className="h-4 w-4" />
-                        Importar documentos
-                      </span>
-                      <ArrowRight className="h-4 w-4" />
-                    </Link>
-                  </Button>
+                  {isAccountant && (
+                    <Button asChild variant="outline" className="w-full justify-between">
+                      <Link to="/upload">
+                        <span className="flex items-center gap-2">
+                          <FileSearch className="h-4 w-4" />
+                          Importar documentos
+                        </span>
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                  )}
                   <Button asChild variant="outline" className="w-full justify-between">
                     <Link to="/export">
                       <span className="flex items-center gap-2">

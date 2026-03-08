@@ -200,16 +200,16 @@ export function useClientFiscalCenter(options: UseClientFiscalCenterOptions = {}
 
       const modelo10FiscalYear =
         currentModelo10Activity > 0 || previousModelo10Activity === 0
-          ? currentYear
+          ? fiscalYear
           : previousYear;
 
       const withholdingsCount =
-        modelo10FiscalYear === currentYear
+        modelo10FiscalYear === fiscalYear
           ? (withholdingsCurrentRes.count ?? 0)
           : (withholdingsPreviousRes.count ?? 0);
 
       const pendingCandidates =
-        modelo10FiscalYear === currentYear
+        modelo10FiscalYear === fiscalYear
           ? (candidatesCurrentRes.count ?? 0)
           : (candidatesPreviousRes.count ?? 0);
 
