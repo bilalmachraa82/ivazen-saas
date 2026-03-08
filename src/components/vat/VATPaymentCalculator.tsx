@@ -52,6 +52,7 @@ export function VATPaymentCalculator() {
     year: selectedYear,
     quarter: selectedQuarter,
   });
+  const requiresClientSelection = !!isAccountant && !selectedClientId;
 
   // Pre-fill values from real data when available
   useEffect(() => {
@@ -210,7 +211,17 @@ export function VATPaymentCalculator() {
           </div>
         )}
 
-        {!hasData && !isLoading && (
+        {requiresClientSelection && (
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertTitle>Selecione um cliente</AlertTitle>
+            <AlertDescription>
+              Escolha explicitamente o cliente antes de calcular o IVA trimestral.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {!requiresClientSelection && !hasData && !isLoading && (
           <Alert>
             <Info className="h-4 w-4" />
             <AlertTitle>Sem dados para o período</AlertTitle>

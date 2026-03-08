@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { getLastClientId, saveLastClient, clearLastClient, isClientValid } from '@/lib/clientStorage';
+import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { getLastClientId, saveLastClient, clearLastClient } from '@/lib/clientStorage';
 
 interface SelectedClientContextType {
   selectedClientId: string | null;

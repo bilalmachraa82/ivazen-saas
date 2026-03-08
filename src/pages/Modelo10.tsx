@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,13 +16,15 @@ import { WithholdingDashboard } from '@/components/modelo10/WithholdingDashboard
 import { WithholdingHistory } from '@/components/modelo10/WithholdingHistory';
 import { ImportConsolidated } from '@/components/modelo10/ImportConsolidated';
 import { MultiClientExport } from '@/components/modelo10/MultiClientExport';
+import { WithholdingCandidatesReview } from '@/components/modelo10/WithholdingCandidatesReview';
 import { CreateClientDialog } from '@/components/settings/CreateClientDialog';
 import { ClientSearchSelector } from '@/components/ui/client-search-selector';
 import { useAuth } from '@/hooks/useAuth';
 import { useWithholdings } from '@/hooks/useWithholdings';
 import { useClientManagement } from '@/hooks/useClientManagement';
+import { useSelectedClient } from '@/hooks/useSelectedClient';
 import { supabase } from '@/integrations/supabase/client';
-import { FileText, List, BarChart3, Download, PieChart, History, Upload, Users, FileStack, UserPlus, Settings } from 'lucide-react';
+import { FileSearch, FileText, List, BarChart3, Download, PieChart, History, Upload, Users, FileStack, UserPlus, Settings } from 'lucide-react';
 
 export default function Modelo10() {
   const { user, loading: authLoading, roles } = useAuth();
@@ -30,23 +32,9 @@ export default function Modelo10() {
   const isAccountant = roles?.includes('accountant');
   
   // Client selection for accountants
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const { selectedClientId, setSelectedClientId } = useSelectedClient();
   const [showCreateClient, setShowCreateClient] = useState(false);
   const { clients, isLoadingClients } = useClientManagement();
-
-  // Default selection for accountants:
-  // - If there are clients, pick the first client automatically (so import/reset actions are enabled).
-  // - If no clients exist yet, fall back to the accountant's own account.
-  useEffect(() => {
-    if (!isAccountant || !user?.id || selectedClientId) return;
-    if (isLoadingClients) return;
-
-    if (clients.length > 0) {
-      setSelectedClientId(clients[0].id);
-    } else {
-      setSelectedClientId(user.id);
-    }
-  }, [isAccountant, user?.id, selectedClientId, isLoadingClients, clients]);
 
   const {
     withholdings,
@@ -65,7 +53,7 @@ export default function Modelo10() {
     isUpdating,
     isDeleting,
     isDeletingAll,
-  } = useWithholdings(isAccountant ? selectedClientId : null);
+  } = useWithholdings(isAccountant ? selectedClientId : undefined);
 
   const [activeTab, setActiveTab] = useState('list');
 
@@ -75,7 +63,7 @@ export default function Modelo10() {
 
   // Get selected client name
   const selectedClient = clients.find(c => c.id === selectedClientId);
-  const effectiveClientId = isAccountant ? selectedClientId : user?.id;
+  const effectiveClientId = isAccountant ? (selectedClientId || null) : user?.id;
 
   const { data: pendingCandidates = 0 } = useQuery({
     queryKey: ['withholding-candidates-pending', effectiveClientId, selectedYear],
@@ -119,9 +107,6 @@ export default function Modelo10() {
                 selectedClientId={selectedClientId}
                 onSelect={setSelectedClientId}
                 isLoading={isLoadingClients}
-                showOwnAccount={true}
-                ownAccountId={user?.id}
-                ownAccountLabel="Minha conta"
                 placeholder="Selecionar cliente..."
               />
             )}
@@ -157,10 +142,10 @@ export default function Modelo10() {
                 <div>
                   <p className="text-sm font-medium">
                     A trabalhar nas retenções de: <span className="text-primary">
-                      {selectedClientId === user?.id ? 'Minha conta' : (selectedClient?.full_name || selectedClient?.company_name || 'Cliente')}
+                      {selectedClient?.full_name || selectedClient?.company_name || 'Cliente'}
                     </span>
                   </p>
-                  {selectedClient?.nif && selectedClientId !== user?.id && (
+                  {selectedClient?.nif && (
                     <p className="text-xs text-muted-foreground">NIF: {selectedClient.nif}</p>
                   )}
                 </div>
@@ -221,12 +206,12 @@ export default function Modelo10() {
                 </p>
               </div>
               {isAccountant ? (
-                <Button size="sm" variant="outline" onClick={() => navigate('/at-control-center')}>
-                  Abrir AT Control Center
+                <Button size="sm" variant="outline" onClick={() => setActiveTab('candidates')}>
+                  Rever candidatos
                 </Button>
               ) : (
-                <Button size="sm" variant="outline" onClick={() => setActiveTab('import')}>
-                  Rever no separador Importar
+                <Button size="sm" variant="outline" onClick={() => setActiveTab('candidates')}>
+                  Rever candidatos
                 </Button>
               )}
             </CardContent>
@@ -243,7 +228,7 @@ export default function Modelo10() {
           <ZenLoader text="A carregar retenções..." />
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-             <TabsList className={`grid w-full grid-cols-3 ${isAccountant ? 'lg:grid-cols-8' : 'lg:grid-cols-7'}`}>
+             <TabsList className={`grid w-full grid-cols-3 ${isAccountant ? 'lg:grid-cols-9' : 'lg:grid-cols-8'}`}>
               <TabsTrigger value="list" className="flex items-center gap-2">
                 <List className="h-4 w-4" />
                 <span className="hidden sm:inline">Retenções</span>
@@ -255,6 +240,15 @@ export default function Modelo10() {
                <TabsTrigger value="import" className="flex items-center gap-2">
                 <Upload className="h-4 w-4" />
                  <span className="hidden sm:inline">Importar</span>
+              </TabsTrigger>
+              <TabsTrigger value="candidates" className="flex items-center gap-2">
+                <FileSearch className="h-4 w-4" />
+                <span className="hidden sm:inline">Candidatos</span>
+                {pendingCandidates > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
+                    {pendingCandidates}
+                  </Badge>
+                )}
               </TabsTrigger>
               <TabsTrigger value="summary" className="flex items-center gap-2">
                 <BarChart3 className="h-4 w-4" />
@@ -308,7 +302,14 @@ export default function Modelo10() {
                 selectedYear={selectedYear}
                 clientName={isAccountant ? selectedClient?.full_name || selectedClient?.company_name : null}
                 onImportComplete={() => setActiveTab('list')}
-                isAccountantOwnAccount={isAccountant && selectedClientId === user?.id}
+                isAccountantOwnAccount={false}
+              />
+            </TabsContent>
+
+            <TabsContent value="candidates">
+              <WithholdingCandidatesReview
+                clientId={effectiveClientId}
+                fiscalYear={selectedYear}
               />
             </TabsContent>
 

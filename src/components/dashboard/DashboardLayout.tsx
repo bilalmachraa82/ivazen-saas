@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Breadcrumbs } from './Breadcrumbs';
 import { useAuth } from '@/hooks/useAuth';
@@ -205,6 +205,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const selectedClient = selectedClientId
     ? clients.find(c => c.id === selectedClientId) ?? null
     : null;
+
+  useEffect(() => {
+    if (!isAccountant || isLoadingClients || !selectedClientId) return;
+    if (clients.some((client) => client.id === selectedClientId)) return;
+    setSelectedClientId(null);
+  }, [clients, isAccountant, isLoadingClients, selectedClientId, setSelectedClientId]);
 
   // Estado para grupos colapsáveis (desktop)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {

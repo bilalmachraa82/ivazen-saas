@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { SS_COEFFICIENTS, SS_REVENUE_CATEGORIES, getSSCoefficient, normalizeSSCategory } from '@/lib/ssCoefficients';
+import { resolveScopedClientId } from '@/lib/clientScope';
 
 interface RevenueEntry {
   id: string;
@@ -246,7 +247,7 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
   const [quarter, setQuarter] = useState(selectedQuarter || getCurrentQuarter());
 
   // For accountants, use selected client ID; for regular users, use their own ID
-  const effectiveClientId = selectedClientId || user?.id;
+  const effectiveClientId = resolveScopedClientId(selectedClientId, user?.id);
 
   // Fix #1: When accountant views a client, fetch the CLIENT's profile, not the accountant's
   const isViewingOtherClient = !!effectiveClientId && effectiveClientId !== user?.id;

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { resolveScopedClientId } from '@/lib/clientScope';
 
 export interface DuplicateCheckResult {
   isDuplicate: boolean;
@@ -53,7 +54,10 @@ export function useDuplicateCheck() {
     }
 
     // Usar o client_id específico se fornecido (caso contabilista), senão usa o user.id
-    const effectiveClientId = forClientId || user.id;
+    const effectiveClientId = resolveScopedClientId(forClientId, user.id);
+    if (!effectiveClientId) {
+      return { isDuplicate: false, reason: 'Cliente não definido' };
+    }
 
     setIsChecking(true);
     try {
@@ -127,7 +131,10 @@ export function useDuplicateCheck() {
     }
 
     // Usar o client_id específico se fornecido (caso contabilista), senão usa o user.id
-    const effectiveClientId = forClientId || user.id;
+    const effectiveClientId = resolveScopedClientId(forClientId, user.id);
+    if (!effectiveClientId) {
+      return { isDuplicate: false, reason: 'Cliente não definido' };
+    }
 
     setIsChecking(true);
     try {
@@ -201,7 +208,10 @@ export function useDuplicateCheck() {
     }
 
     // Usar o client_id específico se fornecido (caso contabilista), senão usa o user.id
-    const effectiveClientId = forClientId || user.id;
+    const effectiveClientId = resolveScopedClientId(forClientId, user.id);
+    if (!effectiveClientId) {
+      return { duplicates: [], unique: invoices };
+    }
 
     setIsChecking(true);
     try {

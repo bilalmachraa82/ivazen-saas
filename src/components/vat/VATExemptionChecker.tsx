@@ -71,6 +71,7 @@ export function VATExemptionChecker() {
   const { annualTurnover, isLoading } = useVATCalculation({
     forClientId: isAccountant ? selectedClientId : null,
   });
+  const requiresClientSelection = !!isAccountant && !selectedClientId;
 
   // Pre-fill revenue from real data
   useEffect(() => {
@@ -186,6 +187,16 @@ export function VATExemptionChecker() {
               Repor automático
             </Button>
           </div>
+        )}
+
+        {requiresClientSelection && (
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertTitle>Selecione um cliente</AlertTitle>
+            <AlertDescription>
+              Escolha explicitamente o cliente antes de verificar a isenção de IVA.
+            </AlertDescription>
+          </Alert>
         )}
 
         {/* Volume de Negócios */}

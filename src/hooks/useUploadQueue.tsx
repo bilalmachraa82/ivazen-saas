@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
+import { resolveScopedClientId } from '@/lib/clientScope';
 
 export interface QueueItem {
   id: string;
@@ -67,7 +68,7 @@ export function useUploadQueue(forClientId?: string | null) {
   const [uploadProgress, setUploadProgress] = useState(0);
 
   // For accountants, use the selected client's ID; otherwise use logged-in user's ID
-  const effectiveClientId = forClientId || user?.id;
+  const effectiveClientId = resolveScopedClientId(forClientId, user?.id);
 
   // Fetch queue items from database
   const fetchQueue = useCallback(async () => {

@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { fetchAllPages } from '@/lib/supabasePagination';
+import { resolveScopedClientId } from '@/lib/clientScope';
 
 interface SalesInvoice {
   id: string;
@@ -56,7 +57,7 @@ interface SalesExportData {
 
 export function useSalesExport(clientId?: string | null) {
   const { user } = useAuth();
-  const effectiveClientId = clientId || user?.id;
+  const effectiveClientId = resolveScopedClientId(clientId, user?.id);
   const [selectedPeriod, setSelectedPeriod] = useState<string>('');
   const [exportFormat, setExportFormat] = useState<'xlsx' | 'csv'>('xlsx');
   const [isExporting, setIsExporting] = useState(false);

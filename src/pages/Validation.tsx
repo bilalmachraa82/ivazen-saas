@@ -100,7 +100,7 @@ export default function Validation() {
   if (!user) return null;
 
   // Show fiscal setup wizard for new users
-  if (needsFiscalSetup) {
+  if (needsFiscalSetup && !isAccountant) {
     return (
       <DashboardLayout>
         <div className="space-y-8 relative">
@@ -147,6 +147,7 @@ export default function Validation() {
   const validatedCount = invoices.filter(inv => inv.status === 'validated').length;
   const needsReviewCount = invoices.filter(inv => inv.requires_accountant_validation === true).length;
   const autoApprovedCount = invoices.filter(inv => inv.requires_accountant_validation === false).length;
+  const selectedClient = clients.find((client) => client.id === selectedClientId);
 
   const handleSelectInvoice = (invoice: Invoice) => {
     setSelectedInvoice(invoice);
@@ -224,6 +225,47 @@ export default function Validation() {
           title="Validação"
           description="Reveja e valide as classificações de IA das suas facturas com serenidade"
         />
+
+        {isAccountant && clients.length > 0 && (
+          <ZenCard withLine animationDelay="75ms" className="shadow-lg">
+            <CardContent className="pt-6 space-y-4">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Cliente ativo para compras</p>
+                  <p className="text-xs text-muted-foreground">
+                    A validação e qualquer ação em massa só correm sobre o cliente explicitamente escolhido.
+                  </p>
+                </div>
+                <ClientSearchSelector
+                  clients={clients}
+                  selectedClientId={selectedClientId}
+                  onSelect={setSelectedClientId}
+                  placeholder="Selecionar cliente..."
+                  className="w-full lg:w-[320px]"
+                />
+              </div>
+
+              {selectedClient ? (
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span>Cliente:</span>
+                  <span className="font-medium text-foreground">
+                    {selectedClient.full_name || selectedClient.company_name || 'Cliente'}
+                  </span>
+                  {selectedClient.nif && (
+                    <span className="font-mono">{selectedClient.nif}</span>
+                  )}
+                </div>
+              ) : (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Selecione um cliente antes de validar, exportar ou eliminar facturas.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </ZenCard>
+        )}
 
 
         {/* Stats Cards */}

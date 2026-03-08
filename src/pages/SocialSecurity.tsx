@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { useProfile } from '@/hooks/useProfile';
+import { useClientFiscalProfile } from '@/hooks/useClientFiscalProfile';
 import { useClientManagement } from '@/hooks/useClientManagement';
+import { useSelectedClient } from '@/hooks/useSelectedClient';
 import { useSocialSecurity, REVENUE_CATEGORIES, REVENUE_COEFFICIENTS, getQuarterLabel } from '@/hooks/useSocialSecurity';
 import { getSSCoefficient } from '@/lib/ssCoefficients';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -80,21 +81,13 @@ import { ClientSearchSelector } from '@/components/ui/client-search-selector';
 export default function SocialSecurity() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { profile, isLoading: profileLoading } = useProfile();
   const { isAccountant, clients, isLoadingClients } = useClientManagement();
-  
-  // Selected client for accountants
-  const [selectedClientId, setSelectedClientId] = useState<string>('');
-  
-  // Set default client when clients load (for accountants)
-  useEffect(() => {
-    if (isAccountant && clients.length > 0 && !selectedClientId) {
-      setSelectedClientId(clients[0].id);
-    }
-  }, [isAccountant, clients, selectedClientId]);
+  const { selectedClientId, setSelectedClientId } = useSelectedClient();
   
   // For accountants, use selected client; for regular users, use their own ID
-  const effectiveClientId = isAccountant ? selectedClientId : user?.id;
+  const effectiveClientId = isAccountant ? selectedClientId : undefined;
+  const { profile, isLoading: profileLoading } = useClientFiscalProfile(effectiveClientId);
+  const selectedClient = clients.find((client) => client.id === selectedClientId);
   
   const {
     quarter,
@@ -115,6 +108,7 @@ export default function SocialSecurity() {
     createSalesInvoices,
     isDeadlineMonth,
     getQuarterLabel: getLabel,
+    calculatedContribution,
   } = useSocialSecurity(undefined, effectiveClientId);
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -166,6 +160,46 @@ export default function SocialSecurity() {
     );
   }
 
+  if (isAccountant && clients.length > 0 && !selectedClientId) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <FileText className="h-8 w-8 text-primary" />
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Segurança Social</h1>
+              <p className="text-muted-foreground">Declaração trimestral de rendimentos</p>
+            </div>
+          </div>
+
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="pt-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  <Label>Cliente:</Label>
+                </div>
+                <ClientSearchSelector
+                  clients={clients}
+                  selectedClientId={selectedClientId}
+                  onSelect={setSelectedClientId}
+                  placeholder="Selecione um cliente"
+                  className="w-full sm:w-[320px]"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <ZenEmptyState
+            icon={Users}
+            title="Selecione um cliente"
+            description="Escolha explicitamente o cliente antes de calcular, importar ou submeter Segurança Social."
+          />
+        </div>
+      </DashboardLayout>
+    );
+  }
+  
   // Check if exempt - first year
   if (profile?.is_first_year) {
     return (
@@ -243,9 +277,9 @@ export default function SocialSecurity() {
     );
   }
 
-  const contributionRate = profile?.ss_contribution_rate || 21.4;
-  const contributionBase = totals.relevantIncome;
-  const contributionAmount = contributionBase * (contributionRate / 100);
+  const contributionRate = calculatedContribution.isExempt ? 0 : (profile?.ss_contribution_rate || 21.4);
+  const contributionBase = calculatedContribution.base;
+  const contributionAmount = calculatedContribution.amount;
 
   const handleAddRevenue = () => {
     const amount = parseFloat(newAmount);
@@ -324,6 +358,11 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                   placeholder="Seleccione um cliente"
                   className="w-full sm:w-[300px]"
                 />
+                {selectedClient?.nif && (
+                  <Badge variant="outline" className="w-fit font-mono text-[11px]">
+                    {selectedClient.nif}
+                  </Badge>
+                )}
                 <Select value={quarter} onValueChange={setQuarter}>
                   <SelectTrigger className="w-full sm:w-[200px]">
                     <SelectValue />
@@ -357,6 +396,22 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
           </Select>
         )}
         </div>
+
+        {calculatedContribution.isExempt && !profile?.is_first_year && !profile?.has_accountant_ss && (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="font-medium">Contribuição isenta neste trimestre</p>
+                  <p className="text-sm text-muted-foreground">
+                    {calculatedContribution.exemptReason || 'Sem contribuição de Segurança Social para o período selecionado.'}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Deadline Alert */}
         {isDeadlineMonth && !declaration?.status?.includes('submitted') && (

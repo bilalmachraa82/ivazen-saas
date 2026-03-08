@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { applyFiscallyEffectivePurchaseFilter } from '@/lib/fiscalStatus';
+import { resolveScopedClientId } from '@/lib/clientScope';
 
 interface VATCalculationData {
   vatCollected: number;
@@ -23,7 +24,7 @@ export function useVATCalculation(options: UseVATCalculationOptions = {}) {
   const { user } = useAuth();
   const { forClientId, year, quarter } = options;
 
-  const effectiveClientId = forClientId || user?.id;
+  const effectiveClientId = resolveScopedClientId(forClientId, user?.id);
   const effectiveYear = year || new Date().getFullYear();
   
   // Calculate quarter date range

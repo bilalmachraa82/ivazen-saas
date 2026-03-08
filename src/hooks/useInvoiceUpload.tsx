@@ -6,6 +6,7 @@ import { useDuplicateCheck, DuplicateCheckResult } from './useDuplicateCheck';
 import { detectMimeType } from '@/lib/mime';
 import { normalizeSupplierTaxId, normalizeSupplierVatId } from '@/lib/taxId';
 import { deriveFiscalPeriodFromDocumentDate, normalizeDocumentDate } from '@/lib/fiscalPeriod';
+import { resolveScopedClientId } from '@/lib/clientScope';
 
 interface ParsedInvoice {
   supplier_nif: string;
@@ -61,7 +62,7 @@ export function useInvoiceUpload(options: UseInvoiceUploadOptions = {}) {
   const [isExtracting, setIsExtracting] = useState(false);
 
   // Use forClientId if provided (for accountants), otherwise use current user
-  const effectiveClientId = forClientId || user?.id;
+  const effectiveClientId = resolveScopedClientId(forClientId, user?.id);
 
 
   const parseQRCode = async (qrContent: string): Promise<ParsedInvoice | null> => {

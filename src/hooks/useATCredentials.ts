@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { getAccessTokenOrThrow, parseEdgeInvokeError } from '@/lib/supabaseFunctionErrors';
 import { toast } from 'sonner';
 import { handleATTimeWindowResponse } from '@/lib/atTimeWindow';
+import { resolveScopedClientId } from '@/lib/clientScope';
 
 export interface ATConfig {
   id: string;
@@ -82,7 +83,7 @@ export function useATConfig() {
 
 export function useATCredentials(clientId?: string) {
   const { user } = useAuth();
-  const effectiveClientId = clientId || user?.id;
+  const effectiveClientId = resolveScopedClientId(clientId, user?.id);
 
   return useQuery({
     queryKey: ['at-credentials', effectiveClientId],
@@ -104,7 +105,7 @@ export function useATCredentials(clientId?: string) {
 
 export function useSyncHistory(clientId?: string, limit = 10) {
   const { user } = useAuth();
-  const effectiveClientId = clientId || user?.id;
+  const effectiveClientId = resolveScopedClientId(clientId, user?.id);
 
   return useQuery({
     queryKey: ['sync-history', effectiveClientId, limit],

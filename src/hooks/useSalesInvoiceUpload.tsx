@@ -7,6 +7,7 @@ import { useDuplicateCheck, DuplicateCheckResult } from './useDuplicateCheck';
 import { detectMimeType } from '@/lib/mime';
 import { normalizeSupplierTaxId } from '@/lib/taxId';
 import { deriveFiscalPeriodFromDocumentDate, normalizeDocumentDate } from '@/lib/fiscalPeriod';
+import { resolveScopedClientId } from '@/lib/clientScope';
 
 interface ParsedSalesInvoice {
   supplier_nif: string; // Our NIF (the seller)
@@ -54,7 +55,7 @@ export function useSalesInvoiceUpload(options: UseSalesInvoiceUploadOptions = {}
   const [isClassifying, setIsClassifying] = useState(false);
 
   // Use forClientId if provided (for accountants), otherwise use current user
-  const effectiveClientId = forClientId || user?.id;
+  const effectiveClientId = resolveScopedClientId(forClientId, user?.id);
 
 
   // Classify sales invoice by revenue category

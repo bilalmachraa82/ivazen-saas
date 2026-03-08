@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 import { fetchAllByCursor } from '@/lib/supabasePagination';
+import { resolveScopedClientId } from '@/lib/clientScope';
 
 export interface TaxWithholding {
   id: string;
@@ -80,7 +81,7 @@ export function useWithholdings(forClientId?: string | null, forYear?: number) {
   const effectiveYear = forYear ?? selectedYear;
 
   // Determine which client ID to use: explicit client ID for accountants, or logged-in user
-  const effectiveClientId = forClientId || user?.id;
+  const effectiveClientId = resolveScopedClientId(forClientId, user?.id);
 
   // Fetch withholdings for selected year
   const { data: withholdings = [], isLoading, refetch } = useQuery({

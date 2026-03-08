@@ -161,13 +161,6 @@ export default function Upload() {
     return true;
   };
 
-  // For accountants, auto-select first client if none selected
-  useEffect(() => {
-    if (isAccountant && clients.length > 0 && !selectedClientId) {
-      setSelectedClientId(clients[0].id);
-    }
-  }, [isAccountant, clients, selectedClientId]);
-
   useEffect(() => {
     if (!loading && !user) {
       navigate('/auth');
@@ -684,6 +677,17 @@ export default function Upload() {
           description="Carregue faturas individualmente, em bulk, ou importe via SAFT-PT"
         />
 
+        {isAccountant && (
+          <div id="upload-client-selector">
+            <ClientSelector
+              clients={clients}
+              selectedClientId={selectedClientId}
+              onSelectClient={setSelectedClientId}
+              isLoading={isLoadingClients}
+            />
+          </div>
+        )}
+
         {/* Upload Mode Tabs */}
         <Tabs value={uploadMode} onValueChange={(v) => setUploadMode(v as 'single' | 'bulk' | 'saft')} className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-6 h-12">
@@ -1063,8 +1067,7 @@ export default function Upload() {
           open={showClientValidation}
           onOpenChange={setShowClientValidation}
           onSelectClient={() => {
-            // Scroll to client selector
-            document.querySelector('[class*="bg-primary/5"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            document.getElementById('upload-client-selector')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }}
         />
 
