@@ -28,6 +28,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { ZenEmptyState, ZenLoader, ZenStatsCard } from '@/components/zen';
 import { useWithholdingCandidates, type WithholdingCandidate } from '@/hooks/useWithholdingCandidates';
+import { EditWithholdingCandidateDialog } from '@/components/modelo10/EditWithholdingCandidateDialog';
 import { cn } from '@/lib/utils';
 
 interface WithholdingCandidatesReviewProps {
@@ -110,6 +111,7 @@ export function WithholdingCandidatesReview({
   const [statusFilter, setStatusFilter] = useState<CandidateStatusFilter>('pending');
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [editingCandidate, setEditingCandidate] = useState<WithholdingCandidate | null>(null);
 
   const {
     candidates,
@@ -117,8 +119,10 @@ export function WithholdingCandidatesReview({
     isLoading,
     promoteCandidates,
     rejectCandidates,
+    updateCandidate,
     isPromoting,
     isRejecting,
+    isUpdating,
   } = useWithholdingCandidates({ clientId, fiscalYear });
 
   const filteredCandidates = useMemo(() => {
@@ -236,6 +240,16 @@ export function WithholdingCandidatesReview({
 
   return (
     <div className="space-y-6">
+      <EditWithholdingCandidateDialog
+        candidate={editingCandidate}
+        open={!!editingCandidate}
+        onOpenChange={(open) => {
+          if (!open) setEditingCandidate(null);
+        }}
+        onSave={updateCandidate}
+        isSaving={isUpdating}
+      />
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <ZenStatsCard label="Pendentes" value={stats.pending} icon={ShieldAlert} variant="warning" />
         <ZenStatsCard label="Beneficiários" value={groups.length} icon={FileSearch} />
@@ -420,20 +434,30 @@ export function WithholdingCandidatesReview({
                                 </div>
 
                                 <div className="flex flex-wrap gap-2">
+                                  {candidate.status !== 'promoted' && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      disabled={isPromoting || isRejecting || isUpdating}
+                                      onClick={() => setEditingCandidate(candidate)}
+                                    >
+                                      Editar
+                                    </Button>
+                                  )}
                                   {candidate.status === 'pending' && (
                                     <>
                                       <Button
                                         size="sm"
                                         variant="outline"
                                         className="border-rose-200 text-rose-700 hover:bg-rose-50"
-                                        disabled={isPromoting || isRejecting}
+                                        disabled={isPromoting || isRejecting || isUpdating}
                                         onClick={() => handleReject([candidate.id])}
                                       >
                                         Rejeitar
                                       </Button>
                                       <Button
                                         size="sm"
-                                        disabled={isPromoting || isRejecting}
+                                        disabled={isPromoting || isRejecting || isUpdating}
                                         onClick={() => handlePromote([candidate.id])}
                                       >
                                         Promover

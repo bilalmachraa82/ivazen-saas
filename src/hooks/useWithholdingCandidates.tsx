@@ -14,6 +14,21 @@ interface UseWithholdingCandidatesOptions {
   fiscalYear?: number;
 }
 
+interface UpdateWithholdingCandidateInput {
+  candidateId: string;
+  updates: {
+    beneficiary_name?: string | null;
+    beneficiary_nif?: string;
+    document_reference?: string;
+    payment_date?: string;
+    income_category?: string;
+    gross_amount?: number;
+    withholding_rate?: number | null;
+    withholding_amount?: number;
+    notes?: string | null;
+  };
+}
+
 export function useWithholdingCandidates(options: UseWithholdingCandidatesOptions = {}) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -128,6 +143,33 @@ export function useWithholdingCandidates(options: UseWithholdingCandidatesOption
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async (input: UpdateWithholdingCandidateInput) => {
+      const { data, error } = await supabase.functions.invoke('review-withholding-candidate', {
+        body: input,
+      });
+
+      if (error) throw error;
+      if (!data?.success) {
+        throw new Error(data?.error || 'Erro ao atualizar candidato');
+      }
+
+      return data.candidate as WithholdingCandidate;
+    },
+    onSuccess: async () => {
+      toast.success('Candidato atualizado');
+      await Promise.all([
+        query.refetch(),
+        queryClient.invalidateQueries({ queryKey: ['withholding-candidates-pending'] }),
+        queryClient.invalidateQueries({ queryKey: ['at-control-center'] }),
+        queryClient.invalidateQueries({ queryKey: ['at-control-center-stats'] }),
+      ]);
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao atualizar candidato', { description: error.message });
+    },
+  });
+
   const stats = useMemo(() => {
     const rows = query.data || [];
     return {
@@ -148,7 +190,9 @@ export function useWithholdingCandidates(options: UseWithholdingCandidatesOption
     refetch: query.refetch,
     promoteCandidates: promoteMutation.mutateAsync,
     rejectCandidates: rejectMutation.mutateAsync,
+    updateCandidate: updateMutation.mutateAsync,
     isPromoting: promoteMutation.isPending,
     isRejecting: rejectMutation.isPending,
+    isUpdating: updateMutation.isPending,
   };
 }

@@ -1407,6 +1407,7 @@ export type Database = {
           phone: string | null
           ss_contribution_rate: number | null
           taxable_profit: number | null
+          taxpayer_kind: string | null
           vat_regime: string | null
           worker_type: string | null
         }
@@ -1432,6 +1433,7 @@ export type Database = {
           phone?: string | null
           ss_contribution_rate?: number | null
           taxable_profit?: number | null
+          taxpayer_kind?: string | null
           vat_regime?: string | null
           worker_type?: string | null
         }
@@ -1457,6 +1459,7 @@ export type Database = {
           phone?: string | null
           ss_contribution_rate?: number | null
           taxable_profit?: number | null
+          taxpayer_kind?: string | null
           vat_regime?: string | null
           worker_type?: string | null
         }

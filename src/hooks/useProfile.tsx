@@ -25,6 +25,8 @@ export interface Profile {
   has_other_employment: boolean | null;
   other_employment_salary: number | null;
   taxable_profit: number | null;
+  // Taxpayer kind for fiscal UX adaptation
+  taxpayer_kind: string | null;
   // Contact fields
   phone: string | null;
   address: string | null;
