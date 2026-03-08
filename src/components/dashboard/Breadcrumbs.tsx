@@ -42,6 +42,16 @@ const routeMetadata: Record<string, RouteMetadata> = {
     description: 'Superfície unificada para lançar e monitorizar importações de dados do cliente',
     icon: Upload
   },
+  'reconciliation': {
+    label: 'Reconciliação',
+    description: 'Reconciliação fiscal por obrigação — AT vs App, OCR vs AT, Vendas vs SS',
+    icon: BarChart3
+  },
+  'reconciliation-audit': {
+    label: 'Auditoria Documental',
+    description: 'Reconciliação avançada com Excel de referência e extracção AI',
+    icon: BarChart3
+  },
   'upload': {
     label: 'Carregar Faturas',
     description: 'Digitalizar e processar novas faturas',

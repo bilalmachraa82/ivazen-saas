@@ -246,6 +246,15 @@ export default function ClientFiscalCenter() {
       });
     }
 
+    if (isAccountant) {
+      actions.push({
+        title: 'Reconciliação fiscal',
+        description: 'Compare fontes de dados (AT vs App, vendas vs SS, retenções) e identifique divergências.',
+        route: '/reconciliation',
+        label: 'Ver reconciliação',
+      });
+    }
+
     return actions.slice(0, 4);
   }, [data, isAccountant, periodLabel]);
 

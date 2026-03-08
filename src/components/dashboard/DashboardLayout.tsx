@@ -49,6 +49,7 @@ import {
   BookOpen,
   FileOutput,
   FileSpreadsheet,
+  ArrowLeftRight,
   HelpCircle,
   Layers,
   List,
@@ -110,6 +111,7 @@ const navGroups = [
     label: 'Análise',
     icon: PieChart,
     items: [
+      { href: '/reconciliation', label: 'Reconciliação', icon: ArrowLeftRight, tourId: 'nav-reconciliation', requireAccountant: true },
       { href: '/documents', label: 'Todos os Documentos', icon: List, tourId: 'nav-documents' },
       { href: '/reports', label: 'Relatórios', icon: ClipboardList, tourId: 'nav-reports' },
       { href: '/glossario', label: 'Glossário', icon: BookOpen, tourId: 'nav-glossario' },
