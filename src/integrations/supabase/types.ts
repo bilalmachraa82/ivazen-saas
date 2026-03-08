@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      _revenue_category_cleanup_evidence: {
+        Row: {
+          cleaned_at: string | null
+          id: string
+          new_revenue_category: string | null
+          old_revenue_category: string | null
+          probable_cause: string | null
+        }
+        Insert: {
+          cleaned_at?: string | null
+          id: string
+          new_revenue_category?: string | null
+          old_revenue_category?: string | null
+          probable_cause?: string | null
+        }
+        Update: {
+          cleaned_at?: string | null
+          id?: string
+          new_revenue_category?: string | null
+          old_revenue_category?: string | null
+          probable_cause?: string | null
+        }
+        Relationships: []
+      }
       accountant_at_config: {
         Row: {
           accountant_id: string
@@ -787,6 +811,57 @@ export type Database = {
           last_used_at?: string
           usage_count?: number
           user_id?: string
+        }
+        Relationships: []
+      }
+      classification_batches: {
+        Row: {
+          batch_type: string
+          chunk_size: number
+          completed_at: string | null
+          created_at: string | null
+          cursor_position: string | null
+          error_log: Json | null
+          id: string
+          started_at: string | null
+          status: string
+          total_classified: number
+          total_errors: number
+          total_processed: number
+          total_review: number
+          total_target: number
+        }
+        Insert: {
+          batch_type?: string
+          chunk_size?: number
+          completed_at?: string | null
+          created_at?: string | null
+          cursor_position?: string | null
+          error_log?: Json | null
+          id?: string
+          started_at?: string | null
+          status?: string
+          total_classified?: number
+          total_errors?: number
+          total_processed?: number
+          total_review?: number
+          total_target?: number
+        }
+        Update: {
+          batch_type?: string
+          chunk_size?: number
+          completed_at?: string | null
+          created_at?: string | null
+          cursor_position?: string | null
+          error_log?: Json | null
+          id?: string
+          started_at?: string | null
+          status?: string
+          total_classified?: number
+          total_errors?: number
+          total_processed?: number
+          total_review?: number
+          total_target?: number
         }
         Relationships: []
       }
@@ -2440,3 +2515,5 @@ export const Constants = {
     },
   },
 } as const
+A new version of Supabase CLI is available: v2.75.0 (currently installed v2.72.7)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
