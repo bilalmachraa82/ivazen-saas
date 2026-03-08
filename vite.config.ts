@@ -122,6 +122,57 @@ export default defineConfig(({ mode }) => {
         },
       }),
     ].filter(Boolean),
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            // ── Heavy export libraries (already partially separated, now explicit) ──
+            if (id.includes('node_modules/xlsx')) return 'vendor-xlsx';
+            if (id.includes('node_modules/jspdf')) return 'vendor-pdf';
+            if (id.includes('node_modules/html2canvas')) return 'vendor-html2canvas';
+            if (id.includes('node_modules/dompurify') || id.includes('node_modules/isomorphic-dompurify')) return 'vendor-dompurify';
+
+            // ── Crypto (node-forge) — only used by AdminCertificates ──
+            if (id.includes('node_modules/node-forge')) return 'vendor-crypto';
+
+            // ── Charts (recharts + d3 ecosystem) ──
+            if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-')) return 'vendor-charts';
+
+            // ── React core ──
+            if (
+              id.includes('node_modules/react-dom') ||
+              id.includes('node_modules/react/') ||
+              id.includes('node_modules/scheduler')
+            ) return 'vendor-react';
+
+            // ── Routing ──
+            if (id.includes('node_modules/react-router')) return 'vendor-router';
+
+            // ── Server state ──
+            if (id.includes('node_modules/@tanstack/react-query')) return 'vendor-query';
+
+            // ── Supabase client ──
+            if (id.includes('node_modules/@supabase')) return 'vendor-supabase';
+
+            // ── Radix UI primitives ──
+            if (id.includes('node_modules/@radix-ui')) return 'vendor-radix';
+
+            // ── Icons ──
+            if (id.includes('node_modules/lucide-react')) return 'vendor-icons';
+
+            // ── Forms ──
+            if (
+              id.includes('node_modules/react-hook-form') ||
+              id.includes('node_modules/@hookform') ||
+              id.includes('node_modules/zod')
+            ) return 'vendor-form';
+
+            // ── Date utilities ──
+            if (id.includes('node_modules/date-fns')) return 'vendor-date';
+          },
+        },
+      },
+    },
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
