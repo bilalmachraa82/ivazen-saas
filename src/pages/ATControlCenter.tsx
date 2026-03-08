@@ -60,42 +60,70 @@ function getRecommendation(status: string, reasonCode: string | null): { text: s
     return { text: 'Em processamento. Aguardar conclusão.', severity: 'info' };
   }
 
-  // status === 'error' — distinguish by reason code
-  if (rc === 'AT_EMPTY_LIST' || rc.includes('EMPTY')) {
+  // status === 'error' — distinguish by reason code (exact canonical codes)
+  if (rc === 'AT_EMPTY_LIST') {
     return { text: 'NIF sem faturas certificadas. Usar importação CSV/Excel.', severity: 'info' };
   }
-  if (rc.includes('DECRYPT') || rc === 'DECRYPT_FAILED') {
-    return { text: 'Falha de desencriptação. Contactar suporte técnico.', severity: 'action' };
-  }
-  if (rc.includes('TIMEOUT') || rc === 'TIMEOUT') {
-    return { text: 'Timeout na AT. Reprocessar ou aguardar janela noturna.', severity: 'action' };
-  }
-  if (rc.includes('CONNECTOR') || rc === 'CONNECTOR_DOWN') {
-    return { text: 'Conector AT indisponível. Verificar servidor VPS.', severity: 'action' };
-  }
-  if (rc.includes('CSRF') || rc === 'PORTAL_CSRF') {
-    return { text: 'Canal portal indisponível. Usar exportação oficial AT.', severity: 'info' };
-  }
-  if (rc.includes('TIME_WINDOW')) {
+  if (rc === 'AT_TIME_WINDOW') {
     return { text: 'Fora da janela AT. O sync automático corre de manhã e à noite.', severity: 'info' };
   }
-  if (rc.includes('NETWORK')) {
+  if (rc === 'AT_YEAR_UNAVAILABLE') {
+    return { text: 'Ano não disponível na AT. Dados ainda não publicados.', severity: 'info' };
+  }
+  if (rc === 'YEAR_IN_FUTURE') {
+    return { text: 'Ano futuro solicitado. Aguardar início do período fiscal.', severity: 'info' };
+  }
+  if (rc === 'AT_STARTDATE_FUTURE') {
+    return { text: 'Data de início no futuro. O sync retomará automaticamente.', severity: 'info' };
+  }
+  if (rc === 'PORTAL_CSRF') {
+    return { text: 'Canal portal indisponível. Usar exportação oficial AT.', severity: 'info' };
+  }
+  if (rc === 'CONNECTOR_NOT_CONFIGURED') {
+    return { text: 'Conector AT não configurado. Configuração de infraestrutura necessária.', severity: 'info' };
+  }
+  if (rc === 'INVALID_CLIENT_NIF') {
+    return { text: 'NIF do cliente inválido. Corrigir nos dados do cliente.', severity: 'action' };
+  }
+  if (rc === 'DECRYPT_FAILED') {
+    return { text: 'Falha de desencriptação. Contactar suporte técnico.', severity: 'action' };
+  }
+  if (rc === 'TIMEOUT') {
+    return { text: 'Timeout na AT. Reprocessar ou aguardar janela noturna.', severity: 'action' };
+  }
+  if (rc === 'CONNECTOR_DOWN') {
+    return { text: 'Conector AT indisponível. Verificar servidor VPS.', severity: 'action' };
+  }
+  if (rc === 'NETWORK') {
     return { text: 'Erro de rede. O retry automático está ativo.', severity: 'info' };
   }
 
   return { text: 'Erro técnico. Verificar logs ou re-executar sync.', severity: 'action' };
 }
 
-// Semantic status badge with AT_EMPTY_LIST awareness
+// Semantic status badge with informational reason awareness
 function getSemanticStatusBadge(status: string, reasonCode: string | null) {
   const rc = (reasonCode || '').toUpperCase();
 
-  // AT_EMPTY_LIST with error status is not a real error
-  if (status === 'error' && (rc === 'AT_EMPTY_LIST' || rc.includes('EMPTY'))) {
-    return <Badge variant="outline" className="border-blue-500/30 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">Sem faturas</Badge>;
-  }
-  if (status === 'error' && (rc.includes('CSRF') || rc.includes('PORTAL'))) {
-    return <Badge variant="outline" className="border-orange-500/30 bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300">Canal indisponível</Badge>;
+  // Informational error states get distinct non-red badges
+  if (status === 'error' && isInformationalReason(reasonCode)) {
+    if (rc === 'AT_EMPTY_LIST') {
+      return <Badge variant="outline" className="border-blue-500/30 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">Sem faturas</Badge>;
+    }
+    if (rc === 'PORTAL_CSRF') {
+      return <Badge variant="outline" className="border-orange-500/30 bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300">Canal indisponível</Badge>;
+    }
+    if (rc === 'AT_TIME_WINDOW') {
+      return <Badge variant="outline" className="border-blue-500/30 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">Fora da janela</Badge>;
+    }
+    if (rc === 'AT_YEAR_UNAVAILABLE' || rc === 'YEAR_IN_FUTURE' || rc === 'AT_STARTDATE_FUTURE') {
+      return <Badge variant="outline" className="border-blue-500/30 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">Ano indisponível</Badge>;
+    }
+    if (rc === 'CONNECTOR_NOT_CONFIGURED') {
+      return <Badge variant="outline" className="border-gray-500/30 bg-gray-50 text-gray-700 dark:bg-gray-950/30 dark:text-gray-300">Sem conector</Badge>;
+    }
+    // Fallback for any future informational code
+    return <Badge variant="outline" className="border-blue-500/30 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">Informacional</Badge>;
   }
 
   switch (status) {
@@ -120,15 +148,29 @@ function getSemanticStatusBadge(status: string, reasonCode: string | null) {
   }
 }
 
-// Reason codes that represent expected/informational states, not real errors
-const INFORMATIONAL_REASONS = ['AT_EMPTY_LIST', 'PORTAL_CSRF', 'TIME_WINDOW', 'YEAR_FUTURE'];
+// Canonical reason codes from sync-efatura that represent expected/informational states,
+// not real errors requiring accountant action. Matched exactly (no substring guessing).
+const INFORMATIONAL_REASONS = [
+  'AT_EMPTY_LIST',       // NIF has no certified invoices — normal for recibos verdes
+  'AT_TIME_WINDOW',      // Outside AT operating window — sync runs on schedule
+  'AT_YEAR_UNAVAILABLE', // Year data not yet available at AT
+  'YEAR_IN_FUTURE',      // Requested year hasn't started
+  'AT_STARTDATE_FUTURE', // Start date in the future
+  'PORTAL_CSRF',         // Portal channel unavailable — not per-client actionable
+  'CONNECTOR_NOT_CONFIGURED', // Infrastructure not set up — not per-client action
+];
+
+// Check if a reason code is informational (exact match on canonical codes)
+function isInformationalReason(reasonCode: string | null): boolean {
+  if (!reasonCode) return false;
+  return INFORMATIONAL_REASONS.includes(reasonCode.toUpperCase());
+}
 
 // Semantic sorting priority: real blockers first, informational last
 function getSemanticPriority(status: string, reasonCode: string | null): number {
-  const rc = (reasonCode || '').toUpperCase();
   if (status === 'auth_failed') return 0; // blocker — credentials rejected
   if (status === 'error') {
-    if (INFORMATIONAL_REASONS.some(ir => rc.includes(ir) || rc === ir)) return 5; // informational
+    if (isInformationalReason(reasonCode)) return 5; // informational
     return 1; // real platform error
   }
   if (status === 'no_credentials') return 2; // config needed
@@ -142,8 +184,7 @@ function getSemanticPriority(status: string, reasonCode: string | null): number 
 function isRealBlocker(status: string, reasonCode: string | null): boolean {
   if (status === 'auth_failed' || status === 'no_credentials') return true;
   if (status === 'error') {
-    const rc = (reasonCode || '').toUpperCase();
-    return !INFORMATIONAL_REASONS.some(ir => rc.includes(ir) || rc === ir);
+    return !isInformationalReason(reasonCode);
   }
   return false;
 }
@@ -184,14 +225,15 @@ export default function ATControlCenter() {
   }, [rows]);
 
   // Global semantic attention count using stats (not page-scoped rows).
-  // Subtract known informational reason codes from the raw error count.
+  // Uses error_reason_counts (filtered to operational_status='error' only in the RPC)
+  // to safely subtract informational reasons without cross-status contamination.
   const realAttentionCount = useMemo(() => {
     const authFailed = stats.status_counts.auth_failed || 0;
     const noCreds = stats.status_counts.no_credentials || 0;
     const rawErrors = stats.status_counts.error || 0;
-    // Informational reasons that appear as operational_status='error' but aren't real blockers
+    // error_reason_counts only contains reason codes from error-status rows
     const informationalInErrors = INFORMATIONAL_REASONS.reduce(
-      (sum, key) => sum + (stats.reason_counts[key] || 0), 0
+      (sum, key) => sum + (stats.error_reason_counts[key] || 0), 0
     );
     const realErrors = Math.max(0, rawErrors - informationalInErrors);
     return authFailed + noCreds + realErrors;
@@ -301,7 +343,7 @@ export default function ATControlCenter() {
                 {(() => {
                   const rawErrors = stats.status_counts.error || 0;
                   const informational = INFORMATIONAL_REASONS.reduce(
-                    (sum, key) => sum + (stats.reason_counts[key] || 0), 0
+                    (sum, key) => sum + (stats.error_reason_counts[key] || 0), 0
                   );
                   const realErrors = Math.max(0, rawErrors - informational);
                   return realErrors > 0 ? (

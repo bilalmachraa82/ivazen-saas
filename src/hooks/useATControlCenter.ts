@@ -36,6 +36,7 @@ export interface ATControlCenterStats {
   requires_attention: number;
   status_counts: Record<string, number>;
   reason_counts: Record<string, number>;
+  error_reason_counts: Record<string, number>;
 }
 
 export interface UseATControlCenterFilters {
@@ -52,6 +53,7 @@ const DEFAULT_STATS: ATControlCenterStats = {
   requires_attention: 0,
   status_counts: {},
   reason_counts: {},
+  error_reason_counts: {},
 };
 
 export function useATControlCenter(filters: UseATControlCenterFilters = {}) {
@@ -88,6 +90,7 @@ export function useATControlCenter(filters: UseATControlCenterFilters = {}) {
         ...raw,
         status_counts: raw.status_counts || {},
         reason_counts: raw.reason_counts || {},
+        error_reason_counts: raw.error_reason_counts || {},
       } as ATControlCenterStats;
     },
     staleTime: 15_000,
