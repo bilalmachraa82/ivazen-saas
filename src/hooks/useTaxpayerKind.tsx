@@ -14,10 +14,13 @@ import { resolveTaxpayerKind, type TaxpayerKind } from '@/lib/taxpayerKind';
  * Combines explicit taxpayer_kind with inference from worker_type and data signals.
  */
 export function useTaxpayerKind(forClientId?: string | null) {
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
   const { selectedClientId } = useSelectedClient();
+  const isAccountant = hasRole('accountant');
+  const requestedClientId =
+    forClientId !== undefined ? forClientId : (isAccountant ? selectedClientId : undefined);
   const effectiveClientId = resolveScopedClientId(
-    forClientId ?? selectedClientId,
+    requestedClientId,
     user?.id
   );
 

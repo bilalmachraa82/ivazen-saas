@@ -32,6 +32,11 @@ const routeMetadata: Record<string, RouteMetadata> = {
     description: 'Visão geral do seu negócio fiscal',
     icon: Home
   },
+  'centro-fiscal': {
+    label: 'Centro Fiscal',
+    description: 'Cockpit fiscal por cliente com estado, origem dos dados e próximas ações',
+    icon: Briefcase
+  },
   'upload': {
     label: 'Carregar Faturas',
     description: 'Digitalizar e processar novas faturas',

@@ -28,6 +28,7 @@ const NotFound           = lazy(() => import('./pages/NotFound'));
 
 // Protected pages — any authenticated user
 const Dashboard          = lazy(() => import('./pages/Dashboard'));
+const ClientFiscalCenter = lazy(() => import('./pages/ClientFiscalCenter'));
 const VATCalculator      = lazy(() => import('./pages/VATCalculator'));
 const Upload             = lazy(() => import('./pages/Upload'));
 const Validation         = lazy(() => import('./pages/Validation'));
@@ -105,6 +106,9 @@ const App = () => (
                     {/* ---- Protected routes — any authenticated user ---- */}
                     <Route path="/dashboard" element={
                       <PageRoute><Dashboard /></PageRoute>
+                    } />
+                    <Route path="/centro-fiscal" element={
+                      <PageRoute><ClientFiscalCenter /></PageRoute>
                     } />
                     <Route path="/iva-calculator" element={
                       <PageRoute><VATCalculator /></PageRoute>

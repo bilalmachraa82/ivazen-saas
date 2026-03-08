@@ -67,6 +67,7 @@ const navGroups = [
     icon: LayoutDashboard,
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: FileText, tourId: 'nav-dashboard' },
+      { href: '/centro-fiscal', label: 'Centro Fiscal', icon: PieChart, tourId: 'nav-fiscal-center' },
       { href: '/accountant', label: 'Painel Contabilista', icon: Briefcase, tourId: 'nav-accountant', requireAccountant: true },
     ]
   },
