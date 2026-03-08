@@ -70,7 +70,7 @@ export function ReviewInboxPanel({ data, periodLabel }: ReviewInboxPanelProps) {
         <CardTitle className="text-lg flex items-center gap-2">
           Revisão pendente
           <Badge variant="warning" className="text-xs">
-            {data.totalPending > 25 ? '25+' : data.totalPending}
+            {data.totalPending}
           </Badge>
         </CardTitle>
       </CardHeader>
@@ -79,7 +79,8 @@ export function ReviewInboxPanel({ data, periodLabel }: ReviewInboxPanelProps) {
           const meta = CATEGORY_META[category.type];
           const Icon = meta.icon;
           const isExpanded = expandedTypes.has(category.type);
-          const countLabel = category.count === -1 ? '5+' : String(category.count);
+          const hasMore = category.items.length < category.count;
+          const countLabel = String(category.count);
 
           return (
             <div key={category.type} className="rounded-2xl border border-border/60 bg-background/70 overflow-hidden">
@@ -121,12 +122,15 @@ export function ReviewInboxPanel({ data, periodLabel }: ReviewInboxPanelProps) {
                     </div>
                   ))}
 
-                  {/* Bulk action link */}
+                  {/* Bulk action link — always shown if route exists, highlights when truncated */}
                   {category.bulkRoute && (
                     <div className="px-4 py-2 bg-muted/30">
                       <Button asChild size="sm" variant="ghost" className="w-full justify-center text-xs h-7 text-muted-foreground hover:text-foreground">
                         <Link to={category.bulkRoute}>
-                          Ver todos · {category.label}
+                          {hasMore
+                            ? `Ver todos (${category.count}) · ${category.label}`
+                            : `Ver todos · ${category.label}`
+                          }
                         </Link>
                       </Button>
                     </div>

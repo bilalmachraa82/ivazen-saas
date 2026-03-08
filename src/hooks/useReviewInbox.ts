@@ -17,6 +17,7 @@ export interface ReviewItem {
 export interface ReviewCategory {
   type: 'pending_purchases' | 'low_confidence' | 'ambiguous_sales' | 'withholding_candidates' | 'reconciliation_divergences';
   label: string;
+  /** Exact count from DB (count:'exact'). Always real, never a sentinel. */
   count: number;
   items: ReviewItem[];
   /** Route for "ver todos" link */
@@ -24,6 +25,7 @@ export interface ReviewCategory {
 }
 
 export interface ReviewInboxData {
+  /** Sum of all category counts — always exact from DB */
   totalPending: number;
   categories: ReviewCategory[];
 }
@@ -39,21 +41,81 @@ interface UseReviewInboxOptions {
 
 const MAX_PREVIEW_ITEMS = 5;
 
+// Derive a stable fingerprint from reconciliation data so the queryKey
+// changes when divergence statuses change, avoiding stale cache.
+function reconciliationFingerprint(r: ReconciliationSummary | null | undefined): string {
+  if (!r) return 'none';
+  return `${r.purchases.status}|${r.modelo10.status}|${r.ss.status}|${r.withholdings.status}`;
+}
+
 export function useReviewInbox(options: UseReviewInboxOptions) {
   const { clientId, fiscalYear, quarter, rangeStart, rangeEnd, reconciliation } = options;
 
+  // Finding 2 fix: include reconciliation fingerprint in queryKey so the
+  // cache invalidates when divergence statuses actually change.
+  const reconFp = reconciliationFingerprint(reconciliation);
+
   return useQuery({
-    queryKey: ['review-inbox', clientId, fiscalYear, quarter],
+    queryKey: ['review-inbox', clientId, fiscalYear, quarter, reconFp],
     queryFn: async (): Promise<ReviewInboxData> => {
       if (!clientId) throw new Error('clientId required');
 
+      // Finding 3 fix: run exact count queries in parallel with preview queries.
+      // Counts use head:true (no row data, just count) for efficiency.
+      // Previews use limit(MAX_PREVIEW_ITEMS) for the collapsible list.
       const [
+        // Exact counts (head:true)
+        pendingPurchasesCountRes,
+        lowConfidenceCountRes,
+        ambiguousSalesCountRes,
+        withholdingCandidatesCountRes,
+        // Previews (limited rows)
         pendingPurchasesRes,
         lowConfidenceRes,
         ambiguousSalesRes,
         withholdingCandidatesRes,
       ] = await Promise.all([
-        // 1. Pending purchases (not yet validated by accountant)
+        // --- Exact counts ---
+        // 1. Pending purchases count
+        supabase
+          .from('invoices')
+          .select('id', { count: 'exact', head: true })
+          .eq('client_id', clientId)
+          .gte('document_date', rangeStart)
+          .lte('document_date', rangeEnd)
+          .or(PENDING_PURCHASE_FILTER),
+
+        // 2. Low confidence count
+        // Finding 1 fix: aligned with summary card in useClientFiscalCenter —
+        // status != 'validated' AND ai_confidence < 80 (not validated+<70)
+        supabase
+          .from('invoices')
+          .select('id', { count: 'exact', head: true })
+          .eq('client_id', clientId)
+          .gte('document_date', rangeStart)
+          .lte('document_date', rangeEnd)
+          .neq('status', 'validated')
+          .lt('ai_confidence', 80),
+
+        // 3. Ambiguous sales count
+        supabase
+          .from('sales_invoices')
+          .select('id', { count: 'exact', head: true })
+          .eq('client_id', clientId)
+          .gte('document_date', rangeStart)
+          .lte('document_date', rangeEnd)
+          .or('status.eq.pending,revenue_category.is.null'),
+
+        // 4. Withholding candidates count
+        supabase
+          .from('at_withholding_candidates')
+          .select('id', { count: 'exact', head: true })
+          .eq('client_id', clientId)
+          .eq('fiscal_year', fiscalYear)
+          .eq('status', 'pending'),
+
+        // --- Previews ---
+        // 1. Pending purchases preview
         supabase
           .from('invoices')
           .select('id, issuer_name, total_amount, document_date, status, ai_confidence')
@@ -62,21 +124,21 @@ export function useReviewInbox(options: UseReviewInboxOptions) {
           .lte('document_date', rangeEnd)
           .or(PENDING_PURCHASE_FILTER)
           .order('document_date', { ascending: false })
-          .limit(MAX_PREVIEW_ITEMS + 1), // +1 to know if there are more
+          .limit(MAX_PREVIEW_ITEMS),
 
-        // 2. Low confidence classifications (validated but ai_confidence < 70)
+        // 2. Low confidence preview (Finding 1: same universe as count)
         supabase
           .from('invoices')
           .select('id, issuer_name, total_amount, ai_confidence, ai_classification')
           .eq('client_id', clientId)
           .gte('document_date', rangeStart)
           .lte('document_date', rangeEnd)
-          .eq('status', 'validated')
-          .lt('ai_confidence', 70)
+          .neq('status', 'validated')
+          .lt('ai_confidence', 80)
           .order('ai_confidence', { ascending: true })
-          .limit(MAX_PREVIEW_ITEMS + 1),
+          .limit(MAX_PREVIEW_ITEMS),
 
-        // 3. Ambiguous sales (pending or missing revenue_category)
+        // 3. Ambiguous sales preview
         supabase
           .from('sales_invoices')
           .select('id, customer_name, total_amount, document_date, status, revenue_category, ai_category_confidence')
@@ -85,9 +147,9 @@ export function useReviewInbox(options: UseReviewInboxOptions) {
           .lte('document_date', rangeEnd)
           .or('status.eq.pending,revenue_category.is.null')
           .order('document_date', { ascending: false })
-          .limit(MAX_PREVIEW_ITEMS + 1),
+          .limit(MAX_PREVIEW_ITEMS),
 
-        // 4. Withholding candidates pending review
+        // 4. Withholding candidates preview
         supabase
           .from('at_withholding_candidates')
           .select('id, beneficiary_name, beneficiary_nif, withholding_amount, confidence_score, income_category')
@@ -95,21 +157,20 @@ export function useReviewInbox(options: UseReviewInboxOptions) {
           .eq('fiscal_year', fiscalYear)
           .eq('status', 'pending')
           .order('confidence_score', { ascending: false })
-          .limit(MAX_PREVIEW_ITEMS + 1),
+          .limit(MAX_PREVIEW_ITEMS),
       ]);
 
       const categories: ReviewCategory[] = [];
 
       // --- 1. Pending purchases ---
+      const pendingCount = pendingPurchasesCountRes.count ?? 0;
       const pendingPurchases = pendingPurchasesRes.data || [];
-      if (pendingPurchases.length > 0) {
+      if (pendingCount > 0) {
         categories.push({
           type: 'pending_purchases',
           label: 'Compras por validar',
-          count: pendingPurchases.length > MAX_PREVIEW_ITEMS
-            ? MAX_PREVIEW_ITEMS // signal "5+"
-            : pendingPurchases.length,
-          items: pendingPurchases.slice(0, MAX_PREVIEW_ITEMS).map(inv => ({
+          count: pendingCount,
+          items: pendingPurchases.map(inv => ({
             id: inv.id,
             label: inv.issuer_name || 'Sem emitente',
             sublabel: `${formatCurrency(inv.total_amount)} · ${formatDate(inv.document_date)}${inv.ai_confidence != null ? ` · ${inv.ai_confidence}%` : ''}`,
@@ -117,23 +178,21 @@ export function useReviewInbox(options: UseReviewInboxOptions) {
           })),
           bulkRoute: '/validation',
         });
-        // Adjust count if we got more than preview
-        if (pendingPurchases.length > MAX_PREVIEW_ITEMS) {
-          categories[categories.length - 1].count = -1; // sentinel for "5+"
-        }
       }
 
       // --- 2. Low confidence classifications ---
+      // Finding 1: same definition as summary card — not-validated + ai_confidence < 80
+      const lowConfCount = lowConfidenceCountRes.count ?? 0;
       const lowConf = lowConfidenceRes.data || [];
-      if (lowConf.length > 0) {
+      if (lowConfCount > 0) {
         categories.push({
           type: 'low_confidence',
-          label: 'Classificações duvidosas',
-          count: lowConf.length > MAX_PREVIEW_ITEMS ? -1 : lowConf.length,
-          items: lowConf.slice(0, MAX_PREVIEW_ITEMS).map(inv => ({
+          label: 'Baixa confiança IA',
+          count: lowConfCount,
+          items: lowConf.map(inv => ({
             id: inv.id,
             label: inv.issuer_name || 'Sem emitente',
-            sublabel: `${inv.ai_confidence}% confiança · ${inv.ai_classification || 'sem classe'}`,
+            sublabel: `${inv.ai_confidence ?? 0}% confiança · ${inv.ai_classification || 'sem classe'}`,
             route: '/validation',
           })),
           bulkRoute: '/validation',
@@ -141,13 +200,14 @@ export function useReviewInbox(options: UseReviewInboxOptions) {
       }
 
       // --- 3. Ambiguous sales ---
+      const ambCount = ambiguousSalesCountRes.count ?? 0;
       const ambSales = ambiguousSalesRes.data || [];
-      if (ambSales.length > 0) {
+      if (ambCount > 0) {
         categories.push({
           type: 'ambiguous_sales',
           label: 'Vendas por classificar',
-          count: ambSales.length > MAX_PREVIEW_ITEMS ? -1 : ambSales.length,
-          items: ambSales.slice(0, MAX_PREVIEW_ITEMS).map(sale => ({
+          count: ambCount,
+          items: ambSales.map(sale => ({
             id: sale.id,
             label: sale.customer_name || 'Sem cliente',
             sublabel: `${formatCurrency(sale.total_amount)} · ${formatDate(sale.document_date)}${!sale.revenue_category ? ' · sem categoria' : ''}`,
@@ -158,13 +218,14 @@ export function useReviewInbox(options: UseReviewInboxOptions) {
       }
 
       // --- 4. Withholding candidates ---
+      const candCount = withholdingCandidatesCountRes.count ?? 0;
       const candidates = withholdingCandidatesRes.data || [];
-      if (candidates.length > 0) {
+      if (candCount > 0) {
         categories.push({
           type: 'withholding_candidates',
           label: 'Retenções por rever',
-          count: candidates.length > MAX_PREVIEW_ITEMS ? -1 : candidates.length,
-          items: candidates.slice(0, MAX_PREVIEW_ITEMS).map(c => ({
+          count: candCount,
+          items: candidates.map(c => ({
             id: c.id,
             label: c.beneficiary_name || c.beneficiary_nif || 'Sem beneficiário',
             sublabel: `${formatCurrency(c.withholding_amount)} · Cat. ${c.income_category || '?'} · ${c.confidence_score ?? 0}%`,
@@ -224,10 +285,8 @@ export function useReviewInbox(options: UseReviewInboxOptions) {
         }
       }
 
-      const totalPending = categories.reduce(
-        (sum, cat) => sum + (cat.count === -1 ? MAX_PREVIEW_ITEMS + 1 : cat.count),
-        0,
-      );
+      // Finding 3 fix: totalPending is the sum of exact DB counts, never preview-limited.
+      const totalPending = categories.reduce((sum, cat) => sum + cat.count, 0);
 
       return { totalPending, categories };
     },
