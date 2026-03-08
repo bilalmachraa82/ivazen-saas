@@ -43,6 +43,7 @@ const Reports            = lazy(() => import('./pages/Reports'));
 const BecomeAccountant   = lazy(() => import('./pages/BecomeAccountant'));
 const Glossary           = lazy(() => import('./pages/Glossary'));
 const ReconciliationAudit = lazy(() => import('./pages/ReconciliationAudit'));
+const ImportCenter       = lazy(() => import('./pages/ImportCenter'));
 
 // Protected pages — accountant role
 const AccountantDashboard  = lazy(() => import('./pages/AccountantDashboard'));
@@ -153,6 +154,9 @@ const App = () => (
                     } />
                     <Route path="/reconciliation" element={
                       <PageRoute><ReconciliationAudit /></PageRoute>
+                    } />
+                    <Route path="/centro-importacao" element={
+                      <PageRoute requireRole="accountant"><ImportCenter /></PageRoute>
                     } />
 
                     {/* ---- Protected routes — accountant role ---- */}

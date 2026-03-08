@@ -1,0 +1,149 @@
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { resolveScopedClientId } from '@/lib/clientScope';
+
+export type ChannelId = 'at_soap' | 'csv_excel' | 'pdf_ocr' | 'saft' | 'modelo10';
+
+export type ChannelStatus = 'active' | 'configured' | 'available' | 'unavailable';
+
+export interface ChannelHealth {
+  id: ChannelId;
+  status: ChannelStatus;
+  lastActivity: string | null;
+  recordsImported: number;
+  lastError: string | null;
+}
+
+export interface ImportChannelHealthData {
+  channels: Record<ChannelId, ChannelHealth>;
+  /** Total records across all tables (invoices + sales + withholdings). */
+  totalImported: number;
+  hasATCredentials: boolean;
+  atEnvironment: string | null;
+}
+
+interface UseImportChannelHealthOptions {
+  clientId?: string | null;
+}
+
+export function useImportChannelHealth(options: UseImportChannelHealthOptions = {}) {
+  const { user } = useAuth();
+  const effectiveClientId = resolveScopedClientId(options.clientId, user?.id);
+
+  const query = useQuery({
+    queryKey: ['import-channel-health', effectiveClientId],
+    queryFn: async (): Promise<ImportChannelHealthData | null> => {
+      if (!effectiveClientId) return null;
+
+      const [
+        atCredentialsRes,
+        syncHistoryRes,
+        purchaseCountRes,
+        salesCountRes,
+        withholdingsCountRes,
+      ] = await Promise.all([
+        supabase
+          .from('at_credentials')
+          .select('last_sync_status, last_sync_at, last_sync_error, environment')
+          .eq('client_id', effectiveClientId)
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('at_sync_history')
+          .select('created_at, sync_type, sync_method, status, records_imported, records_errors')
+          .eq('client_id', effectiveClientId)
+          .order('created_at', { ascending: false })
+          .limit(10),
+        supabase
+          .from('invoices')
+          .select('id', { count: 'exact', head: true })
+          .eq('client_id', effectiveClientId),
+        supabase
+          .from('sales_invoices')
+          .select('id', { count: 'exact', head: true })
+          .eq('client_id', effectiveClientId),
+        supabase
+          .from('tax_withholdings')
+          .select('id', { count: 'exact', head: true })
+          .eq('client_id', effectiveClientId),
+      ]);
+
+      const syncHistory = syncHistoryRes.data || [];
+      const hasATCredentials = !!atCredentialsRes.data;
+      const atEnvironment = atCredentialsRes.data?.environment ?? null;
+
+      // ── AT SOAP channel ──
+      // Only sync-efatura writes to at_sync_history, always with sync_method='api'.
+      // No other channel (CSV import, PDF upload, SAF-T) writes sync history.
+      const apiSyncs = syncHistory.filter((s) => s.sync_method === 'api');
+      const lastApiSync = apiSyncs[0] ?? null;
+      const apiImported = apiSyncs.reduce((sum, s) => sum + (s.records_imported || 0), 0);
+
+      const atSoapStatus: ChannelStatus = lastApiSync
+        ? lastApiSync.status === 'success' ? 'active' : 'configured'
+        : hasATCredentials ? 'configured' : 'available';
+
+      const purchaseCount = purchaseCountRes.count ?? 0;
+      const salesCount = salesCountRes.count ?? 0;
+      const withholdingsCount = withholdingsCountRes.count ?? 0;
+
+      // ── Channels without dedicated tracking ──
+      // CSV import, PDF/OCR upload, and SAF-T do NOT write to at_sync_history.
+      // We cannot attribute activity to these channels from aggregate table counts
+      // (invoices may have come from AT SOAP, CSV, or upload — we don't know).
+      // Status is always 'available' — honest about the lack of per-channel tracking.
+
+      return {
+        channels: {
+          at_soap: {
+            id: 'at_soap',
+            status: atSoapStatus,
+            lastActivity: lastApiSync?.created_at ?? atCredentialsRes.data?.last_sync_at ?? null,
+            recordsImported: apiImported,
+            lastError: lastApiSync?.status === 'error' ? 'Erro no último sync' : null,
+          },
+          csv_excel: {
+            id: 'csv_excel',
+            status: 'available',
+            lastActivity: null,
+            recordsImported: 0,
+            lastError: null,
+          },
+          pdf_ocr: {
+            id: 'pdf_ocr',
+            status: 'available',
+            lastActivity: null,
+            recordsImported: 0,
+            lastError: null,
+          },
+          saft: {
+            id: 'saft',
+            status: 'available',
+            lastActivity: null,
+            recordsImported: 0,
+            lastError: null,
+          },
+          modelo10: {
+            id: 'modelo10',
+            status: withholdingsCount > 0 ? 'active' : 'available',
+            lastActivity: null,
+            recordsImported: withholdingsCount,
+            lastError: null,
+          },
+        },
+        totalImported: purchaseCount + salesCount + withholdingsCount,
+        hasATCredentials,
+        atEnvironment,
+      };
+    },
+    enabled: !!effectiveClientId,
+    staleTime: 30_000,
+  });
+
+  return {
+    data: query.data,
+    isLoading: query.isLoading,
+    refetch: query.refetch,
+  };
+}

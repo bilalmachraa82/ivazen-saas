@@ -50,6 +50,7 @@ import {
   FileOutput,
   FileSpreadsheet,
   HelpCircle,
+  Layers,
   List,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -84,12 +85,13 @@ const navGroups = [
   },
   {
     id: 'importacao',
-    label: 'Importação Automática',
-    icon: FileSpreadsheet,
+    label: 'Importação',
+    icon: Layers,
     items: [
-      { href: '/efatura', label: 'e-Fatura (Portal AT)', icon: FileSpreadsheet, tourId: 'nav-efatura' },
+      { href: '/centro-importacao', label: 'Centro de Importação', icon: Layers, tourId: 'nav-import-center', requireAccountant: true },
+      { href: '/efatura', label: 'e-Fatura (Portal AT)', icon: FileSpreadsheet, tourId: 'nav-efatura', requireAccountant: true },
       ...(featureFlags.atControlCenterV1
-        ? [{ href: '/at-control-center', label: 'AT Control Center', icon: ShieldCheck, tourId: 'nav-at-control-center' }]
+        ? [{ href: '/at-control-center', label: 'AT Control Center', icon: ShieldCheck, tourId: 'nav-at-control-center', requireAccountant: true }]
         : []),
     ]
   },

@@ -37,6 +37,11 @@ const routeMetadata: Record<string, RouteMetadata> = {
     description: 'Cockpit fiscal por cliente com estado, origem dos dados e próximas ações',
     icon: Briefcase
   },
+  'centro-importacao': {
+    label: 'Centro de Importação',
+    description: 'Superfície unificada para lançar e monitorizar importações de dados do cliente',
+    icon: Upload
+  },
   'upload': {
     label: 'Carregar Faturas',
     description: 'Digitalizar e processar novas faturas',
