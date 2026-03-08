@@ -120,6 +120,34 @@ function getSemanticStatusBadge(status: string, reasonCode: string | null) {
   }
 }
 
+// Reason codes that represent expected/informational states, not real errors
+const INFORMATIONAL_REASONS = ['AT_EMPTY_LIST', 'PORTAL_CSRF', 'TIME_WINDOW', 'YEAR_FUTURE'];
+
+// Semantic sorting priority: real blockers first, informational last
+function getSemanticPriority(status: string, reasonCode: string | null): number {
+  const rc = (reasonCode || '').toUpperCase();
+  if (status === 'auth_failed') return 0; // blocker — credentials rejected
+  if (status === 'error') {
+    if (INFORMATIONAL_REASONS.some(ir => rc.includes(ir) || rc === ir)) return 5; // informational
+    return 1; // real platform error
+  }
+  if (status === 'no_credentials') return 2; // config needed
+  if (status === 'processing' || status === 'queued') return 3; // active
+  if (status === 'partial') return 4; // needs review
+  if (status === 'success') return 6; // ok
+  return 7; // never/unknown
+}
+
+// Is this row a real blocker that requires accountant action?
+function isRealBlocker(status: string, reasonCode: string | null): boolean {
+  if (status === 'auth_failed' || status === 'no_credentials') return true;
+  if (status === 'error') {
+    const rc = (reasonCode || '').toUpperCase();
+    return !INFORMATIONAL_REASONS.some(ir => rc.includes(ir) || rc === ir);
+  }
+  return false;
+}
+
 function toCsvValue(value: unknown): string {
   const str = String(value ?? '');
   if (str.includes(',') || str.includes('"') || str.includes('\n')) {
@@ -148,11 +176,16 @@ export default function ATControlCenter() {
 
   const sortedRows = useMemo(() => {
     return [...rows].sort((a, b) => {
-      const aAttention = ['auth_failed', 'error', 'no_credentials'].includes(a.operational_status) ? 0 : 1;
-      const bAttention = ['auth_failed', 'error', 'no_credentials'].includes(b.operational_status) ? 0 : 1;
-      if (aAttention !== bAttention) return aAttention - bAttention;
+      const aPriority = getSemanticPriority(a.operational_status, a.last_reason_code);
+      const bPriority = getSemanticPriority(b.operational_status, b.last_reason_code);
+      if (aPriority !== bPriority) return aPriority - bPriority;
       return (b.last_sync_at || '').localeCompare(a.last_sync_at || '');
     });
+  }, [rows]);
+
+  // Recompute attention count using semantic classification (not raw operational_status)
+  const realAttentionCount = useMemo(() => {
+    return rows.filter(r => isRealBlocker(r.operational_status, r.last_reason_code)).length;
   }, [rows]);
 
   const exportCsv = () => {
@@ -219,7 +252,7 @@ export default function ATControlCenter() {
     await refetch();
   };
 
-  const needsAttention = stats.requires_attention > 0;
+  const needsAttention = realAttentionCount > 0;
 
   return (
     <DashboardLayout>
@@ -248,7 +281,7 @@ export default function ATControlCenter() {
             <ShieldAlert className="h-4 w-4" />
             <AlertTitle>Clientes que requerem ação</AlertTitle>
             <AlertDescription className="space-y-1">
-              <p>{stats.requires_attention} cliente(s) com bloqueio operacional.</p>
+              <p>{realAttentionCount} cliente(s) com bloqueio operacional real.</p>
               <ul className="text-xs list-disc list-inside space-y-0.5">
                 {(stats.status_counts.auth_failed || 0) > 0 && (
                   <li>{stats.status_counts.auth_failed} com credenciais rejeitadas — pedir novas ao cliente</li>
@@ -279,8 +312,8 @@ export default function ATControlCenter() {
           </ZenCard>
           <ZenCard gradient="muted">
             <CardContent className="pt-6">
-              <div className="text-2xl font-bold">{stats.requires_attention}</div>
-              <p className="text-xs text-muted-foreground">Requerem atenção</p>
+              <div className="text-2xl font-bold">{realAttentionCount}</div>
+              <p className="text-xs text-muted-foreground">Requerem ação</p>
             </CardContent>
           </ZenCard>
           <ZenCard gradient="muted">

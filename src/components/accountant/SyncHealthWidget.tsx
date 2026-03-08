@@ -51,9 +51,14 @@ export function SyncHealthWidget() {
 
   if (!data) return null;
 
-  const rate = data.success_rate;
+  // Primary metric: SOAP API rate (7d) when available, raw 24h as fallback
+  const hasSoapRate = data.history_summary_7d && data.history_summary_7d.total > 0;
+  const primaryRate = hasSoapRate ? data.history_summary_7d!.api_success_rate : data.success_rate;
+  const primaryLabel = hasSoapRate ? 'Saúde SOAP (7 dias)' : 'Taxa de sucesso (24h)';
+  const rawRate = data.success_rate;
+
   const variant: 'success' | 'warning' | 'destructive' =
-    rate >= 95 ? 'success' : rate >= 80 ? 'warning' : 'destructive';
+    primaryRate >= 95 ? 'success' : primaryRate >= 80 ? 'warning' : 'destructive';
 
   const statusColor =
     variant === 'success'
@@ -64,6 +69,7 @@ export function SyncHealthWidget() {
 
   const errorEntries = Object.entries(data.error_breakdown || {});
   const hasErrors = errorEntries.length > 0;
+  const portalErrors = data.history_summary_7d?.portal_errors || 0;
 
   return (
     <Card>
@@ -74,18 +80,30 @@ export function SyncHealthWidget() {
             Saúde do Sync AT
           </CardTitle>
           <Badge variant={variant}>
-            {rate}%
+            {primaryRate}%
           </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Progress bar */}
+        {/* Primary metric: SOAP rate */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Taxa de sucesso (24h)</span>
+            <span className="text-muted-foreground">{primaryLabel}</span>
             <span className={`font-medium ${statusColor}`}>{data.completed_24h}/{data.total_syncs_24h}</span>
           </div>
-          <Progress value={rate} className="h-2" />
+          <Progress value={primaryRate} className="h-2" />
+          {hasSoapRate && rawRate !== primaryRate && (
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Taxa bruta 24h (inclui portal)</span>
+              <span>{rawRate}%</span>
+            </div>
+          )}
+          {portalErrors > 0 && (
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Portal AT (inoperável)</span>
+              <span>{portalErrors} erros excluídos</span>
+            </div>
+          )}
         </div>
 
         {/* Key metrics row */}
@@ -194,27 +212,12 @@ export function SyncHealthWidget() {
                   </div>
                 )}
 
-                {data.history_summary_7d && data.history_summary_7d.total > 0 && (
-                  <div className="space-y-1.5 border-t pt-2">
-                    <p className="text-xs font-medium text-muted-foreground">Histórico 7 dias (SOAP)</p>
+                {data.history_summary_7d && data.history_summary_7d.stuck_running > 0 && (
+                  <div className="border-t pt-2">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Taxa SOAP (success+partial)</span>
-                      <Badge variant={data.history_summary_7d.api_success_rate >= 80 ? 'outline' : 'warning'}>
-                        {data.history_summary_7d.api_success_rate}%
-                      </Badge>
+                      <span className="text-muted-foreground">Jobs stuck (7 dias)</span>
+                      <Badge variant="warning" className="text-xs">{data.history_summary_7d.stuck_running}</Badge>
                     </div>
-                    {data.history_summary_7d.portal_errors > 0 && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Portal (inoperável)</span>
-                        <Badge variant="destructive" className="text-xs">{data.history_summary_7d.portal_errors} erros</Badge>
-                      </div>
-                    )}
-                    {data.history_summary_7d.stuck_running > 0 && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Jobs stuck</span>
-                        <Badge variant="warning" className="text-xs">{data.history_summary_7d.stuck_running}</Badge>
-                      </div>
-                    )}
                   </div>
                 )}
 
