@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
-import { useProfile } from '@/hooks/useProfile';
+import { useClientFiscalProfile } from '@/hooks/useClientFiscalProfile';
 import { SS_COEFFICIENTS, SS_REVENUE_CATEGORIES, getSSCoefficient, normalizeSSCategory } from '@/lib/ssCoefficients';
 import { resolveScopedClientId } from '@/lib/clientScope';
 
@@ -242,30 +242,12 @@ function getQuarterFromDate(dateStr: string): string {
 
 export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: string) {
   const { user } = useAuth();
-  const { profile } = useProfile();
   const queryClient = useQueryClient();
   const [quarter, setQuarter] = useState(selectedQuarter || getCurrentQuarter());
 
   // For accountants, use selected client ID; for regular users, use their own ID
   const effectiveClientId = resolveScopedClientId(selectedClientId, user?.id);
-
-  // Fix #1: When accountant views a client, fetch the CLIENT's profile, not the accountant's
-  const isViewingOtherClient = !!effectiveClientId && effectiveClientId !== user?.id;
-  const { data: clientProfileData } = useQuery({
-    queryKey: ['client-profile-ss', effectiveClientId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', effectiveClientId!)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: isViewingOtherClient,
-  });
-  // Use client's profile when viewing another client, otherwise own profile
-  const activeProfile = (isViewingOtherClient && clientProfileData) ? clientProfileData : profile;
+  const { profile: activeProfile } = useClientFiscalProfile(effectiveClientId);
 
   // Fetch revenue entries for quarter
   const { data: revenueEntries = [], isLoading: isLoadingRevenue } = useQuery({

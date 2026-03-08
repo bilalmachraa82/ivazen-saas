@@ -28,6 +28,7 @@ com validação técnica real, menos risco operacional em multi-cliente e uma ba
 - o cálculo passa a depender do cliente selecionado
 - a contribuição apresentada usa o cálculo efetivo do hook, incluindo isenção quando aplicável
 - o fluxo fica bloqueado até existir escolha explícita de cliente
+- o hook passou a usar perfil fiscal scoped do cliente, não apenas correção visual na página
 
 ### 3. Modelo 10
 
@@ -50,6 +51,11 @@ com validação técnica real, menos risco operacional em multi-cliente e uma ba
   - `33` suites
   - `790` testes
 - `deno check supabase/functions/process-queue/index.ts` passou
+
+### Observação de performance
+
+- o build continua a avisar sobre chunks grandes em páginas pesadas como `Modelo10`, `Upload`, `Dashboard` e `AdminCertificates`
+- isto não bloqueia a entrega funcional, mas é o próximo alvo claro para otimização com code-splitting
 
 ### Validação funcional
 
@@ -76,6 +82,8 @@ A entrega técnica do `143/143` compara contra o `CSV agregado por beneficiário
   - cliente explícito
   - ausência explícita de cliente
   - fallback controlado para o próprio utilizador
+- `e-Fatura`, `Upload`, `SS`, `Validation` e `Modelo 10` já exigem contexto explícito de cliente no fluxo de contabilista
+- os importadores auxiliares (`bulk`, `SAF-T`, `AT recibos`, `email`) passaram a respeitar `cliente explícito` internamente
 
 ### Review de candidatos no Modelo 10
 
@@ -113,6 +121,9 @@ Estes pontos não bloqueiam a entrega funcional de amanhã, mas continuam como m
 - a review atual permite ver, rejeitar e promover
 - ainda não existe editor completo de campos por linha
 
+5. code-splitting das páginas mais pesadas
+- continua a existir margem para melhorar tempo de carregamento inicial
+
 ## Estado final por obrigação
 
 ### IVA
@@ -133,6 +144,7 @@ Estado: `operacional com review`, tecnicamente validado no caso real `CAAD`
 - `ccd84f5` `chore: tighten CAAD modelo 10 audit scripts`
 - `66b9c83` `docs: add premium accountant roadmap`
 - `fdf78a0` `fix: harden accountant client flows and modelo 10 review`
+- `23d3f6f` `fix: finalize modelo 10 import and ocr guardrails`
 
 ## Recomendações imediatas para próxima fase
 
@@ -141,6 +153,7 @@ Estado: `operacional com review`, tecnicamente validado no caso real `CAAD`
 3. unificar importações num `Centro de Importação`
 4. mover proveniência fiscal crítica para colunas próprias
 5. completar edição individual de candidato no `Modelo 10`
+6. reduzir chunks pesados com `dynamic import` e `manualChunks`
 
 ## Resumo executivo
 

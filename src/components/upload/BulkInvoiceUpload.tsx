@@ -20,6 +20,7 @@ import {
 } from '@/lib/bulkInvoiceProcessor';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { resolveScopedClientId } from '@/lib/clientScope';
 
 interface BulkInvoiceUploadProps {
   selectedClientId?: string | null;
@@ -33,7 +34,7 @@ export function BulkInvoiceUpload({ selectedClientId, clientName }: BulkInvoiceU
   const [isDragging, setIsDragging] = useState(false);
   const [invoiceType, setInvoiceType] = useState<'purchase' | 'sales'>('purchase');
   const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
-  const effectiveClientId = selectedClientId || user?.id;
+  const effectiveClientId = resolveScopedClientId(selectedClientId, user?.id);
 
   // Calculate stats
   const totalCount = queue.length;

@@ -50,6 +50,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { resolveScopedClientId } from '@/lib/clientScope';
 import { supabase } from '@/integrations/supabase/client';
 import {
   parseATExcel,
@@ -128,7 +129,7 @@ export function ATRecibosImporter({
   const [fileStatuses, setFileStatuses] = useState<FileProcessingStatus[]>([]);
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
 
-  const effectiveClientId = selectedClientId || user?.id;
+  const effectiveClientId = resolveScopedClientId(selectedClientId, user?.id);
 
   // Update retention rate when category changes
   const handleCategoriaChange = (value: ATCategoria) => {

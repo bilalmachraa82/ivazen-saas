@@ -36,6 +36,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { resolveScopedClientId } from '@/lib/clientScope';
 
 interface SAFTInvoiceImporterProps {
   selectedClientId?: string | null;
@@ -63,7 +64,7 @@ export function SAFTInvoiceImporter({ selectedClientId, clientName, onComplete }
   const [duplicatesCount, setDuplicatesCount] = useState(0);
   const [invoiceType, setInvoiceType] = useState<'purchase' | 'sales'>('purchase');
 
-  const effectiveClientId = selectedClientId || user?.id;
+  const effectiveClientId = resolveScopedClientId(selectedClientId, user?.id);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();

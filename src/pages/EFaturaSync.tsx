@@ -3,7 +3,7 @@
  * Hybrid import system: CSV + API Test + API Production
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { ZenCard } from '@/components/zen';
 import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,12 +34,14 @@ import { EFaturaAPIConfig } from '@/components/efatura/EFaturaAPIConfig';
 import { ClientSearchSelector } from '@/components/ui/client-search-selector';
 import { useAuth } from '@/hooks/useAuth';
 import { useClientManagement } from '@/hooks/useClientManagement';
+import { useSelectedClient } from '@/hooks/useSelectedClient';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useATConfig, useSyncHistory } from '@/hooks/useATCredentials';
 import { formatDistanceToNow } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { isFiscallyEffectivePurchase, isPurchasePendingReview } from '@/lib/fiscalStatus';
+import { resolveScopedClientId } from '@/lib/clientScope';
 
 type DataSource = 'csv' | 'api_test' | 'api_prod';
 
@@ -47,7 +49,7 @@ export default function EFaturaSync() {
   const { user, roles } = useAuth();
   const isAccountant = roles?.includes('accountant');
   const [selectedSource, setSelectedSource] = useState<DataSource>('csv');
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const { selectedClientId, setSelectedClientId } = useSelectedClient();
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const currentQuarter = Math.ceil((new Date().getMonth() + 1) / 3);
@@ -56,20 +58,8 @@ export default function EFaturaSync() {
   // Client management (same pattern as Modelo10)
   const { clients, isLoadingClients } = useClientManagement();
 
-  // Default selection for accountants
-  useEffect(() => {
-    if (!isAccountant || !user?.id || selectedClientId) return;
-    if (isLoadingClients) return;
-
-    if (clients.length > 0) {
-      setSelectedClientId(clients[0].id);
-    } else {
-      setSelectedClientId(user.id);
-    }
-  }, [isAccountant, user?.id, selectedClientId, isLoadingClients, clients]);
-
   // Check AT credentials status
-  const effectiveClientId = selectedClientId || user?.id;
+  const effectiveClientId = resolveScopedClientId(isAccountant ? selectedClientId : undefined, user?.id);
 
   const { data: atCredentials } = useQuery({
     queryKey: ['at-credentials', effectiveClientId],
@@ -119,6 +109,39 @@ export default function EFaturaSync() {
   // Sync history
   const { data: syncHistory } = useSyncHistory(effectiveClientId || undefined, 5);
 
+  if (isAccountant && clients.length > 0 && !selectedClientId) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">e-Fatura</h1>
+            <p className="text-muted-foreground">
+              Importe compras do Portal das Finanças para o cliente certo
+            </p>
+          </div>
+
+          <ZenCard>
+            <CardHeader>
+              <CardTitle>Selecionar cliente</CardTitle>
+              <CardDescription>
+                Escolha explicitamente o cliente antes de sincronizar ou importar dados AT.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ClientSearchSelector
+                clients={clients}
+                selectedClientId={selectedClientId}
+                onSelect={setSelectedClientId}
+                isLoading={isLoadingClients}
+                placeholder="Selecionar cliente..."
+              />
+            </CardContent>
+          </ZenCard>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -139,9 +162,6 @@ export default function EFaturaSync() {
                 selectedClientId={selectedClientId}
                 onSelect={setSelectedClientId}
                 isLoading={isLoadingClients}
-                showOwnAccount={true}
-                ownAccountId={user?.id}
-                ownAccountLabel="Minha conta"
                 placeholder="Selecionar cliente..."
               />
             )}

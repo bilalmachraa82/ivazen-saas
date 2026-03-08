@@ -34,6 +34,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { resolveScopedClientId } from '@/lib/clientScope';
 import { supabase } from '@/integrations/supabase/client';
 import {
   parseEmailNotification,
@@ -80,7 +81,7 @@ export function EmailNotificationImporter({
   const [importedCount, setImportedCount] = useState(0);
   const [selectedEmail, setSelectedEmail] = useState<EmailSelection | null>(null);
 
-  const effectiveClientId = selectedClientId || user?.id;
+  const effectiveClientId = resolveScopedClientId(selectedClientId, user?.id);
 
   /**
    * Extract subject from email text
