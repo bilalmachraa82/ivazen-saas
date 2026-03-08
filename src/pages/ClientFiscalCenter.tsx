@@ -28,7 +28,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAccountantClients } from '@/hooks/useAccountantClients';
 import { useSelectedClient } from '@/hooks/useSelectedClient';
 import { useClientFiscalCenter } from '@/hooks/useClientFiscalCenter';
-import { getCurrentQuarter, getQuarterLabel } from '@/lib/fiscalQuarter';
+import { useReviewInbox } from '@/hooks/useReviewInbox';
+import { useReconciliationData } from '@/hooks/useReconciliationData';
+import { ReviewInboxPanel } from '@/components/fiscalcenter/ReviewInboxPanel';
+import { getCurrentQuarter, getQuarterLabel, getQuarterDateRange } from '@/lib/fiscalQuarter';
 import { taxpayerKindBadge, taxpayerKindLabel, isObligationPrimary } from '@/lib/taxpayerKind';
 import { cn } from '@/lib/utils';
 
@@ -186,10 +189,30 @@ export default function ClientFiscalCenter() {
     quarter: selectedQuarter,
   });
   const periodLabel = getQuarterLabel(selectedYear, selectedQuarter);
+  const quarterRange = getQuarterDateRange(selectedYear, selectedQuarter);
   const yearOptions = Array.from({ length: 5 }, (_, index) => currentYear - index);
   const quarterOptions = [1, 2, 3, 4];
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(value);
+
+  // Reconciliation data (feeds both the inbox and is reused for divergence detection)
+  const { data: reconciliation } = useReconciliationData({
+    clientId: effectiveClientId,
+    fiscalYear: selectedYear,
+    quarter: selectedQuarter,
+    rangeStart: quarterRange.start,
+    rangeEnd: quarterRange.end,
+  });
+
+  // Review inbox — aggregates all pending items for the accountant
+  const { data: inboxData } = useReviewInbox({
+    clientId: effectiveClientId,
+    fiscalYear: selectedYear,
+    quarter: selectedQuarter,
+    rangeStart: quarterRange.start,
+    rangeEnd: quarterRange.end,
+    reconciliation: reconciliation ?? null,
+  });
 
   const displayName =
     data?.client?.company_name ||
@@ -537,35 +560,40 @@ export default function ClientFiscalCenter() {
                   </CardContent>
                 </ZenCard>
 
-                <ZenCard gradient="muted" withLine className="shadow-lg">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">Próximas ações</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {nextActions.length === 0 ? (
-                      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-4 text-sm text-emerald-700 dark:text-emerald-300">
-                        Este cliente está num estado fiscal limpo para {periodLabel}. O próximo passo provável é só revisão final e exportação.
-                      </div>
-                    ) : (
-                      nextActions.map((action) => (
-                        <div
-                          key={action.title}
-                          className="rounded-2xl border border-border/60 bg-background/70 px-4 py-4"
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <div>
-                              <div className="text-sm font-semibold">{action.title}</div>
-                              <p className="mt-1 text-xs text-muted-foreground">{action.description}</p>
-                            </div>
-                            <Button asChild size="sm" variant="outline" className="shrink-0">
-                              <Link to={action.route}>{action.label}</Link>
-                            </Button>
-                          </div>
+                {/* Review Inbox — replaces static "Próximas ações" for accountants */}
+                {isAccountant && inboxData ? (
+                  <ReviewInboxPanel data={inboxData} periodLabel={periodLabel} />
+                ) : (
+                  <ZenCard gradient="muted" withLine className="shadow-lg">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">Próximas ações</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {nextActions.length === 0 ? (
+                        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-4 text-sm text-emerald-700 dark:text-emerald-300">
+                          Este cliente está num estado fiscal limpo para {periodLabel}. O próximo passo provável é só revisão final e exportação.
                         </div>
-                      ))
-                    )}
-                  </CardContent>
-                </ZenCard>
+                      ) : (
+                        nextActions.map((action) => (
+                          <div
+                            key={action.title}
+                            className="rounded-2xl border border-border/60 bg-background/70 px-4 py-4"
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
+                                <div className="text-sm font-semibold">{action.title}</div>
+                                <p className="mt-1 text-xs text-muted-foreground">{action.description}</p>
+                              </div>
+                              <Button asChild size="sm" variant="outline" className="shrink-0">
+                                <Link to={action.route}>{action.label}</Link>
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </CardContent>
+                  </ZenCard>
+                )}
               </div>
             </div>
 
