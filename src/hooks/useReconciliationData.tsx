@@ -53,22 +53,22 @@ export function useReconciliationData(options: UseReconciliationDataOptions) {
         withholdingsCountRes,
         candidatesRes,
       ] = await Promise.all([
-        // Purchases from AT
+        // Purchases from AT (efatura_source = webservice or csv_portal)
         supabase
           .from('invoices')
           .select('id', { count: 'exact', head: true })
           .eq('client_id', clientId)
           .gte('document_date', rangeStart)
           .lte('document_date', rangeEnd)
-          .in('source', ['at', 'efatura', 'at_sync']),
-        // Purchases from upload/OCR
+          .in('efatura_source', ['webservice', 'csv_portal']),
+        // Purchases from manual upload/OCR (efatura_source = manual or null)
         supabase
           .from('invoices')
           .select('id', { count: 'exact', head: true })
           .eq('client_id', clientId)
           .gte('document_date', rangeStart)
           .lte('document_date', rangeEnd)
-          .not('source', 'in', '(at,efatura,at_sync)'),
+          .not('efatura_source', 'in', '(webservice,csv_portal)'),
         // Modelo 10 withholdings from AT source
         supabase
           .from('tax_withholdings')
@@ -83,11 +83,12 @@ export function useReconciliationData(options: UseReconciliationDataOptions) {
           .eq('client_id', clientId)
           .eq('fiscal_year', fiscalYear)
           .not('import_source', 'in', '(at_csv,at_sire,at_sire_detection)'),
-        // Sales revenue for the quarter
+        // Sales revenue for the quarter (only validated — matches SS calculation universe)
         supabase
           .from('sales_invoices')
           .select('total_amount')
           .eq('client_id', clientId)
+          .eq('status', 'validated')
           .gte('document_date', rangeStart)
           .lte('document_date', rangeEnd),
         // SS declaration for the quarter

@@ -19,11 +19,21 @@ export function SSReconciliationPanel({ clientId, fiscalYear, quarter, rangeStar
   const { data, isLoading } = useQuery({
     queryKey: ['ss-reconciliation', clientId, fiscalYear, quarter],
     queryFn: async () => {
-      const [salesRes, ssRes, allQuartersRes] = await Promise.all([
+      const [salesRes, pendingSalesRes, ssRes, allQuartersRes] = await Promise.all([
+        // Only validated sales — matches SS calculation universe
         supabase
           .from('sales_invoices')
           .select('total_amount, revenue_category, document_type, status')
           .eq('client_id', clientId)
+          .eq('status', 'validated')
+          .gte('document_date', rangeStart)
+          .lte('document_date', rangeEnd),
+        // Pending sales — shown as context, not included in reconciliation
+        supabase
+          .from('sales_invoices')
+          .select('id', { count: 'exact', head: true })
+          .eq('client_id', clientId)
+          .neq('status', 'validated')
           .gte('document_date', rangeStart)
           .lte('document_date', rangeEnd),
         supabase
@@ -45,6 +55,7 @@ export function SSReconciliationPanel({ clientId, fiscalYear, quarter, rangeStar
       const recibosVerdes = salesRows.filter(r => r.document_type === 'FR' || r.document_type === 'FS');
       const recibosRevenue = recibosVerdes.reduce((sum, r) => sum + Number(r.total_amount || 0), 0);
       const pendingClassification = salesRows.filter(r => !r.revenue_category).length;
+      const pendingSalesCount = pendingSalesRes.count ?? 0;
 
       const declaration = ssRes.data;
       const declaredRevenue = declaration?.total_revenue ?? null;
@@ -56,6 +67,7 @@ export function SSReconciliationPanel({ clientId, fiscalYear, quarter, rangeStar
         salesCount: salesRows.length,
         recibosCount: recibosVerdes.length,
         pendingClassification,
+        pendingSalesCount,
         declaredRevenue,
         declarationStatus: declaration?.status ?? null,
         contributionAmount: declaration?.contribution_amount ?? null,
@@ -91,7 +103,10 @@ export function SSReconciliationPanel({ clientId, fiscalYear, quarter, rangeStar
     <div className="space-y-4">
       {/* Summary badges */}
       <div className="flex flex-wrap gap-2">
-        <Badge variant="outline">{data.salesCount} vendas no período</Badge>
+        <Badge variant="outline">{data.salesCount} vendas validadas</Badge>
+        {data.pendingSalesCount > 0 && (
+          <Badge variant="warning">{data.pendingSalesCount} pendentes (excluídas do cálculo)</Badge>
+        )}
         {data.recibosCount > 0 && (
           <Badge variant="secondary">{data.recibosCount} recibos verdes</Badge>
         )}
@@ -117,7 +132,7 @@ export function SSReconciliationPanel({ clientId, fiscalYear, quarter, rangeStar
         <h4 className="text-sm font-medium">Comparação Q{quarter} {fiscalYear}</h4>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <p className="text-xs text-muted-foreground">Receita total de vendas</p>
+            <p className="text-xs text-muted-foreground">Receita validada</p>
             <p className="text-lg font-semibold">{fmt(data.totalSalesRevenue)}</p>
             {data.recibosRevenue > 0 && data.recibosRevenue !== data.totalSalesRevenue && (
               <p className="text-xs text-muted-foreground">

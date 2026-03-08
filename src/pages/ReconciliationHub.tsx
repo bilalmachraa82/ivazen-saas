@@ -138,7 +138,7 @@ export default function ReconciliationHub() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ReconciliationTab clientId={effectiveClientId} />
+              <ReconciliationTab clientId={effectiveClientId} rangeStart={range.start} rangeEnd={range.end} />
             </CardContent>
           </Card>
         </TabsContent>

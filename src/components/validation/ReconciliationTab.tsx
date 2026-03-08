@@ -12,6 +12,8 @@ import { pt } from 'date-fns/locale';
 
 interface ReconciliationTabProps {
   clientId: string;
+  rangeStart?: string;
+  rangeEnd?: string;
   onCleanupComplete?: () => void;
 }
 
@@ -22,7 +24,7 @@ interface InvoiceMatch {
   document_date: string;
   document_number: string | null;
   total_amount: number;
-  source: string | null;
+  efatura_source: string | null;
   status: string;
   atcud: string | null;
 }
@@ -31,20 +33,23 @@ type ReconciliationCategory = 'duplicates' | 'at_only' | 'upload_only' | 'diverg
 
 const fmt = (n: number) => `€${Number(n).toFixed(2)}`;
 
-export function ReconciliationTab({ clientId, onCleanupComplete }: ReconciliationTabProps) {
+export function ReconciliationTab({ clientId, rangeStart, rangeEnd, onCleanupComplete }: ReconciliationTabProps) {
   const [activeCategory, setActiveCategory] = useState<ReconciliationCategory>('duplicates');
   const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
 
-  // Fetch all invoices for the client
+  // Fetch invoices for the client (period-filtered when range provided)
   const { data: allInvoices = [], isLoading } = useQuery({
-    queryKey: ['reconciliation-invoices', clientId],
+    queryKey: ['reconciliation-invoices', clientId, rangeStart, rangeEnd],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('invoices')
-        .select('id, supplier_nif, supplier_name, document_date, document_number, total_amount, source, status, atcud')
+        .select('id, supplier_nif, supplier_name, document_date, document_number, total_amount, efatura_source, status, atcud')
         .eq('client_id', clientId)
-        .in('status', ['pending', 'classified', 'validated'])
-        .order('document_date', { ascending: false });
+        .in('status', ['pending', 'classified', 'validated']);
+      if (rangeStart) query = query.gte('document_date', rangeStart);
+      if (rangeEnd) query = query.lte('document_date', rangeEnd);
+      query = query.order('document_date', { ascending: false });
+      const { data, error } = await query;
       if (error) throw error;
       return (data || []) as InvoiceMatch[];
     },
@@ -57,10 +62,10 @@ export function ReconciliationTab({ clientId, onCleanupComplete }: Reconciliatio
     const atInvoices: InvoiceMatch[] = [];
     const uploadInvoices: InvoiceMatch[] = [];
 
-    // Separate by source
+    // Separate by efatura_source (AT origin vs manual upload)
     allInvoices.forEach(inv => {
-      const src = (inv.source || '').toLowerCase();
-      if (src === 'at' || src === 'efatura' || src === 'at_sync') {
+      const src = (inv.efatura_source || 'manual').toLowerCase();
+      if (src === 'webservice' || src === 'csv_portal') {
         atInvoices.push(inv);
       } else {
         uploadInvoices.push(inv);
@@ -241,7 +246,9 @@ export function ReconciliationTab({ clientId, onCleanupComplete }: Reconciliatio
                     <TableCell className="font-mono text-sm">{duplicate.supplier_nif}</TableCell>
                     <TableCell className="text-right">{fmt(duplicate.total_amount)}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{duplicate.source || 'upload'}</Badge>
+                      <Badge variant="outline">
+                        {duplicate.efatura_source === 'webservice' ? 'AT SOAP' : duplicate.efatura_source === 'csv_portal' ? 'AT CSV' : 'Upload'}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
