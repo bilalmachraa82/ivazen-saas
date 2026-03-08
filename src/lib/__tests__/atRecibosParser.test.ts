@@ -225,10 +225,48 @@ describe('AT Recibos Parser', () => {
       expect(result.errors[0]).toContain('não contém retenções na fonte');
     });
 
-    it('deve falhar com mensagem explícita quando o CSV novo da AT traz retenções', async () => {
+    it('deve importar o CSV novo da AT quando traz retenções reais', async () => {
+      const content = [
+        '\uFEFFReferência;Tipo Documento;ATCUD;Situação;Data da Transação;Motivo Emissão;Data de Emissão;NIF Emitente;Nome do Emitente;Valor Tributável (em euros);Valor do IVA (em euros);Imposto do Selo como Retenção na Fonte;Valor do Imposto do Selo (em euros);Valor do IRS (em euros);Total de Impostos (em euros);Total com Impostos (em euros);Total de Retenções na Fonte (em euros);Contribuição Cultura (em euros);Total do Documento (em euros)',
+        'FR ATSIRE01FR/18;Fatura-Recibo;JJ37MMGM-18;Emitido;2025-10-10;Pagamento dos bens ou dos serviços;2025-12-31;103595503;JOSE FERNANDO COUTINHO PIRES;1000;0;;0;230;;1000;230;0;1000',
+      ].join('\n');
+
+      const file = createMockCsvFile(content, 'CAAD_2025_retencao.csv');
+      const result = await parseATExcel(file, { categoria: 'B_INDEPENDENTES' });
+
+      expect(result.success).toBe(true);
+      expect(result.errors).toHaveLength(0);
+      expect(result.records).toHaveLength(1);
+      expect(result.records[0].numRecibo).toBe('FR ATSIRE01FR/18');
+      expect(result.records[0].nif).toBe('103595503');
+      expect(result.records[0].nomeEmitente).toBe('JOSE FERNANDO COUTINHO PIRES');
+      expect(result.records[0].nomeCliente).toBe('');
+      expect(result.records[0].valorBruto).toBe(1000);
+      expect(result.records[0].retencao).toBe(230);
+      expect(result.records[0].taxaRetencao).toBeCloseTo(0.23, 5);
+      expect(result.warnings[0]).toContain('1 documento(s) com retenção importados');
+    });
+
+    it('deve respeitar casas decimais a 3 dígitos no CSV atual da AT', async () => {
+      const content = [
+        '\uFEFFReferência;Tipo Documento;ATCUD;Situação;Data da Transação;Motivo Emissão;Data de Emissão;NIF Emitente;Nome do Emitente;Valor Tributável (em euros);Valor do IVA (em euros);Imposto do Selo como Retenção na Fonte;Valor do Imposto do Selo (em euros);Valor do IRS (em euros);Total de Impostos (em euros);Total com Impostos (em euros);Total de Retenções na Fonte (em euros);Contribuição Cultura (em euros);Total do Documento (em euros)',
+        'FR ATSIRE01FR/92;Fatura-Recibo;JJX34VFB-92;Emitido;2026-03-07;Pagamento dos bens ou dos serviços;2026-03-07;103595503;JOSE FERNANDO COUTINHO PIRES;568,64;130,787;;0;130,787;;699,427;130,787;0;568,64',
+      ].join('\n');
+
+      const file = createMockCsvFile(content, 'CAAD_2026_decimais3.csv');
+      const result = await parseATExcel(file, { categoria: 'B_INDEPENDENTES' });
+
+      expect(result.success).toBe(true);
+      expect(result.records).toHaveLength(1);
+      expect(result.records[0].valorBruto).toBe(568.64);
+      expect(result.records[0].retencao).toBe(130.787);
+      expect(result.records[0].taxaRetencao).toBeCloseTo(0.23, 5);
+    });
+
+    it('deve continuar a bloquear o CSV novo da AT das vendas emitidas com retenções', async () => {
       const content = [
         '\uFEFFReferência;Tipo Documento;ATCUD;Situação;Data da Transação;Motivo Emissão;Data de Emissão;País do Adquirente;NIF Adquirente;Nome do Adquirente;Valor Tributável (em euros);Valor do IVA (em euros);Imposto do Selo como Retenção na Fonte;Valor do Imposto do Selo (em euros);Valor do IRS (em euros);Total de Impostos (em euros);Total com Impostos (em euros);Total de Retenções na Fonte (em euros);Contribuição Cultura (em euros);Total do Documento (em euros)',
-        'FR ATSIRE01FR/18;Fatura-Recibo;JJ37MMGM-18;Emitido;2025-10-10;Pagamento dos bens ou dos serviços;2025-12-31;PORTUGAL;518326390;EMPRESA TESTE LDA;1000;0;;0;230;;1000;230;0;1000',
+        'FR ATSIRE01FR/19;Fatura-Recibo;JJ37MMGM-19;Emitido;2025-10-10;Pagamento dos bens ou dos serviços;2025-12-31;PORTUGAL;518326390;EMPRESA TESTE LDA;1000;0;;0;230;;1000;230;0;1000',
       ].join('\n');
 
       const file = createMockCsvFile(content, 'Bilal_2025_retencao.csv');
@@ -236,7 +274,7 @@ describe('AT Recibos Parser', () => {
 
       expect(result.success).toBe(false);
       expect(result.records).toHaveLength(0);
-      expect(result.errors[0]).toContain('não suporta este formato');
+      expect(result.errors[0]).toContain('vendas emitidas');
       expect(result.warnings[0]).toContain('1 documento(s) com retenção');
     });
   });

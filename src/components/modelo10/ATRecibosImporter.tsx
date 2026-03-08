@@ -124,7 +124,7 @@ export function ATRecibosImporter({
   const [importedCount, setImportedCount] = useState(0);
   const [duplicatesCount, setDuplicatesCount] = useState(0);
   const [categoria, setCategoria] = useState<ATCategoria>('B_INDEPENDENTES');
-  const [taxaRetencao, setTaxaRetencao] = useState(25);
+  const [taxaRetencao, setTaxaRetencao] = useState(TAXAS_RETENCAO['B_INDEPENDENTES'] * 100);
   const [fileStatuses, setFileStatuses] = useState<FileProcessingStatus[]>([]);
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
 
@@ -445,11 +445,11 @@ export function ATRecibosImporter({
           gross_amount: item.gross_amount,
           withholding_amount: item.withholding_amount,
           withholding_rate: item.withholding_rate,
-          fiscal_region: item.fiscal_region,
+          location_code: item.fiscal_region || 'C',
           payment_date: item.payment_date,
           fiscal_year: selectedYear,
           is_non_resident: false,
-          status: 'pending',
+          status: 'draft',
         });
 
         if (error) {
@@ -507,7 +507,7 @@ export function ATRecibosImporter({
       <div>
         <h2 className="text-2xl font-bold">Importar Recibos AT</h2>
         <p className="text-muted-foreground mt-1">
-          Importe ficheiros Excel do Portal das Finanças (suporta múltiplos ficheiros)
+          Importe ficheiros Excel ou CSV do Portal das Finanças (suporta múltiplos ficheiros)
         </p>
       </div>
 
@@ -558,8 +558,8 @@ export function ATRecibosImporter({
             <Alert>
               <Info className="h-4 w-4" />
               <AlertDescription>
-                Este importador alimenta retenções/Modelo 10 e, via backend, sincroniza receitas para Segurança Social.
-                Não cria automaticamente vendas para cálculo de IVA.
+                Este importador alimenta retenções/Modelo 10. Para clientes empresa, use a exportação de
+                <strong> documentos adquiridos</strong>. Para ENI com recibos verdes emitidos, continue a usar o fluxo de vendas/SS.
               </AlertDescription>
             </Alert>
 
@@ -571,7 +571,8 @@ export function ATRecibosImporter({
                 <div className="flex-1">
                   <p className="font-medium">Aceda ao Portal das Finanças</p>
                   <p className="text-sm text-muted-foreground">
-                    Faça login e vá a Consultar → Recibos Verdes ou Rendas
+                    Faça login e vá a Faturas e Recibos → Consultar. Para Modelo 10 de empresa, escolha
+                    <strong> Bens ou Serviços Adquiridos</strong>.
                   </p>
                   <Button
                     variant="outline"
@@ -592,9 +593,9 @@ export function ATRecibosImporter({
                   2
                 </div>
                 <div>
-                  <p className="font-medium">Exporte para Excel</p>
+                  <p className="font-medium">Exporte para CSV ou Excel</p>
                   <p className="text-sm text-muted-foreground">
-                    Selecione o período {selectedYear} e exporte a lista de recibos
+                    Selecione o período {selectedYear} e exporte a lista oficial da AT. O formato CSV da nova app já é suportado.
                   </p>
                 </div>
               </div>

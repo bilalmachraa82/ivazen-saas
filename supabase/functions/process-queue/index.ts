@@ -1,6 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
+import { parseJsonFromAI } from "../_shared/parseJsonFromAI.ts";
+import { isServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
 
-const VERSION = '5.6.0'; // Phase 3: Safe normalize - no fiscal suffix stripping
+const VERSION = '5.9.1'; // SAVED guardrail + isExplicitZeroRate removal
 
 // ── OUTCOME CODES ──
 // SAVED              – extracted & inserted into tax_withholdings
@@ -21,8 +23,8 @@ function normalizeDocumentReference(ref: string, isFilenameFallback = false): st
   // Strip angle brackets (some AI extractions wrap references in <...>)
   normalized = normalized.replace(/^</, '').replace(/>$/, '').trim();
   
-  // Remove common Portuguese document type prefixes
-  const prefixes = ['FR ', 'FT ', 'RG ', 'NC ', 'ND ', 'R ', 'F '];
+  // Remove common Portuguese document type prefixes (including international variants)
+  const prefixes = ['FRI ', 'FTI ', 'RGI ', 'FR ', 'FT ', 'RG ', 'NC ', 'ND ', 'R ', 'F '];
   
   for (const prefix of prefixes) {
     if (normalized.toUpperCase().startsWith(prefix)) {
@@ -40,6 +42,68 @@ function normalizeDocumentReference(ref: string, isFilenameFallback = false): st
   }
   
   return normalized.trim();
+}
+
+/**
+ * Detect if a reference is in ATCUD format (e.g. "JJSBPRS7-22", "ATCUD:JJXB72P7-23")
+ * ATCUD = 8+ alphanumeric chars, hyphen, number(s)
+ */
+function isAtcudFormat(ref: string): boolean {
+  if (!ref) return false;
+  const cleaned = ref.replace(/^ATCUD:/i, '').trim();
+  return /^[A-Z0-9]{6,}-\d+$/i.test(cleaned);
+}
+
+/**
+ * Extract canonical ATSIRE series reference from filename.
+ * Filename pattern: Recibo_Verde_{adquirenteNIF}_{type}_{series}_{num}_{id}.pdf
+ * Example: Recibo_Verde_508840309_FR_ATSIRE01FR_22_1659.pdf → ATSIRE01FR/22
+ */
+function extractSeriesRefFromFilename(filename: string): string | null {
+  if (!filename) return null;
+  const match = filename.match(/_(FR|FT|FRI|FTI|RG|RGI)_(ATSIRE\d+\w+)_(\d+)_/i);
+  if (match) return `${match[2]}/${match[3]}`;
+  return null;
+}
+
+/**
+ * Resolve the canonical document reference for deduplication.
+ * Priority: ATSIRE series ref > filename-derived series > normalized AI ref
+ * When ATCUD is replaced, it's preserved in extracted_data.atcud_original.
+ */
+// deno-lint-ignore no-explicit-any
+function resolveCanonicalReference(extractedData: Record<string, any>, filename: string): string {
+  const aiRef = extractedData.document_reference || '';
+  const normalizedAiRef = normalizeDocumentReference(String(aiRef));
+
+  // If AI already returned a series reference, use it
+  if (normalizedAiRef.startsWith('ATSIRE')) {
+    return normalizedAiRef;
+  }
+
+  // If AI returned ATCUD format, try to reconstruct from filename
+  if (isAtcudFormat(aiRef)) {
+    const fromFilename = extractSeriesRefFromFilename(filename);
+    if (fromFilename) {
+      // Preserve the original ATCUD for auditability
+      extractedData.atcud_original = aiRef;
+      console.log(`[process-queue] ATCUD→Series: "${aiRef}" → "${fromFilename}" (from filename)`);
+      return fromFilename;
+    }
+    // No filename match — use ATCUD as-is (fallback)
+    return normalizedAiRef;
+  }
+
+  // For any other format, try filename extraction first
+  const fromFilename = extractSeriesRefFromFilename(filename);
+  if (fromFilename && !normalizedAiRef.startsWith('ATSIRE')) {
+    extractedData.atcud_original = aiRef || undefined;
+    return fromFilename;
+  }
+
+  // Final fallback: use normalized AI ref or filename
+  if (normalizedAiRef) return normalizedAiRef;
+  return normalizeDocumentReference(filename, true);
 }
 
 const corsHeaders = {
@@ -87,6 +151,55 @@ EXTRAI SEMPRE todos os campos financeiros independentemente de anulação.
 - "Reimpressão"
 
 Estes são documentos VÁLIDOS - apenas cópias do original. Processa normalmente.
+
+=== IDENTIFICAÇÃO DO PRESTADOR vs ADQUIRENTE (CRÍTICO) ===
+
+Num recibo verde ou factura portuguesa existem SEMPRE dois intervenientes:
+- TRANSMITENTE / PRESTADOR DE SERVIÇOS = quem emite o recibo e presta o serviço
+- ADQUIRENTE = quem paga pelo serviço e retém o imposto
+
+⚠️ REGRA ABSOLUTA:
+- beneficiary_nif = NIF do TRANSMITENTE / PRESTADOR (quem recebe o rendimento)
+- payer_nif = NIF do ADQUIRENTE (quem paga e retém imposto)
+- NUNCA usar o NIF do adquirente como beneficiary_nif
+
+Como distinguir nos documentos:
+1. RECIBOS VERDES (Portal das Finanças):
+   - Secção "TRANSMITENTE" ou "PRESTADOR DE SERVIÇOS" → beneficiary_nif, beneficiary_name
+   - Secção "ADQUIRENTE" → payer_nif
+   - O TRANSMITENTE é tipicamente uma pessoa singular (NIF começa por 1, 2 ou 3)
+   - O ADQUIRENTE é tipicamente uma empresa (NIF começa por 5)
+
+2. FATURAS/RECIBOS DE PRESTADORES:
+   - O EMITENTE da factura = prestador → beneficiary_nif
+   - O CLIENTE / DESTINATÁRIO = adquirente → payer_nif
+
+3. RECIBOS DE RENDA:
+   - O SENHORIO (proprietário) = prestador → beneficiary_nif
+   - O INQUILINO = adquirente → payer_nif
+
+=== RETENÇÃO NA FONTE: ZERO LEGÍTIMO vs ERRO ===
+
+Alguns documentos têm legitimamente retenção = 0,00€. Isto NÃO é erro de extração.
+
+Quando o documento diz EXPLICITAMENTE:
+- "Sem retenção - Art.101º, n.º 1 do CIRS" (rendimentos < 15.000€/ano)
+- "Sem retenção" com referência legal
+- "Isento" ou "Dispensado de retenção" com base legal
+- withholding_rate = 0% indicado no documento
+
+Nestes casos, devolve:
+  "withholding_rate": 0,
+  "withholding_amount": 0,
+  "withholding_status": "no_withholding_legal",
+  "withholding_reason_text": "texto exacto do documento (ex: Sem retenção - Art.101º, n.º1 do CIRS)"
+
+Se o documento tem taxa > 0% mas o valor de retenção parece 0 ou está em falta:
+  "withholding_status": "withholding_expected",
+  "withholding_reason_text": "taxa indicada mas valor não legível"
+
+Se o documento simplesmente não menciona retenção:
+  "withholding_status": "unknown"
 
 === ONDE ENCONTRAR OS VALORES ===
 
@@ -172,15 +285,18 @@ ISENTO (0%): Se rendimentos anuais < €15.000 (Art. 101º-B CIRS)
 
 === FORMATO JSON ===
 {
-  "beneficiary_nif": "NIF do prestador (9 dígitos)",
-  "beneficiary_name": "Nome do prestador",
-  "beneficiary_address": "Morada (se visível)",
+  "beneficiary_nif": "NIF do TRANSMITENTE/PRESTADOR (9 dígitos) — NUNCA o NIF do adquirente",
+  "beneficiary_name": "Nome do TRANSMITENTE/PRESTADOR",
+  "beneficiary_address": "Morada do prestador (se visível)",
+  "payer_nif": "NIF do ADQUIRENTE (9 dígitos)",
   "income_category": "B, F, E, H ou R",
   "gross_amount": número (ex: 1000.00),
   "exempt_amount": número (ex: 0.00),
   "dispensed_amount": número (ex: 0.00),
-  "withholding_rate": percentagem (ex: 23),
-  "withholding_amount": número (ex: 230.00),
+  "withholding_rate": percentagem (ex: 23, ou 0 se isento),
+  "withholding_amount": número (ex: 230.00, ou 0 se isento),
+  "withholding_status": "no_withholding_legal" | "withholding_expected" | "unknown",
+  "withholding_reason_text": "texto exacto do documento sobre retenção (ex: Sem retenção - Art.101º, n.º1 do CIRS)",
   "payment_date": "YYYY-MM-DD",
   "document_reference": "número do documento",
   "confidence": 0-100
@@ -354,15 +470,10 @@ async function processItem(
       throw new Error('No content in AI response');
     }
 
-    // Parse JSON response
-    let jsonStr = content.trim();
-    if (jsonStr.startsWith('```json')) jsonStr = jsonStr.slice(7);
-    else if (jsonStr.startsWith('```')) jsonStr = jsonStr.slice(3);
-    if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3);
-    jsonStr = jsonStr.trim();
-
+    // Parse JSON response using shared robust parser
+    // Handles: markdown blocks, reasoning tokens, XML tags, multiple objects
     // deno-lint-ignore no-explicit-any
-    const extractedData: Record<string, any> = JSON.parse(jsonStr);
+    const extractedData: Record<string, any> = parseJsonFromAI(content);
 
     // ── NOT_INVOICE ──
     if (extractedData.not_invoice === true) {
@@ -485,13 +596,84 @@ async function processItem(
       return { status: 'needs_review', outcomeCode: 'NEEDS_REVIEW' };
     }
 
+    // ── VALIDATION: adquirente NIF misattribution ──
+    // Filename pattern: Recibo_Verde_{adquirenteNIF}_{type}_{series}_{num}_{id}.pdf
+    const adquirenteMatch = item.file_name?.match(/Recibo_Verde_(\d{9})_/);
+    const filenameAdquirenteNif = adquirenteMatch?.[1];
+
+    // Cross-check: if AI returned payer_nif, verify it matches the filename adquirente
+    if (filenameAdquirenteNif && extractedData.payer_nif && extractedData.payer_nif !== filenameAdquirenteNif) {
+      warnings.push(`⚠️ payer_nif AI (${extractedData.payer_nif}) ≠ adquirente filename (${filenameAdquirenteNif})`);
+    }
+
+    // Auto-correct: if AI set beneficiary_nif = adquirente and also returned a different payer_nif,
+    // the payer_nif is likely the correct beneficiary (role swap)
+    if (filenameAdquirenteNif && extractedData.beneficiary_nif === filenameAdquirenteNif) {
+      // Check if AI also returned a payer_nif that's different — if so, they're swapped
+      if (extractedData.payer_nif && extractedData.payer_nif !== filenameAdquirenteNif) {
+        console.log(`[process-queue v${VERSION}] AUTO-FIX role swap: beneficiary ${extractedData.beneficiary_nif} → ${extractedData.payer_nif}`);
+        const realBeneficiary = extractedData.payer_nif;
+        extractedData.payer_nif = extractedData.beneficiary_nif;
+        extractedData.beneficiary_nif = realBeneficiary;
+        // Swap names too if available
+        if (extractedData.beneficiary_name && extractedData.payer_name) {
+          const tmpName = extractedData.beneficiary_name;
+          extractedData.beneficiary_name = extractedData.payer_name;
+          extractedData.payer_name = tmpName;
+        }
+        warnings.push('🔄 Corrigido automaticamente: NIF beneficiário/adquirente estavam trocados');
+      } else {
+        // No payer_nif to swap with — flag for review
+        const normRef = resolveCanonicalReference(extractedData, item.file_name);
+        console.log(`[process-queue v${VERSION}] NEEDS_REVIEW: beneficiary_nif=${extractedData.beneficiary_nif} matches adquirente from filename`);
+        await supabase.from('upload_queue').update({
+          status: 'needs_review',
+          processed_at: new Date().toISOString(),
+          extracted_data: extractedData,
+          confidence,
+          warnings: [...warnings, '⚠️ NIF do beneficiário igual ao NIF do adquirente no ficheiro — provável erro de extração'],
+          error_message: 'NEEDS_REVIEW: beneficiary_nif = adquirente NIF (role confusion)',
+          outcome_code: 'NEEDS_REVIEW',
+          normalized_doc_ref: normRef,
+          fiscal_year: paymentYear,
+        }).eq('id', item.id);
+        return { status: 'needs_review', outcomeCode: 'NEEDS_REVIEW' };
+      }
+    }
+
+    // ── VALIDATION: withholding_amount = 0 with positive base ──
+    // Skip if: exempt, cancelled, or AI confirmed legal zero withholding with textual evidence
+    // NOTE: withholding_rate=0 alone is NOT sufficient — requires withholding_status="no_withholding_legal"
+    const isFullyExempt = extractedData.exempt_amount && extractedData.exempt_amount >= extractedData.gross_amount;
+    const isCancelled = extractedData.possibly_cancelled === true;
+    const isLegalZeroWithholding = extractedData.withholding_status === 'no_withholding_legal';
+    if (extractedData.gross_amount > 0 && (!extractedData.withholding_amount || extractedData.withholding_amount === 0) && !isFullyExempt && !isCancelled && !isLegalZeroWithholding) {
+      const normRef = resolveCanonicalReference(extractedData, item.file_name);
+      console.log(`[process-queue v${VERSION}] NEEDS_REVIEW: gross_amount=${extractedData.gross_amount} but withholding_amount=0`);
+      await supabase.from('upload_queue').update({
+        status: 'needs_review',
+        processed_at: new Date().toISOString(),
+        extracted_data: extractedData,
+        confidence,
+        warnings: [...warnings, '⚠️ Valor bruto > 0 mas retenção = 0 — verificar se o documento tem retenção IRS'],
+        error_message: 'NEEDS_REVIEW: gross_amount > 0 but withholding_amount = 0',
+        outcome_code: 'NEEDS_REVIEW',
+        normalized_doc_ref: normRef,
+        fiscal_year: paymentYear,
+      }).eq('id', item.id);
+      return { status: 'needs_review', outcomeCode: 'NEEDS_REVIEW' };
+    }
+
+    // Log legal zero withholding acceptance
+    if (isLegalZeroWithholding) {
+      console.log(`[process-queue v${VERSION}] LEGAL ZERO WITHHOLDING accepted: ${item.id} nif=${extractedData.beneficiary_nif} reason="${extractedData.withholding_reason_text || 'n/a'}"`);
+    }
+
     // ── DEDUPE CHECK (with client_id) ──
     const targetClientId = item.client_id || item.user_id;
-    const rawReference = extractedData.document_reference || item.file_name;
-    const isFileFallback = !extractedData.document_reference;
-    const docReference = normalizeDocumentReference(String(rawReference), isFileFallback);
+    const docReference = resolveCanonicalReference(extractedData, item.file_name);
 
-    console.log(`[process-queue v${VERSION}] Normalized ref: "${rawReference}" → "${docReference}"`);
+    console.log(`[process-queue v${VERSION}] Canonical ref: "${extractedData.document_reference || item.file_name}" → "${docReference}"`);
 
     const { data: existingRecord } = await supabase
       .from('tax_withholdings')
@@ -524,6 +706,36 @@ async function processItem(
 
     // ── UPSERT (SAVED) ──
     await upsertWithholding(supabase, extractedData, targetClientId, docReference, paymentYear);
+
+    // ── GUARDRAIL: verify the TW was actually persisted ──
+    const { data: verifyTw } = await supabase
+      .from('tax_withholdings')
+      .select('id')
+      .eq('client_id', targetClientId)
+      .eq('beneficiary_nif', extractedData.beneficiary_nif)
+      .eq('document_reference', docReference)
+      .eq('fiscal_year', paymentYear)
+      .maybeSingle();
+
+    if (!verifyTw) {
+      // Upsert silently skipped or failed — do NOT mark as SAVED
+      console.error(`[process-queue v${VERSION}] GUARDRAIL: upsert completed but TW not found! item=${item.id} ref=${docReference} nif=${extractedData.beneficiary_nif}`);
+      await supabase
+        .from('upload_queue')
+        .update({
+          status: 'needs_review',
+          processed_at: new Date().toISOString(),
+          extracted_data: extractedData,
+          confidence,
+          warnings: [...warnings, '⚠️ GUARDRAIL: upsert executado mas tax_withholding não encontrado — possível conflito de deduplicação'],
+          error_message: 'NEEDS_REVIEW: SAVED guardrail failed — TW not persisted',
+          outcome_code: 'NEEDS_REVIEW',
+          normalized_doc_ref: docReference,
+          fiscal_year: paymentYear,
+        })
+        .eq('id', item.id);
+      return { status: 'needs_review', outcomeCode: 'NEEDS_REVIEW' };
+    }
 
     await supabase
       .from('upload_queue')
@@ -735,17 +947,23 @@ Deno.serve(async (req) => {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    const userSupabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-      auth: { persistSession: false },
-    });
+    // Accept both user JWT and service-role token (consistent with other edge functions)
+    const token = extractBearerToken(authHeader);
+    const isServiceRole = isServiceRoleToken(token, supabaseServiceKey);
 
-    const { data: { user }, error: authError } = await userSupabase.auth.getUser();
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (!isServiceRole) {
+      const userSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } },
+        auth: { persistSession: false },
+      });
+
+      const { data: { user }, error: authError } = await userSupabase.auth.getUser();
+      if (authError || !user) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {

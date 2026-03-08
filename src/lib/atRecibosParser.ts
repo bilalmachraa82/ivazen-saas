@@ -264,10 +264,11 @@ export async function parseATExcel(
     }
 
     const sheet = workbook.Sheets[sheetName];
-    const jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, {
+    const rawJsonData = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, {
       raw: false,
       defval: '',
     });
+    const jsonData = normalizeHeaderEncoding(rawJsonData);
 
     if (jsonData.length === 0) {
       return {
@@ -283,16 +284,16 @@ export async function parseATExcel(
     // Detect file type based on columns
     const headers = Object.keys(jsonData[0] || {});
 
-    const sireCsvGuard = guardATSireRecibosCSV(headers, jsonData);
-    if (sireCsvGuard) {
-      return sireCsvGuard;
-    }
-
     const fileType = detectFileType(headers, file.name);
 
     // Auto-detect category if not provided
     const categoria = options.categoria || (fileType === 'rendas' ? 'F_PREDIAIS' : 'B_INDEPENDENTES');
     const taxaRetencao = options.taxaRetencao || TAXAS_RETENCAO[categoria];
+
+    const sireCsvGuard = guardATSireRecibosCSV(headers, jsonData, file.name, categoria);
+    if (sireCsvGuard) {
+      return sireCsvGuard;
+    }
 
     // Map columns
     const columnMap = mapColumns(headers);
@@ -340,6 +341,33 @@ export async function parseATExcel(
 }
 
 // ============ HELPER FUNCTIONS ============
+
+function normalizeHeaderEncoding(rows: Record<string, any>[]): Record<string, any>[] {
+  return rows.map((row) => {
+    const normalizedRow: Record<string, any> = {};
+
+    for (const [key, value] of Object.entries(row)) {
+      normalizedRow[repairMojibake(key)] = value;
+    }
+
+    return normalizedRow;
+  });
+}
+
+function repairMojibake(value: string): string {
+  const stripped = value.replace(/^\uFEFF/, '');
+  if (!/[ÃÂ]/.test(stripped)) {
+    return stripped;
+  }
+
+  try {
+    const bytes = Uint8Array.from(Array.from(stripped).map((char) => char.charCodeAt(0) & 0xff));
+    const decoded = new TextDecoder('utf-8').decode(bytes).replace(/^\uFEFF/, '');
+    return decoded || stripped;
+  } catch {
+    return stripped;
+  }
+}
 
 async function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
   const f: any = file as any;
@@ -393,24 +421,32 @@ function detectFileType(headers: string[], filename: string): 'recibos_verdes' |
 
 function guardATSireRecibosCSV(
   headers: string[],
-  rows: Record<string, any>[]
+  rows: Record<string, any>[],
+  filename: string,
+  categoria: ATCategoria
 ): ATParseResult | null {
-  const normalized = headers.map(h => h.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
-  const requiredHeaders = [
+  const normalized = headers.map(h =>
+    h.replace(/^\uFEFF/, '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  );
+  const commonHeaders = [
     'referencia',
     'tipo documento',
     'atcud',
     'data de emissao',
-    'nif adquirente',
     'valor do irs (em euros)',
     'total de retencoes na fonte (em euros)',
   ];
-
-  const isATSire = requiredHeaders.every((header) =>
+  const isAtsireBase = commonHeaders.every((header) =>
     normalized.some((value) => value.includes(header) || header.includes(value))
   );
+  const isAcquiredExport =
+    normalized.some((value) => value.includes('nif emitente')) &&
+    normalized.some((value) => value.includes('nome do emitente'));
+  const isSalesExport =
+    normalized.some((value) => value.includes('nif adquirente')) &&
+    normalized.some((value) => value.includes('nome do adquirente'));
 
-  if (!isATSire) {
+  if (!isAtsireBase || (!isAcquiredExport && !isSalesExport)) {
     return null;
   }
 
@@ -443,19 +479,109 @@ function guardATSireRecibosCSV(
     };
   }
 
+  if (isSalesExport) {
+    return {
+      success: false,
+      records: [],
+      errors: [
+        'Ficheiro CSV da nova aplicação AT detetado com retenções do lado das vendas emitidas. Para este formato, use o fluxo de vendas importadas + candidatos de retenção.',
+      ],
+      warnings: [
+        `${docsWithRetention} documento(s) com retenção encontrados neste formato.`,
+      ],
+      summary: createEmptySummary(),
+      fileType: 'unknown',
+    };
+  }
+
+  const records = parseATSireRecibosRows(rows, filename, categoria);
+  const warnings = [
+    `${docsWithRetention} documento(s) com retenção importados do CSV atual da AT.`,
+  ];
+
+  if (records.length < docsWithRetention) {
+    warnings.push(`${docsWithRetention - records.length} documento(s) com retenção foram ignorados por dados incompletos ou estado inválido.`);
+  }
+
   return {
-    success: false,
-    records: [],
-    errors: [
-      'Ficheiro CSV da nova aplicação AT detetado com retenções. O importador antigo do Modelo 10 ainda não suporta este formato diretamente.',
-    ],
-    warnings: [
-      `${docsWithRetention} documento(s) com retenção encontrados neste formato.`,
-      'Use o fluxo de vendas importadas + candidatos de retenção, ou adapte este importador para o formato SIRE atual.',
-    ],
-    summary: createEmptySummary(),
+    success: records.length > 0,
+    records,
+    errors: records.length > 0
+      ? []
+      : ['Ficheiro CSV da nova aplicação AT detetado com retenções, mas nenhum documento pôde ser convertido para o formato do Modelo 10.'],
+    warnings,
+    summary: generateSummary(records),
     fileType: 'unknown',
   };
+}
+
+function parseATSireRecibosRows(
+  rows: Record<string, any>[],
+  filename: string,
+  categoria: ATCategoria
+): ATReciboRecord[] {
+  const records: ATReciboRecord[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const rowNum = i + 2;
+    const referencia = String(row['Referência'] ?? row['\uFEFFReferência'] ?? row['Referencia'] ?? '').trim();
+    const estado = String(row['Situação'] ?? row['Situacao'] ?? '').trim().toLowerCase();
+    const valorBruto = parseAmount(row['Valor Tributável (em euros)'] ?? row['Valor Tributavel (em euros)'] ?? '');
+    const valorIRS = parseAmount(row['Valor do IRS (em euros)'] ?? '');
+    const totalRetencao = parseAmount(
+      row['Total de Retenções na Fonte (em euros)'] ??
+      row['Total de Retencoes na Fonte (em euros)'] ??
+      ''
+    );
+    const retencao = totalRetencao > 0 ? totalRetencao : valorIRS;
+
+    if (!referencia || !valorBruto || retencao <= 0) {
+      continue;
+    }
+
+    if (estado && ['anulado', 'anulada', 'cancelado', 'cancelada', 'revogado', 'revogada', 'invalido', 'inválido', 'invalida', 'inválida'].some(flag => estado.includes(flag))) {
+      continue;
+    }
+
+    const nif = String(row['NIF Emitente'] ?? '').trim();
+    const nomeEmitente = String(row['Nome do Emitente'] ?? '').trim();
+    const nomeCliente = String(row['Nome do Adquirente'] ?? '').trim();
+    const dataTransacao = parseDate(String(row['Data da Transação'] ?? row['Data da Transacao'] ?? '').trim());
+    const dataEmissao = parseDate(String(row['Data de Emissão'] ?? row['Data de Emissao'] ?? '').trim());
+    const bestDate = dataTransacao || dataEmissao || new Date();
+    const taxaRetencao = valorBruto > 0 ? retencao / valorBruto : 0;
+    const warnings: string[] = [];
+
+    if (!nif) {
+      warnings.push('NIF do emitente não encontrado no CSV AT atual');
+    }
+    if (!nomeEmitente) {
+      warnings.push('Nome do emitente não encontrado no CSV AT atual');
+    }
+
+    records.push({
+      id: `${filename}-${rowNum}`,
+      referencia,
+      nif,
+      numContrato: '',
+      numRecibo: referencia,
+      nomeEmitente,
+      nomeCliente,
+      dataInicio: dataTransacao || bestDate,
+      dataFim: dataEmissao || bestDate,
+      valorBruto,
+      retencao,
+      taxaRetencao,
+      valorLiquido: valorBruto - retencao,
+      categoria,
+      linha: rowNum,
+      ficheiro: filename,
+      warnings,
+    });
+  }
+
+  return records;
 }
 
 /**
@@ -829,6 +955,18 @@ function parseDate(value: string | Date | undefined): Date | null {
     return isNaN(date.getTime()) ? null : date;
   }
 
+  // Some CSV readers coerce ISO dates to M/D/YY
+  const shortYearMatch = str.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2})$/);
+  if (shortYearMatch) {
+    const [, first, second, shortYear] = shortYearMatch;
+    const year = 2000 + parseInt(shortYear, 10);
+    const usesSlash = str.includes('/');
+    const month = usesSlash ? parseInt(first, 10) : parseInt(second, 10);
+    const day = usesSlash ? parseInt(second, 10) : parseInt(first, 10);
+    const date = new Date(year, month - 1, day);
+    return isNaN(date.getTime()) ? null : date;
+  }
+
   // Try Excel serial date
   const serial = parseFloat(str);
   if (!isNaN(serial) && serial > 30000 && serial < 60000) {
@@ -892,13 +1030,18 @@ function parseAmount(value: string | number | undefined): number {
 
   // Handle Portuguese number format (1.234,56 → 1234.56)
   if (cleaned.includes(',')) {
-    // Check if comma is decimal separator
-    if (/\d+,\d{1,2}$/.test(cleaned)) {
-      // Format: 1.234,56 or 1234,56
+    if (cleaned.includes('.')) {
+      if (cleaned.lastIndexOf(',') > cleaned.lastIndexOf('.')) {
+        cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+      } else {
+        cleaned = cleaned.replace(/,/g, '');
+      }
+    } else if (/^-?\d+(,\d{1,3})$/.test(cleaned)) {
       cleaned = cleaned.replace(/\./g, '').replace(',', '.');
-    } else {
-      // Format might be 1,234.56 (US format)
+    } else if (/^-?\d{1,3}(,\d{3})+$/.test(cleaned)) {
       cleaned = cleaned.replace(/,/g, '');
+    } else {
+      cleaned = cleaned.replace(',', '.');
     }
   }
 
