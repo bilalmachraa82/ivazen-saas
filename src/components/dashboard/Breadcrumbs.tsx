@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { ChevronRight, Home, Upload, FileCheck, Receipt, Calculator, FileText, Settings, Users, BarChart3, Shield, UserPlus, Briefcase, Download, Brain, AppWindow, type LucideIcon } from 'lucide-react';
+import { ChevronRight, Home, Upload, FileCheck, Receipt, Calculator, FileText, Settings, Users, BarChart3, Shield, UserPlus, Briefcase, Download, Brain, AppWindow, Activity, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
@@ -51,6 +51,11 @@ const routeMetadata: Record<string, RouteMetadata> = {
     label: 'Auditoria Documental',
     description: 'Reconciliação avançada com Excel de referência e extracção AI',
     icon: BarChart3
+  },
+  'at-control-center': {
+    label: 'AT Control Center',
+    description: 'Diagnóstico operacional AT por cliente com recomendações',
+    icon: Activity
   },
   'upload': {
     label: 'Carregar Faturas',

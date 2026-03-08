@@ -21,6 +21,15 @@ const ERROR_LABELS: Record<string, string> = {
   other: 'Outro',
 };
 
+// Semantic grouping: helps accountants distinguish what's actionable vs expected
+const ERROR_GROUPS: Record<string, { label: string; keys: string[] }> = {
+  config: { label: 'Configuração', keys: ['no_credentials', 'auth_failed', 'decrypt_failed'] },
+  platform: { label: 'Plataforma', keys: ['timeout', 'connector_down', 'network'] },
+  at_expected: { label: 'AT (esperado)', keys: ['time_window', 'year_future'] },
+  channel: { label: 'Canal indisponível', keys: ['portal_csrf'] },
+  other: { label: 'Outro', keys: ['other'] },
+};
+
 export function SyncHealthWidget() {
   const { data, isLoading, error } = useSyncHealth();
   const [expanded, setExpanded] = useState(false);
@@ -140,16 +149,28 @@ export function SyncHealthWidget() {
             {expanded && (
               <div className="mt-2 space-y-3">
                 {hasErrors && (
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-medium text-muted-foreground">Erros por tipo</p>
-                    {errorEntries
-                      .sort(([, a], [, b]) => b - a)
-                      .map(([reason, count]) => (
-                        <div key={reason} className="flex items-center justify-between text-sm">
-                          <span>{ERROR_LABELS[reason] || reason}</span>
-                          <Badge variant="outline" className="text-xs">{count}</Badge>
+                  <div className="space-y-3">
+                    {Object.entries(ERROR_GROUPS).map(([groupKey, group]) => {
+                      const groupErrors = errorEntries.filter(([key]) => group.keys.includes(key));
+                      if (groupErrors.length === 0) return null;
+                      const groupTotal = groupErrors.reduce((sum, [, c]) => sum + c, 0);
+                      return (
+                        <div key={groupKey} className="space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground flex items-center justify-between">
+                            <span>{group.label}</span>
+                            <span className="text-xs">{groupTotal}</span>
+                          </p>
+                          {groupErrors
+                            .sort(([, a], [, b]) => b - a)
+                            .map(([reason, count]) => (
+                              <div key={reason} className="flex items-center justify-between text-sm pl-2">
+                                <span className="text-muted-foreground">{ERROR_LABELS[reason] || reason}</span>
+                                <Badge variant="outline" className="text-xs">{count}</Badge>
+                              </div>
+                            ))}
                         </div>
-                      ))}
+                      );
+                    })}
                   </div>
                 )}
 

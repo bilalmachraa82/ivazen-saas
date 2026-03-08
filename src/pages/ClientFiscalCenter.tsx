@@ -240,9 +240,20 @@ export default function ClientFiscalCenter() {
     if (data.at.hasCredentials && data.at.lastSyncStatus !== 'success') {
       actions.push({
         title: 'Convém reexecutar o sync AT',
-        description: 'As credenciais estão configuradas, mas o último sync não ficou concluído com sucesso.',
-        route: isAccountant ? '/efatura' : '/upload',
-        label: isAccountant ? 'Ver sync AT' : 'Ver importações',
+        description: data.at.lastSyncError
+          ? `Último erro: ${data.at.lastSyncError.slice(0, 80)}`
+          : 'As credenciais estão configuradas, mas o último sync não ficou concluído com sucesso.',
+        route: isAccountant ? '/at-control-center' : '/upload',
+        label: isAccountant ? 'Ver diagnóstico AT' : 'Ver importações',
+      });
+    }
+
+    if (!data.at.hasCredentials && isAccountant) {
+      actions.push({
+        title: 'Credenciais AT em falta',
+        description: 'Configure credenciais AT para ativar sync automático de compras e vendas.',
+        route: '/at-control-center',
+        label: 'Configurar',
       });
     }
 

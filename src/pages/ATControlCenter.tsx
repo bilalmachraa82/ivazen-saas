@@ -8,7 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, RefreshCw, Search, Download, ShieldAlert, ShieldCheck, Clock3, KeyRound } from 'lucide-react';
+import { Loader2, RefreshCw, Search, Download, ShieldAlert, ShieldCheck, Clock3, KeyRound, Info, Lightbulb } from 'lucide-react';
+import {
+  Tooltip as UITooltip,
+  TooltipContent as UITooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useATControlCenter } from '@/hooks/useATControlCenter';
 import { useBulkSync } from '@/hooks/useBulkSync';
 import { toast } from 'sonner';
@@ -27,6 +33,92 @@ const STATUS_OPTIONS = [
   { value: 'success', label: 'Sucesso' },
   { value: 'never', label: 'Nunca sincronizado' },
 ] as const;
+
+// Actionable recommendation based on operational status + reason code
+function getRecommendation(status: string, reasonCode: string | null): { text: string; severity: 'info' | 'action' | 'config' } {
+  const rc = (reasonCode || '').toUpperCase();
+
+  if (status === 'no_credentials') {
+    return { text: 'Configurar credenciais AT para ativar sync automático.', severity: 'config' };
+  }
+  if (status === 'auth_failed') {
+    return { text: 'Credenciais rejeitadas pela AT. Pedir novas ao cliente.', severity: 'action' };
+  }
+  if (status === 'never') {
+    return { text: 'Nunca sincronizado. Configurar credenciais e agendar.', severity: 'config' };
+  }
+  if (status === 'success') {
+    if (rc === 'AT_EMPTY_LIST' || rc.includes('EMPTY')) {
+      return { text: 'NIF sem faturas certificadas no período. Normal para recibos verdes.', severity: 'info' };
+    }
+    return { text: 'Operacional. Sync automático ativo.', severity: 'info' };
+  }
+  if (status === 'partial') {
+    return { text: 'Sync parcial. Verificar documentos em falta ou períodos incompletos.', severity: 'action' };
+  }
+  if (status === 'processing' || status === 'queued') {
+    return { text: 'Em processamento. Aguardar conclusão.', severity: 'info' };
+  }
+
+  // status === 'error' — distinguish by reason code
+  if (rc === 'AT_EMPTY_LIST' || rc.includes('EMPTY')) {
+    return { text: 'NIF sem faturas certificadas. Usar importação CSV/Excel.', severity: 'info' };
+  }
+  if (rc.includes('DECRYPT') || rc === 'DECRYPT_FAILED') {
+    return { text: 'Falha de desencriptação. Contactar suporte técnico.', severity: 'action' };
+  }
+  if (rc.includes('TIMEOUT') || rc === 'TIMEOUT') {
+    return { text: 'Timeout na AT. Reprocessar ou aguardar janela noturna.', severity: 'action' };
+  }
+  if (rc.includes('CONNECTOR') || rc === 'CONNECTOR_DOWN') {
+    return { text: 'Conector AT indisponível. Verificar servidor VPS.', severity: 'action' };
+  }
+  if (rc.includes('CSRF') || rc === 'PORTAL_CSRF') {
+    return { text: 'Canal portal indisponível. Usar exportação oficial AT.', severity: 'info' };
+  }
+  if (rc.includes('TIME_WINDOW')) {
+    return { text: 'Fora da janela AT. O sync automático corre de manhã e à noite.', severity: 'info' };
+  }
+  if (rc.includes('NETWORK')) {
+    return { text: 'Erro de rede. O retry automático está ativo.', severity: 'info' };
+  }
+
+  return { text: 'Erro técnico. Verificar logs ou re-executar sync.', severity: 'action' };
+}
+
+// Semantic status badge with AT_EMPTY_LIST awareness
+function getSemanticStatusBadge(status: string, reasonCode: string | null) {
+  const rc = (reasonCode || '').toUpperCase();
+
+  // AT_EMPTY_LIST with error status is not a real error
+  if (status === 'error' && (rc === 'AT_EMPTY_LIST' || rc.includes('EMPTY'))) {
+    return <Badge variant="outline" className="border-blue-500/30 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">Sem faturas</Badge>;
+  }
+  if (status === 'error' && (rc.includes('CSRF') || rc.includes('PORTAL'))) {
+    return <Badge variant="outline" className="border-orange-500/30 bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300">Canal indisponível</Badge>;
+  }
+
+  switch (status) {
+    case 'success':
+      return <Badge className="bg-green-600">Sucesso</Badge>;
+    case 'partial':
+      return <Badge variant="outline" className="border-amber-500/30 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">Parcial</Badge>;
+    case 'processing':
+      return <Badge variant="outline" className="border-primary text-primary">Processando</Badge>;
+    case 'queued':
+      return <Badge variant="secondary">Em fila</Badge>;
+    case 'auth_failed':
+      return <Badge variant="destructive">Credenciais</Badge>;
+    case 'error':
+      return <Badge variant="destructive">Erro</Badge>;
+    case 'no_credentials':
+      return <Badge variant="secondary">Sem credenciais</Badge>;
+    case 'never':
+      return <Badge variant="outline">Nunca sincronizado</Badge>;
+    default:
+      return <Badge variant="outline">{status}</Badge>;
+  }
+}
 
 function toCsvValue(value: unknown): string {
   const str = String(value ?? '');
@@ -127,27 +219,6 @@ export default function ATControlCenter() {
     await refetch();
   };
 
-  const getStatusBadge = (value: string) => {
-    switch (value) {
-      case 'success':
-        return <Badge className="bg-green-600">Sucesso</Badge>;
-      case 'partial':
-        return <Badge variant="outline">Parcial</Badge>;
-      case 'processing':
-        return <Badge variant="outline" className="border-primary text-primary">Processando</Badge>;
-      case 'queued':
-        return <Badge variant="secondary">Em fila</Badge>;
-      case 'auth_failed':
-        return <Badge variant="destructive">Credenciais</Badge>;
-      case 'error':
-        return <Badge variant="destructive">Erro</Badge>;
-      case 'no_credentials':
-        return <Badge variant="secondary">Sem credenciais</Badge>;
-      default:
-        return <Badge variant="outline">{value}</Badge>;
-    }
-  };
-
   const needsAttention = stats.requires_attention > 0;
 
   return (
@@ -176,8 +247,19 @@ export default function ATControlCenter() {
           <Alert className="border-destructive/40 bg-destructive/5">
             <ShieldAlert className="h-4 w-4" />
             <AlertTitle>Clientes que requerem ação</AlertTitle>
-            <AlertDescription>
-              {stats.requires_attention} cliente(s) com bloqueio operacional. Priorize credenciais AT e erros técnicos.
+            <AlertDescription className="space-y-1">
+              <p>{stats.requires_attention} cliente(s) com bloqueio operacional.</p>
+              <ul className="text-xs list-disc list-inside space-y-0.5">
+                {(stats.status_counts.auth_failed || 0) > 0 && (
+                  <li>{stats.status_counts.auth_failed} com credenciais rejeitadas — pedir novas ao cliente</li>
+                )}
+                {(stats.status_counts.no_credentials || 0) > 0 && (
+                  <li>{stats.status_counts.no_credentials} sem credenciais — configurar acesso AT</li>
+                )}
+                {(stats.status_counts.error || 0) > 0 && (
+                  <li>{stats.status_counts.error} com erro técnico — verificar detalhes na tabela</li>
+                )}
+              </ul>
             </AlertDescription>
           </Alert>
         )}
@@ -291,13 +373,26 @@ export default function ATControlCenter() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-1">
-                          {getStatusBadge(row.operational_status)}
-                          {row.last_reason_code ? (
+                        <div className="flex flex-col gap-1.5">
+                          {getSemanticStatusBadge(row.operational_status, row.last_reason_code)}
+                          {row.last_reason_code && (
                             <Badge variant="outline" className="font-mono text-xs">{row.last_reason_code}</Badge>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
                           )}
+                          <TooltipProvider>
+                            <UITooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground cursor-help">
+                                  <Lightbulb className="h-3 w-3" />
+                                  <span className="truncate max-w-[140px]">
+                                    {getRecommendation(row.operational_status, row.last_reason_code).text}
+                                  </span>
+                                </span>
+                              </TooltipTrigger>
+                              <UITooltipContent side="bottom" className="max-w-[280px]">
+                                <p className="text-sm">{getRecommendation(row.operational_status, row.last_reason_code).text}</p>
+                              </UITooltipContent>
+                            </UITooltip>
+                          </TooltipProvider>
                         </div>
                       </TableCell>
                       <TableCell>
