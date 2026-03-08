@@ -9,11 +9,15 @@ import { Activity, ChevronDown, ChevronUp, RefreshCw, AlertTriangle, Clock } fro
 import { useSyncHealth } from '@/hooks/useSyncHealth';
 
 const ERROR_LABELS: Record<string, string> = {
-  auth_failed: 'Autenticação',
+  auth_failed: 'Autenticação AT',
+  decrypt_failed: 'Desencriptação',
   timeout: 'Timeout',
+  connector_down: 'Connector indisponível',
   network: 'Rede',
   no_credentials: 'Sem credenciais',
+  portal_csrf: 'Portal AT (CSRF)',
   year_future: 'Ano futuro',
+  time_window: 'Fora da janela AT',
   other: 'Outro',
 };
 
@@ -166,6 +170,30 @@ export function SyncHealthWidget() {
                         ? `${(data.avg_duration_ms / 1000).toFixed(1)}s`
                         : `${data.avg_duration_ms}ms`}
                     </span>
+                  </div>
+                )}
+
+                {data.history_summary_7d && data.history_summary_7d.total > 0 && (
+                  <div className="space-y-1.5 border-t pt-2">
+                    <p className="text-xs font-medium text-muted-foreground">Histórico 7 dias (SOAP)</p>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Taxa SOAP (success+partial)</span>
+                      <Badge variant={data.history_summary_7d.api_success_rate >= 80 ? 'outline' : 'warning'}>
+                        {data.history_summary_7d.api_success_rate}%
+                      </Badge>
+                    </div>
+                    {data.history_summary_7d.portal_errors > 0 && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Portal (inoperável)</span>
+                        <Badge variant="destructive" className="text-xs">{data.history_summary_7d.portal_errors} erros</Badge>
+                      </div>
+                    )}
+                    {data.history_summary_7d.stuck_running > 0 && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Jobs stuck</span>
+                        <Badge variant="warning" className="text-xs">{data.history_summary_7d.stuck_running}</Badge>
+                      </div>
+                    )}
                   </div>
                 )}
 

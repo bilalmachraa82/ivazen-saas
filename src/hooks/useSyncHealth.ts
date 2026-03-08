@@ -18,6 +18,14 @@ export interface SyncHealthData {
     total_jobs: number;
     local_time: string;
   } | null;
+  history_summary_7d: {
+    total: number;
+    by_method: Record<string, number>;
+    api_success_rate: number;
+    api_errors: number;
+    portal_errors: number;
+    stuck_running: number;
+  } | null;
 }
 
 export function useSyncHealth() {
