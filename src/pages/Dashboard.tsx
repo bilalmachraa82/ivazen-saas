@@ -62,7 +62,10 @@ export default function Dashboard() {
           <ZenHeader
             icon={LayoutDashboard}
             title="Dashboard"
-            description="Bem-vindo de volta! Aqui está o resumo das suas facturas."
+            description={isAccountant
+              ? "Visão geral da sua carteira. Selecione um cliente no menu para ver o Centro Fiscal."
+              : "Bem-vindo de volta! Aqui está o resumo das suas facturas."
+            }
           />
           <Link to="/upload" data-tour="new-invoice">
             <Button className="gap-2 zen-button shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300">
@@ -140,12 +143,15 @@ export default function Dashboard() {
             {recentInvoices.length === 0 ? (
               <ZenEmptyState
                 icon={FileText}
-                title="Nenhuma factura ainda"
-                description="Comece por carregar a sua primeira factura para organizar as suas despesas"
+                title={isAccountant ? "Sem facturas para este cliente" : "Nenhuma factura ainda"}
+                description={isAccountant
+                  ? "Importe facturas do AT ou carregue manualmente na página de Importação."
+                  : "Comece por carregar a sua primeira factura para organizar as suas despesas"
+                }
                 variant="primary"
                 action={{
-                  label: 'Carregar Factura',
-                  onClick: () => navigate('/upload'),
+                  label: isAccountant ? 'Ir para Importação' : 'Carregar Factura',
+                  onClick: () => navigate(isAccountant ? '/centro-importacao' : '/upload'),
                   icon: Upload,
                 }}
               />

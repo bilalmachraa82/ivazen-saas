@@ -642,7 +642,7 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                     {Object.keys(totals.byCategory).filter(k => (totals.byCategory[k] || 0) > 0).length === 0 && (
                       <TableRow>
                         <TableCell colSpan={4} className="text-center text-muted-foreground py-4">
-                          Sem rendimentos registados
+                          Sem rendimentos registados — importe recibos verdes na página de Importação
                         </TableCell>
                       </TableRow>
                     )}
@@ -766,7 +766,7 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                     {revenueEntries.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                          Sem rendimentos registados para este trimestre
+                          Sem rendimentos registados para este trimestre — importe recibos verdes na página de Importação
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -1031,8 +1031,13 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                           <ZenEmptyState
                             icon={History}
                             title="Sem histórico"
-                            description="Ainda não existem declarações guardadas. Adicione rendimentos e guarde a sua primeira declaração."
+                            description="Ainda não existem declarações guardadas. Importe recibos verdes para calcular contribuições."
                             variant="muted"
+                            action={{
+                              label: 'Importar Rendimentos',
+                              onClick: () => navigate('/centro-importacao'),
+                              icon: Upload,
+                            }}
                           />
                         </TableCell>
                       </TableRow>

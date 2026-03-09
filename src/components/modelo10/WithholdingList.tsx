@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -8,7 +9,7 @@ import { ZenCard, ZenEmptyState } from '@/components/zen';
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { PaginationControls } from '@/components/ui/pagination-controls';
-import { Trash2, FileText, Building, Home, Loader2, FileDown, Files, Pencil } from 'lucide-react';
+import { Trash2, FileText, Building, Home, Loader2, FileDown, Files, Pencil, Upload } from 'lucide-react';
 import { TaxWithholding, WithholdingFormData } from '@/hooks/useWithholdings';
 import { useProfile } from '@/hooks/useProfile';
 import { usePagination } from '@/hooks/usePagination';
@@ -29,6 +30,7 @@ interface WithholdingListProps {
 }
 
 export function WithholdingList({ withholdings, onDelete, onDeleteAll, onUpdate, isDeleting, isDeletingAll, isUpdating, fiscalYear }: WithholdingListProps) {
+  const navigate = useNavigate();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingWithholding, setEditingWithholding] = useState<TaxWithholding | null>(null);
   const [filters, setFilters] = useState<WithholdingFiltersState>({
@@ -164,7 +166,12 @@ export function WithholdingList({ withholdings, onDelete, onDeleteAll, onUpdate,
       <ZenEmptyState
         icon={FileText}
         title="Sem retenções"
-        description="Ainda não adicionou nenhuma retenção na fonte para este ano fiscal."
+        description="Importe o ficheiro SIRE do AT ou carregue documentos manualmente para registar retenções."
+        action={{
+          label: 'Importar do AT',
+          onClick: () => navigate('/centro-importacao'),
+          icon: Upload,
+        }}
       />
     );
   }

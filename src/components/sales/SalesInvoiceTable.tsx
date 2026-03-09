@@ -117,11 +117,11 @@ export function SalesInvoiceTable({ invoices, loading, onSelectInvoice }: SalesI
       <ZenEmptyState
         icon={TrendingUp}
         title="Nenhuma factura de venda"
-        description="Comece por carregar facturas de vendas para registar as suas receitas"
+        description="Importe recibos verdes do AT ou carregue manualmente para registar receitas."
         variant="primary"
         action={{
-          label: 'Carregar Factura',
-          onClick: () => navigate('/upload'),
+          label: 'Importar Vendas',
+          onClick: () => navigate('/centro-importacao'),
           icon: Upload,
         }}
       />
