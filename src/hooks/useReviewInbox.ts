@@ -118,7 +118,7 @@ export function useReviewInbox(options: UseReviewInboxOptions) {
         // 1. Pending purchases preview
         supabase
           .from('invoices')
-          .select('id, issuer_name, total_amount, document_date, status, ai_confidence')
+          .select('id, supplier_name, total_amount, document_date, status, ai_confidence')
           .eq('client_id', clientId)
           .gte('document_date', rangeStart)
           .lte('document_date', rangeEnd)
@@ -129,7 +129,7 @@ export function useReviewInbox(options: UseReviewInboxOptions) {
         // 2. Low confidence preview (Finding 1: same universe as count)
         supabase
           .from('invoices')
-          .select('id, issuer_name, total_amount, ai_confidence, ai_classification')
+          .select('id, supplier_name, total_amount, ai_confidence, ai_classification')
           .eq('client_id', clientId)
           .gte('document_date', rangeStart)
           .lte('document_date', rangeEnd)
@@ -172,7 +172,7 @@ export function useReviewInbox(options: UseReviewInboxOptions) {
           count: pendingCount,
           items: pendingPurchases.map(inv => ({
             id: inv.id,
-            label: inv.issuer_name || 'Sem emitente',
+            label: inv.supplier_name || 'Sem fornecedor',
             sublabel: `${formatCurrency(inv.total_amount)} · ${formatDate(inv.document_date)}${inv.ai_confidence != null ? ` · ${inv.ai_confidence}%` : ''}`,
             route: '/validation',
           })),
@@ -191,7 +191,7 @@ export function useReviewInbox(options: UseReviewInboxOptions) {
           count: lowConfCount,
           items: lowConf.map(inv => ({
             id: inv.id,
-            label: inv.issuer_name || 'Sem emitente',
+            label: inv.supplier_name || 'Sem fornecedor',
             sublabel: `${inv.ai_confidence ?? 0}% confiança · ${inv.ai_classification || 'sem classe'}`,
             route: '/validation',
           })),
