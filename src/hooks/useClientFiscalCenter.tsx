@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllPages } from '@/lib/supabasePagination';
 import { useAuth } from '@/hooks/useAuth';
 import { resolveScopedClientId } from '@/lib/clientScope';
 import { applyFiscallyEffectivePurchaseFilter } from '@/lib/fiscalStatus';
@@ -99,7 +100,7 @@ export function useClientFiscalCenter(options: UseClientFiscalCenterOptions = {}
         purchasesPendingRes,
         purchasesEffectiveRes,
         purchasesLowConfidenceRes,
-        salesRowsRes,
+        salesRows,
         ssCountRes,
         currentQuarterSsRes,
         withholdingsCurrentRes,
@@ -153,12 +154,17 @@ export function useClientFiscalCenter(options: UseClientFiscalCenterOptions = {}
           .lte('document_date', quarterRange.end)
           .lt('ai_confidence', 80)
           .neq('status', 'validated'),
-        supabase
-          .from('sales_invoices')
-          .select('id, status, total_amount')
-          .eq('client_id', effectiveClientId)
-          .gte('document_date', quarterRange.start)
-          .lte('document_date', quarterRange.end),
+        // Sales rows (fetchAllPages to avoid 1000-row cap)
+        fetchAllPages<{ id: string; status: string; total_amount: number }>(
+          (from, to) =>
+            supabase
+              .from('sales_invoices')
+              .select('id, status, total_amount')
+              .eq('client_id', effectiveClientId)
+              .gte('document_date', quarterRange.start)
+              .lte('document_date', quarterRange.end)
+              .range(from, to),
+        ),
         supabase
           .from('ss_declarations')
           .select('id', { count: 'exact', head: true })
@@ -213,7 +219,7 @@ export function useClientFiscalCenter(options: UseClientFiscalCenterOptions = {}
           ? (candidatesCurrentRes.count ?? 0)
           : (candidatesPreviousRes.count ?? 0);
 
-      const salesRows = salesRowsRes.data || [];
+      // salesRows is already a full array from fetchAllPages
       const salesTotal = salesRows.length;
       const salesReadyRows = salesRows.filter((row) => row.status === 'validated' || row.status === 'classified');
       const salesReady = salesReadyRows.length;

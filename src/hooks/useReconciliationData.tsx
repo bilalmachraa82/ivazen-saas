@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllPages } from '@/lib/supabasePagination';
 
 export interface ReconciliationSummary {
   purchases: {
@@ -46,9 +47,9 @@ export function useReconciliationData(options: UseReconciliationDataOptions) {
       const [
         atPurchasesRes,
         uploadPurchasesRes,
-        atWithholdingsRes,
-        ocrWithholdingsRes,
-        salesRes,
+        atRows,
+        ocrRows,
+        salesRows,
         ssRes,
         withholdingsCountRes,
         candidatesRes,
@@ -69,28 +70,41 @@ export function useReconciliationData(options: UseReconciliationDataOptions) {
           .gte('document_date', rangeStart)
           .lte('document_date', rangeEnd)
           .or('efatura_source.is.null,efatura_source.not.in.(webservice,csv_portal)'),
-        // Modelo 10 withholdings from AT source
-        supabase
-          .from('tax_withholdings')
-          .select('beneficiary_nif, withholding_amount')
-          .eq('client_id', clientId)
-          .eq('fiscal_year', fiscalYear)
-          .in('import_source', ['at_csv', 'at_sire', 'at_sire_detection']),
-        // Modelo 10 withholdings from OCR/manual
-        supabase
-          .from('tax_withholdings')
-          .select('beneficiary_nif, withholding_amount')
-          .eq('client_id', clientId)
-          .eq('fiscal_year', fiscalYear)
-          .not('import_source', 'in', '(at_csv,at_sire,at_sire_detection)'),
-        // Sales revenue for the quarter (only validated — matches SS calculation universe)
-        supabase
-          .from('sales_invoices')
-          .select('total_amount')
-          .eq('client_id', clientId)
-          .eq('status', 'validated')
-          .gte('document_date', rangeStart)
-          .lte('document_date', rangeEnd),
+        // Modelo 10 withholdings from AT source (fetchAllPages to avoid 1000-row cap)
+        fetchAllPages<{ beneficiary_nif: string; withholding_amount: number }>(
+          (from, to) =>
+            supabase
+              .from('tax_withholdings')
+              .select('beneficiary_nif, withholding_amount')
+              .eq('client_id', clientId)
+              .eq('fiscal_year', fiscalYear)
+              .in('import_source', ['at_csv', 'at_sire', 'at_sire_detection'])
+              .range(from, to),
+        ),
+        // Modelo 10 withholdings from OCR/manual (fetchAllPages to avoid 1000-row cap)
+        // Use .or() to include NULL import_source (legacy rows) + any non-AT source
+        fetchAllPages<{ beneficiary_nif: string; withholding_amount: number }>(
+          (from, to) =>
+            supabase
+              .from('tax_withholdings')
+              .select('beneficiary_nif, withholding_amount')
+              .eq('client_id', clientId)
+              .eq('fiscal_year', fiscalYear)
+              .or('import_source.is.null,import_source.not.in.(at_csv,at_sire,at_sire_detection)')
+              .range(from, to),
+        ),
+        // Sales revenue for the quarter (fetchAllPages to avoid 1000-row cap)
+        fetchAllPages<{ total_amount: number }>(
+          (from, to) =>
+            supabase
+              .from('sales_invoices')
+              .select('total_amount')
+              .eq('client_id', clientId)
+              .eq('status', 'validated')
+              .gte('document_date', rangeStart)
+              .lte('document_date', rangeEnd)
+              .range(from, to),
+        ),
         // SS declaration for the quarter
         supabase
           .from('ss_declarations')
@@ -126,8 +140,7 @@ export function useReconciliationData(options: UseReconciliationDataOptions) {
           : 'ok' as const;
 
       // --- Modelo 10 reconciliation ---
-      const atRows = atWithholdingsRes.data || [];
-      const ocrRows = ocrWithholdingsRes.data || [];
+      // atRows and ocrRows are already full arrays from fetchAllPages
       const atByNif = new Map<string, number>();
       atRows.forEach(r => {
         const nif = r.beneficiary_nif || '';
@@ -153,7 +166,7 @@ export function useReconciliationData(options: UseReconciliationDataOptions) {
             : 'ok' as const;
 
       // --- SS reconciliation ---
-      const salesRevenue = (salesRes.data || []).reduce(
+      const salesRevenue = salesRows.reduce(
         (sum, r) => sum + Number(r.total_amount || 0), 0
       );
       const declaredRevenue = ssRes.data?.total_revenue ?? null;

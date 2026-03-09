@@ -70,7 +70,7 @@ const navGroups = [
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: FileText, tourId: 'nav-dashboard' },
       { href: '/centro-fiscal', label: 'Centro Fiscal', icon: PieChart, tourId: 'nav-fiscal-center' },
-      { href: '/accountant', label: 'Painel Contabilista', icon: Briefcase, tourId: 'nav-accountant', requireAccountant: true },
+      { href: '/accountant', label: 'Painel Contabilista', icon: Briefcase, tourId: 'nav-accountant', requireAccountant: true, hideForAccountant: true },
     ]
   },
   {
@@ -78,10 +78,10 @@ const navGroups = [
     label: 'Declaração Periódica (IVA)',
     icon: Landmark,
     items: [
-      { href: '/upload', label: '1. Carregar Faturas', icon: Upload, tourId: 'nav-upload' },
-      { href: '/validation', label: '2. Compras', icon: CheckCircle, tourId: 'nav-validation' },
-      { href: '/sales', label: '3. Vendas', icon: TrendingUp, tourId: 'nav-sales' },
-      { href: '/export', label: '4. Apuramento', icon: FileOutput, tourId: 'nav-export' },
+      { href: '/upload', label: 'Carregar Faturas', icon: Upload, tourId: 'nav-upload', hideForAccountant: true },
+      { href: '/validation', label: 'Compras', icon: CheckCircle, tourId: 'nav-validation' },
+      { href: '/sales', label: 'Vendas', icon: TrendingUp, tourId: 'nav-sales' },
+      { href: '/export', label: 'Apuramento', icon: FileOutput, tourId: 'nav-export' },
     ]
   },
   {
@@ -89,6 +89,7 @@ const navGroups = [
     label: 'Importação',
     icon: Layers,
     items: [
+      { href: '/upload', label: 'Carregar Faturas', icon: Upload, tourId: 'nav-upload-import', requireAccountant: true },
       { href: '/centro-importacao', label: 'Centro de Importação', icon: Layers, tourId: 'nav-import-center', requireAccountant: true },
       { href: '/efatura', label: 'e-Fatura (Portal AT)', icon: FileSpreadsheet, tourId: 'nav-efatura', requireAccountant: true },
       ...(featureFlags.atControlCenterV1
@@ -103,7 +104,7 @@ const navGroups = [
     items: [
       { href: '/modelo-10', label: 'Modelo 10 (Retenções)', icon: Receipt, tourId: 'nav-modelo10', obligation: 'modelo10' as const },
       { href: '/seguranca-social', label: 'Segurança Social', icon: Shield, tourId: 'nav-ss', obligation: 'ss' as const },
-      { href: '/iva-calculator', label: 'Calculadora IVA', icon: Calculator, tourId: 'nav-vat' },
+      { href: '/reconciliation', label: 'Reconciliação', icon: ArrowLeftRight, tourId: 'nav-reconciliation', requireAccountant: true },
     ]
   },
   {
@@ -111,10 +112,10 @@ const navGroups = [
     label: 'Análise',
     icon: PieChart,
     items: [
-      { href: '/reconciliation', label: 'Reconciliação', icon: ArrowLeftRight, tourId: 'nav-reconciliation', requireAccountant: true },
       { href: '/documents', label: 'Todos os Documentos', icon: List, tourId: 'nav-documents' },
       { href: '/reports', label: 'Relatórios', icon: ClipboardList, tourId: 'nav-reports' },
-      { href: '/glossario', label: 'Glossário', icon: BookOpen, tourId: 'nav-glossario' },
+      { href: '/iva-calculator', label: 'Calculadora IVA', icon: Calculator, tourId: 'nav-vat', hideForAccountant: true },
+      { href: '/glossario', label: 'Glossário', icon: BookOpen, tourId: 'nav-glossario', hideForAccountant: true },
     ]
   },
   {
@@ -286,15 +287,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const visibleNavGroups = navGroups
     .filter((group) => isAccountant || group.id !== 'importacao')
-    .map((group) => {
-      if (!isAccountant) {
-        return {
-          ...group,
-          items: group.items.filter((item) => !(item as any).requireAccountant),
-        };
-      }
-      return group;
-    });
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => {
+        if (!isAccountant && (item as any).requireAccountant) return false;
+        if (isAccountant && (item as any).hideForAccountant) return false;
+        return true;
+      }),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <div className="min-h-screen bg-background">
