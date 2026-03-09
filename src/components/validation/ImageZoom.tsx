@@ -107,10 +107,8 @@ export function ImageZoom({ src, alt, className }: ImageZoomProps) {
     }
   };
 
-  // PDF Viewer using Google Docs Viewer
+  // PDF Viewer using browser's native PDF renderer
   if (isPDF) {
-    const googleDocsUrl = `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(src)}`;
-
     return (
       <div
         className={cn(
@@ -128,7 +126,7 @@ export function ImageZoom({ src, alt, className }: ImageZoomProps) {
         )}
 
         <iframe
-          src={googleDocsUrl}
+          src={`${src}#toolbar=1&navpanes=0`}
           title={alt}
           className="w-full h-full border-0"
           onLoad={() => setIsPDFLoading(false)}
