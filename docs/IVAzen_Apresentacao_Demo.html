@@ -1,0 +1,1441 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IVAzen — Apresentacao Demo para Contabilistas</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@600;700;800;900&display=swap');
+
+  /* ===== TOKENS ===== */
+  :root {
+    --rose:        hsl(335, 70%, 50%);
+    --rose-mid:    hsl(335, 70%, 55%);
+    --rose-light:  hsl(335, 70%, 96%);
+    --rose-dark:   hsl(335, 70%, 35%);
+    --rose-border: hsl(335, 60%, 85%);
+
+    --slate-50:  #f8fafc;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1;
+    --slate-400: #94a3b8;
+    --slate-500: #64748b;
+    --slate-600: #475569;
+    --slate-700: #334155;
+    --slate-800: #1e293b;
+    --slate-900: #0f172a;
+
+    --green:       #059669;
+    --green-light: #d1fae5;
+    --amber:       #d97706;
+    --amber-light: #fef3c7;
+    --blue:        #2563eb;
+    --blue-light:  #dbeafe;
+
+    --radius-sm: 8px;
+    --radius:    14px;
+    --radius-lg: 20px;
+
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+    --shadow:    0 4px 16px rgba(0,0,0,.10), 0 1px 4px rgba(0,0,0,.06);
+    --shadow-lg: 0 12px 40px rgba(0,0,0,.12), 0 4px 12px rgba(0,0,0,.08);
+
+    --nav-h: 52px;
+  }
+
+  /* ===== RESET ===== */
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html {
+    scroll-snap-type: y mandatory;
+    scroll-behavior: smooth;
+    height: 100%;
+  }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: white;
+    color: var(--slate-800);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    height: 100%;
+  }
+  h1, h2, h3, h4 {
+    font-family: 'Poppins', sans-serif;
+    line-height: 1.2;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  /* ===== NAVIGATION ===== */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: var(--nav-h);
+    background: rgba(255,255,255,.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--slate-200);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    z-index: 1000;
+  }
+  .nav-logo {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 800;
+    font-size: 1.15rem;
+    background: linear-gradient(135deg, var(--rose-dark) 0%, var(--rose-mid) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.02em;
+  }
+  .nav-dots {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .nav-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--slate-300);
+    cursor: pointer;
+    transition: background .2s, transform .2s;
+    border: none;
+    padding: 0;
+  }
+  .nav-dot.active,
+  .nav-dot:hover {
+    background: var(--rose-mid);
+    transform: scale(1.3);
+  }
+  .nav-slide-label {
+    font-size: .75rem;
+    color: var(--slate-500);
+    font-weight: 500;
+    min-width: 80px;
+    text-align: right;
+  }
+
+  /* ===== SLIDE BASE ===== */
+  .slide {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    min-height: 100vh;
+    padding: calc(var(--nav-h) + 36px) 0 56px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+  }
+  .slide-inner {
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 32px;
+  }
+
+  /* Alternating backgrounds */
+  .slide-white  { background: white; }
+  .slide-tinted { background: linear-gradient(160deg, #fff 0%, hsl(335,70%,98%) 100%); }
+
+  /* ===== TYPOGRAPHY HELPERS ===== */
+  .label {
+    display: inline-block;
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--rose-mid);
+    background: var(--rose-light);
+    border: 1px solid var(--rose-border);
+    border-radius: 100px;
+    padding: 3px 12px;
+    margin-bottom: 14px;
+  }
+  .slide-title {
+    font-size: clamp(1.6rem, 4vw, 2.6rem);
+    font-weight: 800;
+    color: var(--slate-900);
+    margin-bottom: 10px;
+    letter-spacing: -0.03em;
+  }
+  .slide-title span { color: var(--rose-mid); }
+  .slide-subtitle {
+    font-size: clamp(.95rem, 2vw, 1.1rem);
+    color: var(--slate-500);
+    margin-bottom: 36px;
+    max-width: 640px;
+  }
+
+  /* ===== SLIDE 1 — COVER ===== */
+  .cover {
+    background: linear-gradient(150deg, var(--slate-900) 0%, hsl(335,60%,28%) 55%, var(--rose) 100%);
+    color: white;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 60% at 80% 20%, rgba(255,255,255,.06) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 50% at 10% 80%, rgba(255,255,255,.04) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .cover-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+  }
+  .cover .slide-inner {
+    position: relative;
+    z-index: 1;
+  }
+  .cover-badge {
+    display: inline-block;
+    background: rgba(255,255,255,.12);
+    border: 1px solid rgba(255,255,255,.2);
+    border-radius: 100px;
+    padding: 5px 16px;
+    font-size: .75rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.85);
+    margin-bottom: 24px;
+  }
+  .cover-title {
+    font-family: 'Poppins', sans-serif;
+    font-size: clamp(2.5rem, 7vw, 4.5rem);
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    color: white;
+    margin-bottom: 8px;
+    line-height: 1.05;
+  }
+  .cover-title .accent {
+    background: linear-gradient(135deg, #fda4af, #fb7185);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .cover-tagline {
+    font-size: clamp(1.05rem, 2.5vw, 1.4rem);
+    color: rgba(255,255,255,.75);
+    margin-bottom: 48px;
+    font-weight: 400;
+  }
+  .cover-tagline strong {
+    color: white;
+    font-weight: 700;
+  }
+  .cover-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    color: var(--rose-dark);
+    border-radius: 100px;
+    padding: 14px 32px;
+    font-weight: 700;
+    font-size: 1rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,.25);
+    transition: transform .2s, box-shadow .2s;
+    cursor: pointer;
+    border: none;
+    font-family: 'Inter', sans-serif;
+  }
+  .cover-cta:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,0,0,.3); }
+  .cover-meta {
+    margin-top: 40px;
+    font-size: .8rem;
+    color: rgba(255,255,255,.45);
+    font-weight: 400;
+  }
+  .cover-stats {
+    display: flex;
+    justify-content: center;
+    gap: 48px;
+    margin-top: 56px;
+    flex-wrap: wrap;
+  }
+  .cover-stat {
+    text-align: center;
+  }
+  .cover-stat-num {
+    font-family: 'Poppins', sans-serif;
+    font-size: 2rem;
+    font-weight: 800;
+    color: white;
+    line-height: 1;
+  }
+  .cover-stat-label {
+    font-size: .8rem;
+    color: rgba(255,255,255,.55);
+    margin-top: 4px;
+  }
+
+  /* ===== TABLES ===== */
+  .data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    font-size: .9rem;
+  }
+  .data-table thead th {
+    background: var(--slate-800);
+    color: white;
+    padding: 13px 18px;
+    text-align: left;
+    font-weight: 600;
+    font-size: .8rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .data-table thead th:first-child { border-radius: var(--radius) 0 0 0; }
+  .data-table thead th:last-child  { border-radius: 0 var(--radius) 0 0; }
+  .data-table tbody tr:nth-child(odd)  { background: white; }
+  .data-table tbody tr:nth-child(even) { background: var(--slate-50); }
+  .data-table tbody tr:last-child td:first-child { border-radius: 0 0 0 var(--radius); }
+  .data-table tbody tr:last-child td:last-child  { border-radius: 0 0 var(--radius) 0; }
+  .data-table tbody td {
+    padding: 12px 18px;
+    border-top: 1px solid var(--slate-100);
+    color: var(--slate-700);
+    vertical-align: top;
+  }
+  .data-table .task-col { font-weight: 600; color: var(--slate-800); white-space: nowrap; }
+  .data-table .pain-col { color: var(--slate-600); line-height: 1.5; }
+  .data-table .time-col {
+    white-space: nowrap;
+    font-weight: 700;
+    color: var(--amber);
+    text-align: center;
+  }
+
+  /* Pain badge */
+  .pain-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 100px;
+    padding: 2px 10px;
+    font-size: .73rem;
+    font-weight: 600;
+    color: #dc2626;
+  }
+
+  /* Conclusion bar */
+  .conclusion-bar {
+    margin-top: 20px;
+    background: linear-gradient(90deg, var(--rose-light), hsl(335,70%,94%));
+    border: 1px solid var(--rose-border);
+    border-radius: var(--radius);
+    padding: 16px 24px;
+    font-size: .95rem;
+    font-weight: 600;
+    color: var(--rose-dark);
+    text-align: center;
+  }
+
+  /* ===== BEFORE VS AFTER TABLE ===== */
+  .bva-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    font-size: .875rem;
+  }
+  .bva-table thead th {
+    padding: 13px 20px;
+    font-size: .8rem;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+  .bva-table thead th.before-head {
+    background: var(--slate-700);
+    color: white;
+    border-radius: var(--radius) 0 0 0;
+    text-align: center;
+  }
+  .bva-table thead th.step-head {
+    background: var(--slate-800);
+    color: rgba(255,255,255,.6);
+    text-align: center;
+    width: 90px;
+  }
+  .bva-table thead th.after-head {
+    background: var(--rose-dark);
+    color: white;
+    border-radius: 0 var(--radius) 0 0;
+    text-align: center;
+  }
+  .bva-table tbody tr:nth-child(odd)  { background: white; }
+  .bva-table tbody tr:nth-child(even) { background: var(--slate-50); }
+  .bva-table tbody td {
+    padding: 11px 18px;
+    border-top: 1px solid var(--slate-100);
+    vertical-align: middle;
+  }
+  .bva-table .before-col { color: var(--slate-600); }
+  .bva-table .step-col   { color: var(--slate-400); font-size: .78rem; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: .05em; }
+  .bva-table .after-col  { color: var(--green); font-weight: 600; }
+  .bva-metric {
+    margin-top: 20px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .bva-metric-card {
+    flex: 1;
+    min-width: 180px;
+    background: linear-gradient(135deg, var(--rose-dark), var(--rose-mid));
+    color: white;
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    text-align: center;
+    box-shadow: var(--shadow);
+  }
+  .bva-metric-card .num {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.9rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .bva-metric-card .txt {
+    font-size: .8rem;
+    color: rgba(255,255,255,.75);
+    margin-top: 5px;
+  }
+
+  /* ===== FLOW DIAGRAM ===== */
+  .flow-wrap {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .flow-step {
+    flex: 1;
+    min-width: 140px;
+    max-width: 190px;
+    background: white;
+    border: 1.5px solid var(--slate-200);
+    border-radius: var(--radius);
+    padding: 22px 16px 18px;
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    transition: box-shadow .2s, transform .2s;
+  }
+  .flow-step:hover { box-shadow: var(--shadow); transform: translateY(-3px); }
+  .flow-step .step-num {
+    font-family: 'Poppins', sans-serif;
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--rose-mid);
+    background: var(--rose-light);
+    border-radius: 100px;
+    padding: 2px 10px;
+    display: inline-block;
+    margin-bottom: 10px;
+  }
+  .flow-step .step-icon {
+    font-size: 1.8rem;
+    margin-bottom: 8px;
+    display: block;
+    line-height: 1;
+  }
+  .flow-step .step-name {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    font-size: .9rem;
+    color: var(--slate-800);
+    margin-bottom: 6px;
+  }
+  .flow-step .step-desc {
+    font-size: .78rem;
+    color: var(--slate-500);
+    line-height: 1.4;
+  }
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--slate-300);
+    font-size: 1.1rem;
+    padding: 0 6px;
+    flex-shrink: 0;
+  }
+  @media (max-width: 640px) {
+    .flow-arrow { display: none; }
+    .flow-step  { min-width: 130px; }
+  }
+
+  /* ===== FEATURE CARDS ===== */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  .feature-card {
+    background: white;
+    border: 1.5px solid var(--slate-200);
+    border-radius: var(--radius);
+    padding: 22px 20px;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow .2s, border-color .2s;
+  }
+  .feature-card:hover {
+    box-shadow: var(--shadow);
+    border-color: var(--rose-border);
+  }
+  .feature-card .fc-icon {
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+    display: block;
+  }
+  .feature-card .fc-title {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    font-size: .9rem;
+    color: var(--slate-800);
+    margin-bottom: 6px;
+  }
+  .feature-card .fc-desc {
+    font-size: .82rem;
+    color: var(--slate-500);
+    line-height: 1.45;
+  }
+  .feature-card.highlight {
+    border-color: var(--rose-border);
+    background: var(--rose-light);
+  }
+  .feature-card.highlight .fc-title { color: var(--rose-dark); }
+
+  /* ===== MODULE LAYOUT (big icon + list) ===== */
+  .module-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+  @media (max-width: 700px) { .module-layout { grid-template-columns: 1fr; } }
+  .module-hero {
+    background: linear-gradient(150deg, var(--slate-900) 0%, hsl(335,60%,28%) 100%);
+    border-radius: var(--radius-lg);
+    padding: 36px 32px;
+    color: white;
+    min-height: 260px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  .module-hero .mh-icon  { font-size: 3rem; margin-bottom: 16px; }
+  .module-hero .mh-label { font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.5); margin-bottom: 6px; }
+  .module-hero .mh-title { font-family: 'Poppins', sans-serif; font-size: 1.5rem; font-weight: 800; line-height: 1.15; }
+  .module-hero .mh-desc  { margin-top: 10px; font-size: .85rem; color: rgba(255,255,255,.65); line-height: 1.5; }
+  .module-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .module-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: white;
+    border: 1.5px solid var(--slate-200);
+    border-radius: var(--radius-sm);
+    padding: 13px 15px;
+    font-size: .875rem;
+    color: var(--slate-700);
+    box-shadow: var(--shadow-sm);
+  }
+  .module-list li .li-icon {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .module-list li .li-text { line-height: 1.45; }
+  .module-list li .li-text strong { color: var(--slate-900); font-weight: 600; }
+
+  /* ===== METRICS SLIDE ===== */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 640px) { .metrics-grid { grid-template-columns: repeat(2, 1fr); } }
+  .metric-card {
+    background: white;
+    border: 1.5px solid var(--slate-200);
+    border-radius: var(--radius);
+    padding: 24px 20px;
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow .2s, border-color .2s;
+  }
+  .metric-card:hover { box-shadow: var(--shadow); border-color: var(--rose-border); }
+  .metric-card.accent {
+    background: linear-gradient(135deg, var(--rose-dark) 0%, var(--rose-mid) 100%);
+    border-color: var(--rose);
+    color: white;
+  }
+  .metric-card .mc-icon { font-size: 1.4rem; margin-bottom: 8px; }
+  .metric-card .mc-num {
+    font-family: 'Poppins', sans-serif;
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--rose-mid);
+    letter-spacing: -0.02em;
+  }
+  .metric-card.accent .mc-num { color: white; }
+  .metric-card .mc-label {
+    font-size: .78rem;
+    color: var(--slate-500);
+    margin-top: 5px;
+    line-height: 1.35;
+  }
+  .metric-card.accent .mc-label { color: rgba(255,255,255,.75); }
+
+  /* ===== STEPS LIST (Como Comecar) ===== */
+  .steps-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    counter-reset: step;
+  }
+  .steps-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    background: white;
+    border: 1.5px solid var(--slate-200);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    counter-increment: step;
+  }
+  .steps-list .step-counter {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--rose-dark), var(--rose-mid));
+    color: white;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 800;
+    font-size: .9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 3px 10px rgba(225,29,116,.35);
+  }
+  .steps-list .step-body {}
+  .steps-list .step-body strong {
+    display: block;
+    font-weight: 700;
+    font-size: .95rem;
+    color: var(--slate-800);
+    margin-bottom: 2px;
+  }
+  .steps-list .step-body span {
+    font-size: .83rem;
+    color: var(--slate-500);
+    line-height: 1.4;
+  }
+
+  /* ===== NEXT STEPS ===== */
+  .next-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .next-card {
+    border-radius: var(--radius);
+    padding: 24px 20px;
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+    border: 1.5px solid var(--slate-200);
+    background: white;
+  }
+  .next-card .nc-icon  { font-size: 2rem; margin-bottom: 10px; display: block; }
+  .next-card .nc-title { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: .95rem; color: var(--slate-800); margin-bottom: 6px; }
+  .next-card .nc-desc  { font-size: .82rem; color: var(--slate-500); line-height: 1.4; }
+  .agenda-box {
+    background: linear-gradient(135deg, var(--slate-900), hsl(335,60%,28%));
+    color: white;
+    border-radius: var(--radius-lg);
+    padding: 28px 32px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    box-shadow: var(--shadow-lg);
+  }
+  .agenda-box .ab-icon { font-size: 2.5rem; flex-shrink: 0; }
+  .agenda-box .ab-text strong { font-family: 'Poppins', sans-serif; font-size: 1.1rem; font-weight: 700; display: block; margin-bottom: 4px; }
+  .agenda-box .ab-text p { font-size: .875rem; color: rgba(255,255,255,.65); line-height: 1.5; }
+
+  /* ===== RECONCILIATION ===== */
+  .recon-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .recon-card {
+    border-radius: var(--radius);
+    padding: 20px;
+    background: white;
+    border: 1.5px solid var(--slate-200);
+    box-shadow: var(--shadow-sm);
+  }
+  .recon-card .rc-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .recon-card .rc-icon {
+    font-size: 1.4rem;
+  }
+  .recon-card .rc-title {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    font-size: .9rem;
+    color: var(--slate-800);
+  }
+  .recon-card .rc-subtitle {
+    font-size: .75rem;
+    color: var(--slate-400);
+  }
+  .recon-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border-radius: 100px;
+    padding: 3px 10px;
+    font-size: .73rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .recon-tag.source { background: var(--blue-light); color: var(--blue); }
+  .recon-tag.match  { background: var(--green-light); color: var(--green); }
+  .recon-tag.alert  { background: var(--amber-light); color: var(--amber); }
+  .recon-divider { margin: 8px 0; border: none; border-top: 1px dashed var(--slate-200); }
+
+  /* ===== FOOTER ===== */
+  footer {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 32px;
+    background: var(--slate-900);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .7rem;
+    color: rgba(255,255,255,.35);
+    font-weight: 500;
+    letter-spacing: .04em;
+    z-index: 999;
+  }
+  footer a { color: rgba(255,255,255,.55); transition: color .2s; }
+  footer a:hover { color: var(--rose-mid); }
+
+  /* ===== PRINT ===== */
+  @media print {
+    nav, footer { display: none; }
+    html { scroll-snap-type: none; }
+    .slide {
+      min-height: 0;
+      page-break-after: always;
+      padding: 36px 0 32px;
+      scroll-snap-align: none;
+    }
+    .slide:last-of-type { page-break-after: auto; }
+    .slide-inner { padding: 0 28px; }
+    .cover { padding-top: 48px !important; }
+    .feature-card, .metric-card, .module-list li,
+    .steps-list li, .next-card, .recon-card { break-inside: avoid; }
+    .data-table, .bva-table { font-size: .8rem; }
+    .cover-stats { margin-top: 32px; }
+    .slide-title { font-size: 1.8rem; }
+    body { font-size: 10pt; }
+  }
+
+  /* ===== SCROLL INDICATOR ===== */
+  .scroll-hint {
+    position: absolute;
+    bottom: 68px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: rgba(255,255,255,.4);
+    font-size: .7rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    animation: bounce 2s infinite;
+  }
+  @keyframes bounce {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50%       { transform: translateX(-50%) translateY(6px); }
+  }
+  .scroll-hint svg { width: 18px; height: 18px; }
+
+  /* ===== RESPONSIVE TWEAKS ===== */
+  @media (max-width: 480px) {
+    .slide-inner { padding: 0 18px; }
+    .metrics-grid { grid-template-columns: 1fr 1fr; }
+    .agenda-box { flex-direction: column; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== NAVIGATION ===== -->
+<nav aria-label="Navegacao entre diapositivos">
+  <span class="nav-logo">IVAzen</span>
+  <div class="nav-dots" role="tablist" aria-label="Diapositivos">
+    <button class="nav-dot active" role="tab" aria-label="Slide 1" onclick="goTo(0)" title="Capa"></button>
+    <button class="nav-dot" role="tab" aria-label="Slide 2" onclick="goTo(1)" title="O Problema"></button>
+    <button class="nav-dot" role="tab" aria-label="Slide 3" onclick="goTo(2)" title="A Solucao"></button>
+    <button class="nav-dot" role="tab" aria-label="Slide 4" onclick="goTo(3)" title="Como Funciona"></button>
+    <button class="nav-dot" role="tab" aria-label="Slide 5" onclick="goTo(4)" title="IVA"></button>
+    <button class="nav-dot" role="tab" aria-label="Slide 6" onclick="goTo(5)" title="Seguranca Social"></button>
+    <button class="nav-dot" role="tab" aria-label="Slide 7" onclick="goTo(6)" title="Modelo 10"></button>
+    <button class="nav-dot" role="tab" aria-label="Slide 8" onclick="goTo(7)" title="Reconciliacao"></button>
+    <button class="nav-dot" role="tab" aria-label="Slide 9" onclick="goTo(8)" title="Numeros"></button>
+    <button class="nav-dot" role="tab" aria-label="Slide 10" onclick="goTo(9)" title="Como Comecar"></button>
+    <button class="nav-dot" role="tab" aria-label="Slide 11" onclick="goTo(10)" title="Proximos Passos"></button>
+  </div>
+  <span class="nav-slide-label" id="nav-label">1 / 11</span>
+</nav>
+
+<!-- ===== SLIDE 1 — COVER ===== -->
+<section class="slide cover" id="slide-0" aria-label="Capa">
+  <div class="cover-grid" aria-hidden="true"></div>
+  <div class="slide-inner" style="text-align:center;">
+    <div class="cover-badge" aria-label="Para contabilistas portugueses">Para contabilistas portugueses</div>
+    <h1 class="cover-title">IVA<span class="accent">zen</span></h1>
+    <p class="cover-tagline">
+      <strong>Menos tempo no portal.</strong> Mais tempo para o cliente.
+    </p>
+    <button class="cover-cta" onclick="goTo(1)" aria-label="Ver apresentacao">
+      Ver apresentacao &nbsp;&#8594;
+    </button>
+    <div class="cover-stats" role="list" aria-label="Numeros da plataforma">
+      <div class="cover-stat" role="listitem">
+        <div class="cover-stat-num">432</div>
+        <div class="cover-stat-label">Clientes na plataforma</div>
+      </div>
+      <div class="cover-stat" role="listitem">
+        <div class="cover-stat-num">168k+</div>
+        <div class="cover-stat-label">Faturas processadas</div>
+      </div>
+      <div class="cover-stat" role="listitem">
+        <div class="cover-stat-num">3.000+</div>
+        <div class="cover-stat-label">Retencoes na fonte</div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-hint" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    deslizar
+  </div>
+</section>
+
+<!-- ===== SLIDE 2 — O PROBLEMA ===== -->
+<section class="slide slide-white" id="slide-1" aria-label="O Problema">
+  <div class="slide-inner">
+    <div class="label">Diagnostico</div>
+    <h2 class="slide-title">O <span>Problema</span> Atual</h2>
+    <p class="slide-subtitle">O trabalho fiscal repetitivo consome horas que deviam ir para os clientes.</p>
+    <table class="data-table" role="table" aria-label="Tarefas fiscais manuais e os seus custos">
+      <thead>
+        <tr>
+          <th scope="col">Tarefa</th>
+          <th scope="col">O que implica hoje</th>
+          <th scope="col">Custo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="task-col">&#128203; Classificar faturas</td>
+          <td class="pain-col">Abrir cada fatura no e-Fatura, copiar NIF, procurar no Primavera, decidir codigo IVA</td>
+          <td class="time-col"><span class="pain-badge">&#9888; Alto</span></td>
+        </tr>
+        <tr>
+          <td class="task-col">&#128196; Preencher DP IVA</td>
+          <td class="pain-col">Exportar CSV, cruzar com contabilidade, preencher campo a campo no portal AT</td>
+          <td class="time-col"><span class="pain-badge">&#9888; Alto</span></td>
+        </tr>
+        <tr>
+          <td class="task-col">&#128179; Modelo 10</td>
+          <td class="pain-col">Pedir documentos ao cliente, extrair dados de PDFs, inserir linha a linha</td>
+          <td class="time-col"><span class="pain-badge">&#9888; Alto</span></td>
+        </tr>
+        <tr>
+          <td class="task-col">&#129381; Seguranca Social</td>
+          <td class="pain-col">Somar recibos verdes, calcular coeficientes (Art. 162), apurar base tributavel</td>
+          <td class="time-col"><span class="pain-badge">&#9888; Medio</span></td>
+        </tr>
+        <tr>
+          <td class="task-col">&#9989; Conferir</td>
+          <td class="pain-col">Cruzar portal AT com software de contabilidade, manter Excel intermedio</td>
+          <td class="time-col"><span class="pain-badge">&#9888; Medio</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="conclusion-bar" role="note">
+      &#9200; Horas por cliente / trimestre &nbsp;&mdash;&nbsp; Elevado risco de erro humano &nbsp;&mdash;&nbsp; Dificil escalar sem contratar
+    </div>
+  </div>
+</section>
+
+<!-- ===== SLIDE 3 — ANTES VS AGORA ===== -->
+<section class="slide slide-tinted" id="slide-2" aria-label="A Solucao — Antes vs Agora">
+  <div class="slide-inner">
+    <div class="label">A Solucao</div>
+    <h2 class="slide-title">Antes <span>vs</span> Agora</h2>
+    <p class="slide-subtitle">O mesmo resultado fiscal, uma fracao do tempo.</p>
+    <table class="bva-table" role="table" aria-label="Comparacao antes e depois do IVAzen">
+      <thead>
+        <tr>
+          <th scope="col" class="before-head">&#128282; Antes — fluxo manual</th>
+          <th scope="col" class="step-head">Passo</th>
+          <th scope="col" class="after-head">&#9889; Agora — com IVAzen</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="before-col">Entrar no portal e-Fatura, pesquisar faturas uma a uma</td>
+          <td class="step-col">Dados</td>
+          <td class="after-col">&#9989; Importar SIRE CSV ou Excel AT em segundos</td>
+        </tr>
+        <tr>
+          <td class="before-col">Abrir cada fatura, decidir codigo de IVA, copiar para Excel</td>
+          <td class="step-col">Classificar</td>
+          <td class="after-col">&#129302; IA classifica automaticamente (&gt;80% de precisao)</td>
+        </tr>
+        <tr>
+          <td class="before-col">Rever Excel fatura a fatura antes de entregar</td>
+          <td class="step-col">Validar</td>
+          <td class="after-col">&#9989; Contabilista revê apenas as de baixa confianca</td>
+        </tr>
+        <tr>
+          <td class="before-col">Calcular totais por taxa IVA manualmente</td>
+          <td class="step-col">Apurar</td>
+          <td class="after-col">&#128200; Apuramento automatico com totais por campo DP</td>
+        </tr>
+        <tr>
+          <td class="before-col">Formatar relatorio, enviar por email ao cliente</td>
+          <td class="step-col">Exportar</td>
+          <td class="after-col">&#128230; Excel/PDF pronto a descarregar, com branding</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="bva-metric">
+      <div class="bva-metric-card">
+        <div class="num">&#8722;80%</div>
+        <div class="txt">Tempo de classificacao</div>
+      </div>
+      <div class="bva-metric-card">
+        <div class="num">&#8776;0</div>
+        <div class="txt">Erros de transcricao</div>
+      </div>
+      <div class="bva-metric-card">
+        <div class="num">+3&#215;</div>
+        <div class="txt">Clientes geríveis por contabilista</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SLIDE 4 — COMO FUNCIONA ===== -->
+<section class="slide slide-white" id="slide-3" aria-label="Como Funciona — Fluxo de Trabalho">
+  <div class="slide-inner">
+    <div class="label">Fluxo de Trabalho</div>
+    <h2 class="slide-title">Como <span>Funciona</span></h2>
+    <p class="slide-subtitle">Cinco passos do ficheiro AT ao relatorio entregue ao cliente.</p>
+    <div class="flow-wrap" role="list" aria-label="Passos do fluxo de trabalho">
+      <div class="flow-step" role="listitem">
+        <span class="step-num">Passo 1</span>
+        <span class="step-icon">&#128229;</span>
+        <div class="step-name">Importar</div>
+        <div class="step-desc">SIRE CSV, Excel recibos verdes ou ficheiro do Primavera / Sage</div>
+      </div>
+      <div class="flow-arrow" aria-hidden="true">&#8594;</div>
+      <div class="flow-step" role="listitem">
+        <span class="step-num">Passo 2</span>
+        <span class="step-icon">&#129302;</span>
+        <div class="step-name">Classificar</div>
+        <div class="step-desc">IA atribui codigo IVA e campo DP com indicador de confianca</div>
+      </div>
+      <div class="flow-arrow" aria-hidden="true">&#8594;</div>
+      <div class="flow-step" role="listitem">
+        <span class="step-num">Passo 3</span>
+        <span class="step-icon">&#9989;</span>
+        <div class="step-name">Validar</div>
+        <div class="step-desc">Contabilista confirma ou corrige &mdash; as regras ficam guardadas</div>
+      </div>
+      <div class="flow-arrow" aria-hidden="true">&#8594;</div>
+      <div class="flow-step" role="listitem">
+        <span class="step-num">Passo 4</span>
+        <span class="step-icon">&#128200;</span>
+        <div class="step-name">Apurar</div>
+        <div class="step-desc">Totais IVA por campo DP calculados automaticamente</div>
+      </div>
+      <div class="flow-arrow" aria-hidden="true">&#8594;</div>
+      <div class="flow-step" role="listitem">
+        <span class="step-num">Passo 5</span>
+        <span class="step-icon">&#128230;</span>
+        <div class="step-name">Exportar</div>
+        <div class="step-desc">Excel ou PDF pronto para entregar ao cliente ou ao TOC</div>
+      </div>
+    </div>
+    <div style="margin-top:32px;">
+      <div class="feature-grid">
+        <div class="feature-card highlight">
+          <span class="fc-icon">&#9889;</span>
+          <div class="fc-title">Importacao AT integrada</div>
+          <div class="fc-desc">Importacao directa de ficheiros SIRE, recibos verdes e CSV do portal AT</div>
+        </div>
+        <div class="feature-card">
+          <span class="fc-icon">&#129302;</span>
+          <div class="fc-title">Regras aprendidas</div>
+          <div class="fc-desc">A IA memoriza as suas correccoes e aplica-as a faturas futuras do mesmo fornecedor</div>
+        </div>
+        <div class="feature-card">
+          <span class="fc-icon">&#128272;</span>
+          <div class="fc-title">Multi-cliente</div>
+          <div class="fc-desc">Um unico login para gerir todos os clientes da sua carteira com isolamento total de dados</div>
+        </div>
+        <div class="feature-card">
+          <span class="fc-icon">&#128241;</span>
+          <div class="fc-title">Mobile-ready</div>
+          <div class="fc-desc">Interface responsiva e PWA instalavel — funciona em qualquer dispositivo, incluindo offline</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SLIDE 5 — IVA ===== -->
+<section class="slide slide-tinted" id="slide-4" aria-label="IVA — Declaracao Periodica">
+  <div class="slide-inner">
+    <div class="label">Modulo IVA</div>
+    <h2 class="slide-title">Declaracao <span>Periodica de IVA</span></h2>
+    <p class="slide-subtitle">Classifica compras e vendas, calcula IVA dedutivel e preenche os campos da DP automaticamente.</p>
+    <div class="module-layout">
+      <div class="module-hero" aria-hidden="true">
+        <div class="mh-icon">&#128203;</div>
+        <div class="mh-label">IVA — DP Trimestral</div>
+        <div class="mh-title">Classificacao e Apuramento Automatico</div>
+        <div class="mh-desc">Compras, vendas, taxa reduzida, intermédia e normal — tudo calculado em segundos.</div>
+      </div>
+      <ul class="module-list" aria-label="Funcionalidades do modulo IVA">
+        <li>
+          <span class="li-icon">&#129302;</span>
+          <div class="li-text"><strong>Classificacao IA com confianca</strong><br>Cada fatura recebe uma classificacao com percentagem de confianca. As de baixa confianca ficam sinalizadas para revisao.</div>
+        </li>
+        <li>
+          <span class="li-icon">&#128200;</span>
+          <div class="li-text"><strong>Campos DP automaticos</strong><br>Mapeamento direto para os campos 20, 21, 22 e 24 da Declaracao Periodica de IVA.</div>
+        </li>
+        <li>
+          <span class="li-icon">&#128181;</span>
+          <div class="li-text"><strong>Apuramento trimestral com totais por taxa</strong><br>Taxa reduzida (6%), intermédia (13%) e normal (23%) com base tributavel e IVA liquidado/dedutivel.</div>
+        </li>
+        <li>
+          <span class="li-icon">&#128230;</span>
+          <div class="li-text"><strong>Exportacao para Excel e PDF</strong><br>Relatorio formatado pronto para entrega — inclui detalhes por fatura e resumo por taxa.</div>
+        </li>
+        <li>
+          <span class="li-icon">&#9989;</span>
+          <div class="li-text"><strong>Reconciliacao AT vs App</strong><br>Compara as faturas importadas do SIRE com as classificadas na aplicacao — detecta divergencias automaticamente.</div>
+        </li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SLIDE 6 — SEGURANCA SOCIAL ===== -->
+<section class="slide slide-white" id="slide-5" aria-label="Seguranca Social — Contribuicoes">
+  <div class="slide-inner">
+    <div class="label">Modulo Seguranca Social</div>
+    <h2 class="slide-title">Seguranca <span>Social</span></h2>
+    <p class="slide-subtitle">Calcula contribuicoes de trabalhadores independentes a partir dos recibos verdes — do Excel ao montante a pagar.</p>
+    <div class="module-layout">
+      <ul class="module-list" aria-label="Funcionalidades do modulo Seguranca Social">
+        <li>
+          <span class="li-icon">&#128229;</span>
+          <div class="li-text"><strong>Importacao de recibos verdes</strong><br>Carrega o ficheiro Excel exportado do portal AT &mdash; sem copia manual de valores.</div>
+        </li>
+        <li>
+          <span class="li-icon">&#128290;</span>
+          <div class="li-text"><strong>Coeficientes oficiais por categoria</strong><br>Art. 162.º do CIRS: coeficientes 0,70 (servicos), 0,20 (vendas), 1,00 (capital) aplicados automaticamente.</div>
+        </li>
+        <li>
+          <span class="li-icon">&#128181;</span>
+          <div class="li-text"><strong>Base tributavel automatica</strong><br>Calcula a base de incidencia trimestral com base nos recibos do periodo anterior (regra de desfasamento).</div>
+        </li>
+        <li>
+          <span class="li-icon">&#128200;</span>
+          <div class="li-text"><strong>Contribuicao estimada por trimestre</strong><br>Taxa de 21,4% sobre a base calculada, desdobrada por mes de pagamento.</div>
+        </li>
+        <li>
+          <span class="li-icon">&#128337;</span>
+          <div class="li-text"><strong>Regra de desfasamento integrada</strong><br>Receitas de Q(N) determinam a base de Q(N+1) &mdash; o sistema aplica esta regra sem configuracao manual.</div>
+        </li>
+      </ul>
+      <div class="module-hero" aria-hidden="true">
+        <div class="mh-icon">&#129381;</div>
+        <div class="mh-label">Trabalhadores Independentes</div>
+        <div class="mh-title">Coeficientes e Base Tributavel Automaticos</div>
+        <div class="mh-desc">Da importacao do Excel do AT ao montante a pagar na Seguranca Social — sem calculos manuais.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SLIDE 7 — MODELO 10 ===== -->
+<section class="slide slide-tinted" id="slide-6" aria-label="Modelo 10 — Retencoes na Fonte">
+  <div class="slide-inner">
+    <div class="label">Modulo Modelo 10</div>
+    <h2 class="slide-title">Modelo 10 — <span>Retencoes na Fonte</span></h2>
+    <p class="slide-subtitle">Gere todas as retencoes do ano para a declaracao Modelo 10 — da importacao SIRE a entrega.</p>
+    <div class="module-layout">
+      <div class="module-hero" aria-hidden="true">
+        <div class="mh-icon">&#128179;</div>
+        <div class="mh-label">Declaracao Anual</div>
+        <div class="mh-title">Gestao Completa de Retencoes na Fonte</div>
+        <div class="mh-desc">Importacao SIRE + OCR de PDFs + reconciliacao AT = declaracao Modelo 10 sem erros.</div>
+      </div>
+      <ul class="module-list" aria-label="Funcionalidades do modulo Modelo 10">
+        <li>
+          <span class="li-icon">&#128229;</span>
+          <div class="li-text"><strong>Importacao SIRE com 3.000+ retencoes</strong><br>Carrega o ficheiro SIRE exportado do portal AT &mdash; todos os documentos de retencao em segundos.</div>
+        </li>
+        <li>
+          <span class="li-icon">&#128203;</span>
+          <div class="li-text"><strong>Classificacao por categoria de rendimento</strong><br>Categorias A, B, E, F, G e H detectadas automaticamente com base no tipo de documento.</div>
+        </li>
+        <li>
+          <span class="li-icon">&#129302;</span>
+          <div class="li-text"><strong>OCR de PDFs com IA</strong><br>Extrai dados de documentos fisicos ou digitalizados &mdash; NIF do retentor, montante bruto e retencao.</div>
+        </li>
+        <li>
+          <span class="li-icon">&#9989;</span>
+          <div class="li-text"><strong>Reconciliacao SIRE vs OCR/manual</strong><br>Cruza as retencoes do AT com as extraidas manualmente &mdash; delta de 0,07 EUR nos testes realizados.</div>
+        </li>
+        <li>
+          <span class="li-icon">&#128230;</span>
+          <div class="li-text"><strong>Exportacao por beneficiario</strong><br>Relatorio por NIF beneficiario pronto para preencher a declaracao Modelo 10 no Portal das Financas.</div>
+        </li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SLIDE 8 — RECONCILIACAO ===== -->
+<section class="slide slide-white" id="slide-7" aria-label="Reconciliacao Automatica">
+  <div class="slide-inner">
+    <div class="label">Qualidade de Dados</div>
+    <h2 class="slide-title">Reconciliacao <span>Automatica</span></h2>
+    <p class="slide-subtitle">Cruza dados de multiplas fontes e sinaliza divergencias antes de entregar ao cliente.</p>
+    <div class="recon-grid" role="list" aria-label="Modulos de reconciliacao">
+      <div class="recon-card" role="listitem">
+        <div class="rc-head">
+          <span class="rc-icon">&#128203;</span>
+          <div>
+            <div class="rc-title">Compras IVA</div>
+            <div class="rc-subtitle">Importacoes vs AT SIRE</div>
+          </div>
+        </div>
+        <span class="recon-tag source">Fonte: AT e-Fatura</span><br>
+        <span class="recon-tag match">&#9989; Total SIRE vs App</span>
+        <hr class="recon-divider">
+        <p style="font-size:.8rem;color:var(--slate-500);line-height:1.4;">Compara numero de faturas e montantes totais entre o ficheiro SIRE e as classificadas na aplicacao.</p>
+      </div>
+      <div class="recon-card" role="listitem">
+        <div class="rc-head">
+          <span class="rc-icon">&#128179;</span>
+          <div>
+            <div class="rc-title">Modelo 10</div>
+            <div class="rc-subtitle">SIRE vs OCR/Manual</div>
+          </div>
+        </div>
+        <span class="recon-tag source">Fonte: SIRE + PDFs</span><br>
+        <span class="recon-tag match">&#9989; 143/143 coincidentes</span>
+        <hr class="recon-divider">
+        <p style="font-size:.8rem;color:var(--slate-500);line-height:1.4;">Cruza retencoes do portal AT com as extraidas por OCR. Delta validado: 0,07 EUR (0,000%) no cliente de referencia.</p>
+      </div>
+      <div class="recon-card" role="listitem">
+        <div class="rc-head">
+          <span class="rc-icon">&#129381;</span>
+          <div>
+            <div class="rc-title">Seguranca Social</div>
+            <div class="rc-subtitle">Vendas vs Declaracao</div>
+          </div>
+        </div>
+        <span class="recon-tag source">Fonte: Recibos verdes AT</span><br>
+        <span class="recon-tag match">&#9989; Base calculada auto.</span>
+        <hr class="recon-divider">
+        <p style="font-size:.8rem;color:var(--slate-500);line-height:1.4;">Valida que os recibos verdes importados cobrem o trimestre completo e que o coeficiente aplicado e o correto.</p>
+      </div>
+      <div class="recon-card" role="listitem">
+        <div class="rc-head">
+          <span class="rc-icon">&#9888;</span>
+          <div>
+            <div class="rc-title">Alertas</div>
+            <div class="rc-subtitle">Divergencias automaticas</div>
+          </div>
+        </div>
+        <span class="recon-tag alert">&#9888; Faturas em falta</span><br>
+        <span class="recon-tag alert">&#9888; Montante diferente</span>
+        <hr class="recon-divider">
+        <p style="font-size:.8rem;color:var(--slate-500);line-height:1.4;">Qualquer divergencia entre fontes e sinalizada antes de o relatorio ser exportado. Zero surpresas na entrega.</p>
+      </div>
+    </div>
+    <div class="conclusion-bar" role="note" style="margin-top:20px;">
+      &#9989; Validado em producao com 143 beneficiarios Modelo 10 &mdash; delta IRS de apenas 0,07 EUR
+    </div>
+  </div>
+</section>
+
+<!-- ===== SLIDE 9 — NUMEROS ===== -->
+<section class="slide slide-tinted" id="slide-8" aria-label="Dados Reais — Numeros da Plataforma">
+  <div class="slide-inner">
+    <div class="label">Dados Reais</div>
+    <h2 class="slide-title">A Plataforma <span>em Numeros</span></h2>
+    <p class="slide-subtitle">Resultados reais de utilizacao em producao — nao estimativas.</p>
+    <div class="metrics-grid" role="list" aria-label="Metricas da plataforma">
+      <div class="metric-card accent" role="listitem">
+        <div class="mc-icon">&#128101;</div>
+        <div class="mc-num">432</div>
+        <div class="mc-label">Clientes na plataforma</div>
+      </div>
+      <div class="metric-card" role="listitem">
+        <div class="mc-icon">&#128203;</div>
+        <div class="mc-num">168k+</div>
+        <div class="mc-label">Faturas de compra processadas</div>
+      </div>
+      <div class="metric-card" role="listitem">
+        <div class="mc-icon">&#128176;</div>
+        <div class="mc-num">53k+</div>
+        <div class="mc-label">Faturas de venda / recibos verdes</div>
+      </div>
+      <div class="metric-card" role="listitem">
+        <div class="mc-icon">&#128179;</div>
+        <div class="mc-num">3.000+</div>
+        <div class="mc-label">Retencoes na fonte (Modelo 10)</div>
+      </div>
+      <div class="metric-card accent" role="listitem">
+        <div class="mc-icon">&#128257;</div>
+        <div class="mc-num">390+</div>
+        <div class="mc-label">Credenciais AT configuradas</div>
+      </div>
+      <div class="metric-card" role="listitem">
+        <div class="mc-icon">&#129302;</div>
+        <div class="mc-num">100%</div>
+        <div class="mc-label">Cobertura IA nos clientes de demo</div>
+      </div>
+    </div>
+    <div class="conclusion-bar" style="margin-top:20px;">
+      &#128640; Gerido por Supabase (Frankfurt), Vercel e AT Connector em VPS dedicado &mdash; disponibilidade 24/7
+    </div>
+  </div>
+</section>
+
+<!-- ===== SLIDE 10 — COMO COMECAR ===== -->
+<section class="slide slide-white" id="slide-9" aria-label="Como Comecar">
+  <div class="slide-inner">
+    <div class="label">Primeiros Passos</div>
+    <h2 class="slide-title">Como <span>Comecar</span></h2>
+    <p class="slide-subtitle">Do primeiro login ao primeiro relatorio em menos de 15 minutos.</p>
+    <ol class="steps-list" aria-label="Passos para comecar a usar o IVAzen">
+      <li>
+        <div class="step-counter">1</div>
+        <div class="step-body">
+          <strong>Entrar em ivazen.aiparati.pt</strong>
+          <span>Aceder com o email de contabilista. A conta ja esta criada — aguarde o convite ou contacte o administrador.</span>
+        </div>
+      </li>
+      <li>
+        <div class="step-counter">2</div>
+        <div class="step-body">
+          <strong>Selecionar um cliente no menu lateral</strong>
+          <span>A lista de clientes da sua carteira aparece no painel esquerdo. Clique num cliente para aceder ao seu espaco fiscal.</span>
+        </div>
+      </li>
+      <li>
+        <div class="step-counter">3</div>
+        <div class="step-body">
+          <strong>Importar dados do AT</strong>
+          <span>Carregue o ficheiro SIRE CSV (compras/retencoes) ou o Excel de recibos verdes exportado do portal AT. Arraste e largue — o sistema detecta o tipo automaticamente.</span>
+        </div>
+      </li>
+      <li>
+        <div class="step-counter">4</div>
+        <div class="step-body">
+          <strong>A IA classifica automaticamente</strong>
+          <span>Em segundos, todas as faturas recebem uma classificacao com percentagem de confianca. As que precisam de revisao ficam sinalizadas a laranja.</span>
+        </div>
+      </li>
+      <li>
+        <div class="step-counter">5</div>
+        <div class="step-body">
+          <strong>Validar e corrigir se necessario</strong>
+          <span>Reveja apenas as faturas sinalizadas. As suas correccoes sao memorizadas e aplicadas a faturas futuras do mesmo fornecedor.</span>
+        </div>
+      </li>
+      <li>
+        <div class="step-counter">6</div>
+        <div class="step-body">
+          <strong>Exportar para entrega</strong>
+          <span>Clique em Exportar — escolha Excel ou PDF. O relatorio inclui totais por campo DP, reconciliacao e listagem detalhada por fatura.</span>
+        </div>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ===== SLIDE 11 — PROXIMOS PASSOS ===== -->
+<section class="slide slide-tinted" id="slide-10" aria-label="Proximos Passos">
+  <div class="slide-inner">
+    <div class="label">Proximos Passos</div>
+    <h2 class="slide-title">O Que <span>Fazer Agora</span></h2>
+    <p class="slide-subtitle">Um plano simples para validar o IVAzen com os seus clientes reais.</p>
+    <div class="next-grid" role="list" aria-label="Acoes recomendadas">
+      <div class="next-card" role="listitem">
+        <span class="nc-icon">&#128101;</span>
+        <div class="nc-title">Escolher 3 a 5 clientes</div>
+        <div class="nc-desc">Comece com clientes de perfil variado: ENI com recibos verdes, empresa com IVA trimestral e cliente com Modelo 10.</div>
+      </div>
+      <div class="next-card" role="listitem">
+        <span class="nc-icon">&#129302;</span>
+        <div class="nc-title">Validar classificacoes IA</div>
+        <div class="nc-desc">Para cada cliente, reveja as classificacoes automaticas e corrija as que nao estiverem certas. O sistema aprende.</div>
+      </div>
+      <div class="next-card" role="listitem">
+        <span class="nc-icon">&#128172;</span>
+        <div class="nc-title">Dar feedback</div>
+        <div class="nc-desc">Assinale categorias em falta, regras erradas ou qualquer dificuldade. O feedback vai diretamente para o roadmap.</div>
+      </div>
+    </div>
+    <div class="agenda-box" role="note" aria-label="Agenda de follow-up">
+      <div class="ab-icon">&#128197;</div>
+      <div class="ab-text">
+        <strong>Sessao de follow-up em 1 semana</strong>
+        <p>Agendamos uma reuniao rapida (30 min) para rever os resultados com os primeiros clientes, responder a perguntas e definir o plano de expansao para a carteira completa.</p>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:28px;">
+      <a href="https://ivazen.aiparati.pt" target="_blank" rel="noopener noreferrer"
+         style="display:inline-flex;align-items:center;gap:10px;background:linear-gradient(135deg,var(--rose-dark),var(--rose-mid));color:white;border-radius:100px;padding:14px 36px;font-weight:700;font-size:1rem;box-shadow:var(--shadow-lg);transition:transform .2s;font-family:'Inter',sans-serif;"
+         onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''"
+         aria-label="Abrir IVAzen em nova janela">
+        &#128279; &nbsp;Abrir ivazen.aiparati.pt
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer role="contentinfo">
+  IVAzen &copy; 2026 &nbsp;|&nbsp;
+  <a href="https://ivazen.aiparati.pt" target="_blank" rel="noopener noreferrer">ivazen.aiparati.pt</a>
+  &nbsp;|&nbsp; Gestao Fiscal Inteligente para Contabilistas Portugueses
+</footer>
+
+<!-- ===== JAVASCRIPT ===== -->
+<script>
+  "use strict";
+
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const dots   = Array.from(document.querySelectorAll('.nav-dot'));
+  const label  = document.getElementById('nav-label');
+  let current  = 0;
+  let ticking  = false;
+
+  function updateNav(idx) {
+    if (idx < 0 || idx >= slides.length) return;
+    current = idx;
+    dots.forEach((d, i) => {
+      d.classList.toggle('active', i === idx);
+      d.setAttribute('aria-selected', i === idx ? 'true' : 'false');
+    });
+    label.textContent = (idx + 1) + ' / ' + slides.length;
+  }
+
+  function goTo(idx) {
+    if (idx < 0 || idx >= slides.length) return;
+    slides[idx].scrollIntoView({ behavior: 'smooth', block: 'start' });
+    updateNav(idx);
+  }
+
+  // Intersection Observer for active slide tracking
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+        const idx = slides.indexOf(entry.target);
+        if (idx !== -1) updateNav(idx);
+      }
+    });
+  }, { threshold: 0.5 });
+
+  slides.forEach((s) => observer.observe(s));
+
+  // Keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+      e.preventDefault();
+      goTo(current + 1);
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'PageUp') {
+      e.preventDefault();
+      goTo(current - 1);
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      goTo(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      goTo(slides.length - 1);
+    }
+  });
+
+  // Touch / swipe support
+  let touchStartY = 0;
+  document.addEventListener('touchstart', (e) => { touchStartY = e.touches[0].clientY; }, { passive: true });
+  document.addEventListener('touchend', (e) => {
+    const delta = touchStartY - e.changedTouches[0].clientY;
+    if (Math.abs(delta) > 60) goTo(delta > 0 ? current + 1 : current - 1);
+  }, { passive: true });
+
+  // Initial nav state
+  updateNav(0);
+</script>
+</body>
+</html>
