@@ -135,8 +135,8 @@ export default defineConfig(({ mode }) => {
             // ── Crypto (node-forge) — only used by AdminCertificates ──
             if (id.includes('node_modules/node-forge')) return 'vendor-crypto';
 
-            // ── Charts (recharts + d3 ecosystem) ──
-            if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-')) return 'vendor-charts';
+            // Recharts/d3 stay with Vite's default chunking. A dedicated charts
+            // chunk caused a production-time initialization error on first load.
 
             // ── React core ──
             if (
