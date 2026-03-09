@@ -37,9 +37,9 @@ export default function Validation() {
   const { clients } = useClientManagement();
   const { selectedClientId, setSelectedClientId } = useSelectedClient();
   const navigate = useNavigate();
-  // Wait for role check; null prevents fetch for accountants without selection
+  // Wait for role check; null prevents fetch during role check and for accountants without selection
   const effectiveClientId = isCheckingRole
-    ? undefined
+    ? null
     : (isAccountant ? (selectedClientId || null) : undefined);
   const { 
     invoices, 
