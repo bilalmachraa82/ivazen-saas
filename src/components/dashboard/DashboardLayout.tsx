@@ -385,8 +385,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <NavGroup
               key={group.id}
               group={group}
-              isOpen={mobileOpenGroups[group.id]}
-              onToggle={() => toggleMobileGroup(group.id)}
+              isOpen={isAccountant && group.id === 'inicio' ? true : mobileOpenGroups[group.id]}
+              onToggle={() => {
+                if (isAccountant && group.id === 'inicio') return;
+                toggleMobileGroup(group.id);
+              }}
               location={location}
               onItemClick={() => setMobileMenuOpen(false)}
               taxpayerKind={taxpayerKind}
@@ -513,8 +516,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <NavGroup
               key={group.id}
               group={group}
-              isOpen={openGroups[group.id]}
-              onToggle={() => toggleGroup(group.id)}
+              isOpen={isAccountant && group.id === 'inicio' ? true : openGroups[group.id]}
+              onToggle={() => {
+                if (isAccountant && group.id === 'inicio') return;
+                toggleGroup(group.id);
+              }}
               location={location}
               taxpayerKind={taxpayerKind}
             />
