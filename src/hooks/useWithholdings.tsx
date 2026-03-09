@@ -71,11 +71,23 @@ export interface WithholdingLog {
   created_at: string;
 }
 
-export function useWithholdings(forClientId?: string | null, forYear?: number) {
+interface UseWithholdingsOptions {
+  includeLogs?: boolean;
+}
+
+const WITHHOLDING_LOG_BATCH_SIZE = 100;
+const WITHHOLDING_LOG_LIMIT = 100;
+
+export function useWithholdings(
+  forClientId?: string | null,
+  forYear?: number,
+  options?: UseWithholdingsOptions
+) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   // Default to current year; callers can override via forYear
   const [selectedYear, setSelectedYear] = useState<number>(forYear ?? new Date().getFullYear());
+  const includeLogs = options?.includeLogs ?? false;
   
   // Sync with external year prop when provided
   const effectiveYear = forYear ?? selectedYear;
@@ -126,27 +138,40 @@ export function useWithholdings(forClientId?: string | null, forYear?: number) {
 
   // Fetch logs for all withholdings
   const { data: logs = [], refetch: refetchLogs } = useQuery({
-    queryKey: ['withholding-logs', effectiveClientId, selectedYear, withholdings.map(w => w.id)],
+    queryKey: ['withholding-logs', effectiveClientId, selectedYear, includeLogs, withholdings.map(w => w.id)],
     queryFn: async () => {
-      if (!effectiveClientId || withholdings.length === 0) return [];
+      if (!effectiveClientId || withholdings.length === 0 || !includeLogs) return [];
 
       const withholdingIds = withholdings.map(w => w.id);
-
-      const { data, error } = await supabase
-        .from('withholding_logs')
-        .select('*')
-        .in('withholding_id', withholdingIds)
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-      if (error) {
-        console.error('Error fetching withholding logs:', error);
-        return [];
+      const batches: string[][] = [];
+      for (let i = 0; i < withholdingIds.length; i += WITHHOLDING_LOG_BATCH_SIZE) {
+        batches.push(withholdingIds.slice(i, i + WITHHOLDING_LOG_BATCH_SIZE));
       }
 
-      return data as WithholdingLog[];
+      const batchResults = await Promise.all(
+        batches.map(async (batch) => {
+          const { data, error } = await supabase
+            .from('withholding_logs')
+            .select('*')
+            .in('withholding_id', batch)
+            .order('created_at', { ascending: false })
+            .limit(WITHHOLDING_LOG_LIMIT);
+
+          if (error) {
+            console.error('Error fetching withholding logs:', error);
+            return [] as WithholdingLog[];
+          }
+
+          return (data ?? []) as WithholdingLog[];
+        })
+      );
+
+      return batchResults
+        .flat()
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+        .slice(0, WITHHOLDING_LOG_LIMIT);
     },
-    enabled: !!effectiveClientId && withholdings.length > 0,
+    enabled: !!effectiveClientId && withholdings.length > 0 && includeLogs,
   });
 
   // Helper to log changes

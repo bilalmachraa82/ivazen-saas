@@ -34,6 +34,7 @@ export default function Modelo10() {
   // Client selection for accountants
   const { selectedClientId, setSelectedClientId } = useSelectedClient();
   const [showCreateClient, setShowCreateClient] = useState(false);
+  const [activeTab, setActiveTab] = useState('list');
   const { clients, isLoadingClients } = useClientManagement();
 
   const {
@@ -53,9 +54,9 @@ export default function Modelo10() {
     isUpdating,
     isDeleting,
     isDeletingAll,
-  } = useWithholdings(isAccountant ? selectedClientId : undefined);
-
-  const [activeTab, setActiveTab] = useState('list');
+  } = useWithholdings(isAccountant ? selectedClientId : undefined, undefined, {
+    includeLogs: activeTab === 'history',
+  });
 
   // Generate year options (current year and 4 previous years)
   const currentYear = new Date().getFullYear();
