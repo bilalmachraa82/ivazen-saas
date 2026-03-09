@@ -4,16 +4,17 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, TrendingUp, Receipt, Shield, ChevronRight, Loader2 } from 'lucide-react';
 import { useSalesInvoices } from '@/hooks/useSalesInvoices';
-import { useProfile } from '@/hooks/useProfile';
+import { useClientFiscalProfile } from '@/hooks/useClientFiscalProfile';
 import { getSSCoefficient } from '@/lib/ssCoefficients';
 
 interface TaxFlowWidgetProps {
   currentQuarter?: string;
+  clientId?: string | null;
 }
 
-export function TaxFlowWidget({ currentQuarter }: TaxFlowWidgetProps) {
-  const { invoices, loading: salesLoading } = useSalesInvoices();
-  const { profile, isLoading: profileLoading } = useProfile();
+export function TaxFlowWidget({ currentQuarter, clientId }: TaxFlowWidgetProps) {
+  const { invoices, loading: salesLoading } = useSalesInvoices(clientId);
+  const { profile, isLoading: profileLoading } = useClientFiscalProfile(clientId);
   
   // Get current quarter if not provided
   const now = new Date();
@@ -73,7 +74,7 @@ export function TaxFlowWidget({ currentQuarter }: TaxFlowWidgetProps) {
         {/* Flow diagram */}
         <div className="flex items-center justify-between gap-2 p-3 bg-muted/30 rounded-xl">
           {/* Sales */}
-          <Link to="/sales-validation" className="flex-1 group">
+          <Link to="/sales" className="flex-1 group">
             <div className="text-center p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 transition-all group-hover:bg-rose-500/20 group-hover:border-rose-500/40">
               <TrendingUp className="h-5 w-5 mx-auto mb-1 text-rose-600" />
               <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Vendas</p>

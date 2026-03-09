@@ -2,8 +2,9 @@ import { useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
-import { useProfile } from '@/hooks/useProfile';
 import { useAccountantRequest } from '@/hooks/useAccountantRequest';
+import { useAccountantClients } from '@/hooks/useAccountantClients';
+import { useSelectedClient } from '@/hooks/useSelectedClient';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,17 +25,23 @@ import {
   Shield,
   Receipt,
   Briefcase,
-  Sparkles
+  Sparkles,
+  Users,
 } from 'lucide-react';
 
 export default function Dashboard() {
   const { user, loading, hasRole } = useAuth();
-  const { stats, recentInvoices, isLoading: statsLoading, refetch } = useDashboardStats();
-  const { profile, needsFiscalSetup, isLoading: profileLoading } = useProfile();
+  const isAccountant = hasRole('accountant');
+  const { selectedClientId } = useSelectedClient();
+  const { getClientById } = useAccountantClients({ enabled: isAccountant });
+  const selectedClient = isAccountant ? getClientById(selectedClientId) : null;
+  const hasSelectedClient = !isAccountant || !!selectedClientId;
+  const { stats, recentInvoices, isLoading: statsLoading } = useDashboardStats(
+    isAccountant ? (selectedClientId ?? null) : undefined,
+  );
   const { myRequest } = useAccountantRequest();
   const navigate = useNavigate();
-  
-  const isAccountant = hasRole('accountant');
+
   const hasPendingRequest = myRequest?.status === 'pending';
   const showAccountantPromo = !isAccountant && !hasPendingRequest;
 
@@ -44,7 +51,7 @@ export default function Dashboard() {
     }
   }, [user, loading, navigate]);
 
-  if (loading || statsLoading || profileLoading) {
+  if (loading || statsLoading) {
     return <ZenLoader fullScreen text="A carregar..." />;
   }
 
@@ -61,152 +68,170 @@ export default function Dashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-fade-in">
           <ZenHeader
             icon={LayoutDashboard}
-            title="Dashboard"
+            title={isAccountant ? "Carteira" : "Dashboard"}
             description={isAccountant
-              ? "Visão geral da sua carteira. Selecione um cliente no menu para ver o Centro Fiscal."
+              ? hasSelectedClient
+                ? `Visão geral do cliente ${selectedClient?.company_name || selectedClient?.full_name || selectedClient?.nif || 'selecionado'}.`
+                : "Visão geral da sua carteira. Selecione um cliente no menu para ver os dados reais do Centro Fiscal."
               : "Bem-vindo de volta! Aqui está o resumo das suas facturas."
             }
           />
-          <Link to="/upload" data-tour="new-invoice">
+          <Link to={isAccountant ? "/centro-importacao" : "/upload"} data-tour="new-invoice">
             <Button className="gap-2 zen-button shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300">
               <Upload className="h-4 w-4" />
-              Nova Factura
+              {isAccountant ? 'Importar Dados' : 'Nova Factura'}
             </Button>
           </Link>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" data-tour="stats-grid">
-          <ZenStatsCard
-            icon={FileText}
-            value={stats.total}
-            label="Total Facturas"
+        {isAccountant && !hasSelectedClient ? (
+          <ZenEmptyState
+            icon={Users}
+            title="Selecione um cliente para começar"
+            description="Use o seletor no menu lateral para abrir o Centro Fiscal de um cliente. A partir daí, verá compras, vendas, Segurança Social, Modelo 10 e pendências reais."
             variant="primary"
-            animationDelay="0ms"
+            action={{
+              label: 'Abrir Centro Fiscal',
+              onClick: () => navigate('/centro-fiscal'),
+              icon: ArrowRight,
+            }}
           />
-          <ZenStatsCard
-            icon={Clock}
-            value={stats.pending}
-            label="Pendentes"
-            variant="warning"
-            animationDelay="100ms"
-          />
-          <ZenStatsCard
-            icon={CheckCircle}
-            value={stats.validated}
-            label="Validadas"
-            variant="success"
-            animationDelay="200ms"
-          />
-          <ZenStatsCard
-            icon={AlertTriangle}
-            value={stats.lowConfidence}
-            label="Baixa Confiança"
-            variant="default"
-            animationDelay="300ms"
-          />
-        </div>
-
-        {/* Onboarding progress card is now handled by UnifiedOnboarding */}
-
-        {/* Attention Items */}
-        <AttentionItems
-          pendingValidation={stats.pending}
-          lowConfidence={stats.lowConfidence}
-        />
-
-        {/* Fiscal Deadlines */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <FiscalDeadlines
-            ssDeclarationsPending={0}
-            pendingValidation={stats.pending}
-          />
-        </div>
-
-        {/* Recent Invoices */}
-        <ZenCard withLine animationDelay="400ms" className="shadow-xl">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-xl font-semibold flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10">
-                <FileText className="h-5 w-5 text-primary" />
-              </div>
-              Facturas Recentes
-            </CardTitle>
-            <Link to="/validation">
-              <Button variant="ghost" size="sm" className="gap-1 group">
-                Ver todas
-                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-              </Button>
-            </Link>
-          </CardHeader>
-          <CardContent>
-            {recentInvoices.length === 0 ? (
-              <ZenEmptyState
+        ) : (
+          <>
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" data-tour="stats-grid">
+              <ZenStatsCard
                 icon={FileText}
-                title={isAccountant ? "Sem facturas para este cliente" : "Nenhuma factura ainda"}
-                description={isAccountant
-                  ? "Importe facturas do AT ou carregue manualmente na página de Importação."
-                  : "Comece por carregar a sua primeira factura para organizar as suas despesas"
-                }
+                value={stats.total}
+                label="Total Facturas"
                 variant="primary"
-                action={{
-                  label: isAccountant ? 'Ir para Importação' : 'Carregar Factura',
-                  onClick: () => navigate(isAccountant ? '/centro-importacao' : '/upload'),
-                  icon: Upload,
-                }}
+                animationDelay="0ms"
               />
-            ) : (
-              <div className="space-y-3">
-                {recentInvoices.map((invoice, index) => (
-                  <div
-                    key={invoice.id}
-                    className="flex items-center justify-between p-4 rounded-xl border border-border/50 hover:border-primary/30 hover:bg-muted/30 transition-all duration-300 group animate-fade-in"
-                    style={{ animationDelay: `${500 + index * 100}ms` }}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                        <FileText className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-foreground">{invoice.supplier}</p>
-                        <p className="text-sm text-muted-foreground">{invoice.date}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="font-semibold text-foreground">
-                          €{invoice.amount.toFixed(2)}
-                        </p>
-                        <div className="flex items-center gap-1 justify-end">
-                          <div 
-                            className={`h-1.5 w-1.5 rounded-full ${
-                              invoice.confidence >= 80 ? 'bg-success' : 
-                              invoice.confidence >= 60 ? 'bg-warning' : 'bg-destructive'
-                            }`} 
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            {invoice.confidence}% confiança
-                          </p>
+              <ZenStatsCard
+                icon={Clock}
+                value={stats.pending}
+                label="Pendentes"
+                variant="warning"
+                animationDelay="100ms"
+              />
+              <ZenStatsCard
+                icon={CheckCircle}
+                value={stats.validated}
+                label="Validadas"
+                variant="success"
+                animationDelay="200ms"
+              />
+              <ZenStatsCard
+                icon={AlertTriangle}
+                value={stats.lowConfidence}
+                label="Baixa Confiança"
+                variant="default"
+                animationDelay="300ms"
+              />
+            </div>
+
+            {/* Onboarding progress card is now handled by UnifiedOnboarding */}
+
+            {/* Attention Items */}
+            <AttentionItems
+              pendingValidation={stats.pending}
+              lowConfidence={stats.lowConfidence}
+            />
+
+            {/* Fiscal Deadlines */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <FiscalDeadlines
+                ssDeclarationsPending={0}
+                pendingValidation={stats.pending}
+              />
+            </div>
+
+            {/* Recent Invoices */}
+            <ZenCard withLine animationDelay="400ms" className="shadow-xl">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-xl font-semibold flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10">
+                    <FileText className="h-5 w-5 text-primary" />
+                  </div>
+                  Facturas Recentes
+                </CardTitle>
+                <Link to="/validation">
+                  <Button variant="ghost" size="sm" className="gap-1 group">
+                    Ver todas
+                    <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                </Link>
+              </CardHeader>
+              <CardContent>
+                {recentInvoices.length === 0 ? (
+                  <ZenEmptyState
+                    icon={FileText}
+                    title={isAccountant ? "Sem facturas para este cliente" : "Nenhuma factura ainda"}
+                    description={isAccountant
+                      ? "Importe facturas do AT ou carregue manualmente na página de Importação."
+                      : "Comece por carregar a sua primeira factura para organizar as suas despesas"
+                    }
+                    variant="primary"
+                    action={{
+                      label: isAccountant ? 'Ir para Importação' : 'Carregar Factura',
+                      onClick: () => navigate(isAccountant ? '/centro-importacao' : '/upload'),
+                      icon: Upload,
+                    }}
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    {recentInvoices.map((invoice, index) => (
+                      <div
+                        key={invoice.id}
+                        className="flex items-center justify-between p-4 rounded-xl border border-border/50 hover:border-primary/30 hover:bg-muted/30 transition-all duration-300 group animate-fade-in"
+                        style={{ animationDelay: `${500 + index * 100}ms` }}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                            <FileText className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">{invoice.supplier}</p>
+                            <p className="text-sm text-muted-foreground">{invoice.date}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="font-semibold text-foreground">
+                              €{invoice.amount.toFixed(2)}
+                            </p>
+                            <div className="flex items-center gap-1 justify-end">
+                              <div 
+                                className={`h-1.5 w-1.5 rounded-full ${
+                                  invoice.confidence >= 80 ? 'bg-success' : 
+                                  invoice.confidence >= 60 ? 'bg-warning' : 'bg-destructive'
+                                }`} 
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                {invoice.confidence}% confiança
+                              </p>
+                            </div>
+                          </div>
+                          <Badge 
+                            variant={invoice.status === 'validated' ? 'default' : 'secondary'}
+                            className={invoice.status === 'validated' ? 'bg-success/10 text-success border-success/20' : ''}
+                          >
+                            {invoice.status === 'validated' ? 'Validada' : 'Pendente'}
+                          </Badge>
                         </div>
                       </div>
-                      <Badge 
-                        variant={invoice.status === 'validated' ? 'default' : 'secondary'}
-                        className={invoice.status === 'validated' ? 'bg-success/10 text-success border-success/20' : ''}
-                      >
-                        {invoice.status === 'validated' ? 'Validada' : 'Pendente'}
-                      </Badge>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </ZenCard>
+                )}
+              </CardContent>
+            </ZenCard>
 
-        {/* Tax Flow Widget */}
-        <div className="animate-fade-in" style={{ animationDelay: '450ms' }}>
-          <TaxFlowWidget />
-        </div>
+            {/* Tax Flow Widget */}
+            <div className="animate-fade-in" style={{ animationDelay: '450ms' }}>
+              <TaxFlowWidget clientId={isAccountant ? selectedClientId : undefined} />
+            </div>
+          </>
+        )}
 
         {/* Become Accountant Promo */}
         {showAccountantPromo && (

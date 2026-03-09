@@ -7,15 +7,14 @@ import { useAccountant } from '@/hooks/useAccountant';
 import { useClientManagement } from '@/hooks/useClientManagement';
 import { useSelectedClient } from '@/hooks/useSelectedClient';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
-import { ZenHeader, ZenCard, ZenStatsCard, ZenDecorations, ZenLoader } from '@/components/zen';
+import { ZenHeader, ZenCard, ZenStatsCard, ZenDecorations, ZenLoader, ZenEmptyState } from '@/components/zen';
 import { FiscalSetupWizard } from '@/components/onboarding/FiscalSetupWizard';
 import { SalesInvoiceFilters } from '@/components/sales/SalesInvoiceFilters';
 import { SalesInvoiceTable } from '@/components/sales/SalesInvoiceTable';
 import { SalesInvoiceDetailDialog } from '@/components/sales/SalesInvoiceDetailDialog';
 import { ClientSearchSelector } from '@/components/ui/client-search-selector';
 import { CardContent } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Clock, CheckCircle, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Clock, CheckCircle, TrendingUp, Users } from 'lucide-react';
 import { StepNavigator } from '@/components/dashboard/StepNavigator';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -25,14 +24,14 @@ export default function SalesValidation() {
   const { user, loading: authLoading } = useAuth();
   const { needsFiscalSetup, isLoading: profileLoading } = useProfile();
   const { isAccountant, isCheckingRole } = useAccountant();
-  const { clients } = useClientManagement();
+  const { clients, isLoadingClients } = useClientManagement();
   const { selectedClientId, setSelectedClientId } = useSelectedClient();
   const [selectedInvoice, setSelectedInvoice] = useState<SalesInvoice | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  // Wait for role check; null prevents fetch for accountants without selection
+  // Match purchase validation semantics: never fetch the global portfolio for accountants.
   const effectiveClientId = isCheckingRole
-    ? undefined
+    ? null
     : (isAccountant ? (selectedClientId || null) : undefined);
   const {
     invoices,
@@ -62,7 +61,7 @@ export default function SalesValidation() {
     ? invoices.findIndex((inv) => inv.id === selectedInvoice.id) < invoices.length - 1
     : false;
 
-  if (authLoading || profileLoading) {
+  if (authLoading || profileLoading || isCheckingRole || isLoadingClients) {
     return <ZenLoader fullScreen text="A carregar..." />;
   }
 
@@ -77,6 +76,61 @@ export default function SalesValidation() {
         <div className="space-y-8 relative">
           <ZenDecorations />
           <FiscalSetupWizard onComplete={() => refetch()} />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (isAccountant && clients.length === 0) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-8 relative">
+          <ZenDecorations />
+          <ZenHeader
+            title="Facturas de Vendas"
+            description="Reveja e valide as facturas de vendas dos seus clientes"
+            icon={TrendingUp}
+          />
+          <ZenEmptyState
+            icon={Users}
+            title="Sem clientes associados"
+            description="Adicione ou associe clientes antes de rever facturas de vendas."
+          />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (isAccountant && clients.length > 0 && !selectedClientId) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-8 relative">
+          <ZenDecorations />
+          <ZenHeader
+            title="Facturas de Vendas"
+            description="Reveja e valide as facturas de vendas dos seus clientes"
+            icon={TrendingUp}
+          />
+          <ZenCard className="p-6">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Users className="h-4 w-4" />
+                <span>Cliente</span>
+              </div>
+              <ClientSearchSelector
+                clients={clients}
+                selectedClientId={selectedClientId}
+                onSelect={setSelectedClientId}
+                isLoading={isLoadingClients}
+                placeholder="Selecionar cliente..."
+              />
+            </div>
+          </ZenCard>
+          <ZenEmptyState
+            icon={Users}
+            title="Selecione um cliente"
+            description="Escolha explicitamente o cliente antes de rever ou validar vendas."
+          />
         </div>
       </DashboardLayout>
     );
