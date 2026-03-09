@@ -58,10 +58,10 @@
 - Trocar cliente para CAAD no selector
 - Menu → **Modelo 10**
 - Mostrar:
-  - 3.040 retenções importadas (2.608 de 2025 via SIRE + 427 de 2026)
+  - 3.040 retenções importadas (2.608 de 2025 + 427 de 2026 + 5 de 2024)
   - Lista por beneficiário, NIF, categoria
   - Filtros por categoria de rendimento (A, B, E, F, G, H)
-- **Destaque**: "Importou o ficheiro SIRE e ficou com 3.040 retenções classificadas. Isto substituiu semanas de trabalho manual."
+- **Destaque**: "Importou o ficheiro SIRE e ficou com 3.040 retenções prontas para revisão. Isto substituiu semanas de trabalho manual."
 - **NÃO mostrar**: SS do CAAD (empresa, não ENI — não aplicável)
 
 ### 6. Reconciliação (1 min)
