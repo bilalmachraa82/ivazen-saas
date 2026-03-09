@@ -285,6 +285,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     setMobileOpenGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
   };
 
+  useEffect(() => {
+    if (!isAccountant) return;
+
+    setOpenGroups((prev) => ({ ...prev, inicio: true }));
+    setMobileOpenGroups((prev) => ({ ...prev, inicio: true }));
+  }, [isAccountant, location.pathname]);
+
   const visibleNavGroups = navGroups
     .filter((group) => isAccountant || group.id !== 'importacao')
     .map((group) => ({
