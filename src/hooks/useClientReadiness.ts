@@ -39,23 +39,34 @@ async function countByClientId(
 ): Promise<Record<string, number>> {
   if (!clientIds.length) return {};
 
+  const PAGE_SIZE = 1000;
   const counts: Record<string, number> = {};
 
-  // Fetch in batches of 1000 client_ids to stay within Supabase limits
-  for (let offset = 0; offset < clientIds.length; offset += 1000) {
-    const batch = clientIds.slice(offset, offset + 1000);
-    const { data, error } = await supabase
-      .from(table)
-      .select('client_id')
-      .in('client_id', batch);
+  // Fetch in batches of 1000 client_ids to stay within Supabase .in() limits
+  for (let batchOffset = 0; batchOffset < clientIds.length; batchOffset += PAGE_SIZE) {
+    const batch = clientIds.slice(batchOffset, batchOffset + PAGE_SIZE);
 
-    if (error) {
-      console.error(`[useClientReadiness] ${table} count failed:`, error);
-      continue;
-    }
+    // Paginate returned rows to avoid Supabase default row limit truncation
+    let from = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from(table)
+        .select('client_id')
+        .in('client_id', batch)
+        .range(from, from + PAGE_SIZE - 1);
 
-    for (const row of data || []) {
-      counts[row.client_id] = (counts[row.client_id] || 0) + 1;
+      if (error) {
+        console.error(`[useClientReadiness] ${table} count failed:`, error);
+        break;
+      }
+
+      for (const row of data || []) {
+        counts[row.client_id] = (counts[row.client_id] || 0) + 1;
+      }
+
+      // If we got fewer rows than PAGE_SIZE, we've fetched all rows
+      if (!data || data.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
     }
   }
 
@@ -88,7 +99,7 @@ export function useClientReadiness() {
   });
 
   // ── Sales counts (vendas) ──
-  const { data: salesCounts } = useQuery({
+  const { data: salesCounts, isLoading: isLoadingSales } = useQuery({
     queryKey: ['client-readiness-sales', user?.id, clientIds.length],
     queryFn: () => countByClientId('sales_invoices', clientIds),
     enabled: isAccountant && clientIds.length > 0,
@@ -96,7 +107,7 @@ export function useClientReadiness() {
   });
 
   // ── Withholding counts (retenções) ──
-  const { data: withholdingCounts } = useQuery({
+  const { data: withholdingCounts, isLoading: isLoadingWithholdings } = useQuery({
     queryKey: ['client-readiness-withholdings', user?.id, clientIds.length],
     queryFn: () => countByClientId('tax_withholdings', clientIds),
     enabled: isAccountant && clientIds.length > 0,
@@ -154,7 +165,7 @@ export function useClientReadiness() {
   return {
     readinessMap,
     summary,
-    isLoading: isLoadingClients || isLoadingCreds,
+    isLoading: isLoadingClients || isLoadingCreds || isLoadingSales || isLoadingWithholdings,
     totalClients: clients.length,
   };
 }
