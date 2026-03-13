@@ -17,11 +17,11 @@ import { FiscalSetupWizard } from '@/components/onboarding/FiscalSetupWizard';
 import { DuplicateManager } from '@/components/validation/DuplicateManager';
 import { ReconciliationTab } from '@/components/validation/ReconciliationTab';
 import { ClientSearchSelector } from '@/components/ui/client-search-selector';
-import { ZenCard, ZenCardHeader, ZenHeader, ZenDecorations, ZenStatsCard, ZenLoader } from '@/components/zen';
+import { ZenCard, ZenCardHeader, ZenHeader, ZenDecorations, ZenStatsCard, ZenLoader, ZenEmptyState } from '@/components/zen';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Clock, CheckCircle, FileText, AlertCircle, Copy, AlertTriangle, RefreshCw, CheckSquare, Download, Trash2, X, ArrowLeftRight } from 'lucide-react';
+import { Clock, CheckCircle, FileText, AlertCircle, Copy, AlertTriangle, RefreshCw, CheckSquare, Download, Trash2, X, ArrowLeftRight, Users, Upload as UploadIcon } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -106,6 +106,55 @@ export default function Validation() {
         <div className="space-y-8 relative">
           <ZenDecorations />
           <FiscalSetupWizard onComplete={() => refetch()} />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Accountant with no clients
+  if (isAccountant && clients.length === 0) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-8 relative">
+          <ZenDecorations />
+          <ZenHeader icon={CheckCircle} title="Compras" description="Reveja e valide as classificações de IA das facturas dos seus clientes" />
+          <ZenEmptyState
+            icon={Users}
+            title="Sem clientes associados"
+            description="Adicione clientes na página de Definições para começar a validar compras."
+            action={{ label: "Ir para Definições", onClick: () => navigate('/settings') }}
+          />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Accountant with clients but no client selected
+  if (isAccountant && clients.length > 0 && !selectedClientId) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-8 relative">
+          <ZenDecorations />
+          <ZenHeader icon={CheckCircle} title="Compras" description="Reveja e valide as classificações de IA das facturas dos seus clientes" />
+          <ZenCard className="p-6">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Users className="h-4 w-4" />
+                <span>Cliente</span>
+              </div>
+              <ClientSearchSelector
+                clients={clients}
+                selectedClientId={selectedClientId}
+                onSelect={setSelectedClientId}
+                placeholder="Selecionar cliente..."
+              />
+            </div>
+          </ZenCard>
+          <ZenEmptyState
+            icon={Users}
+            title="Selecione um cliente"
+            description="Escolha um cliente antes de validar facturas de compra."
+          />
         </div>
       </DashboardLayout>
     );

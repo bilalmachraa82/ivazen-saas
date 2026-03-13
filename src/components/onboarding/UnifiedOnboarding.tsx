@@ -1033,6 +1033,15 @@ export function UnifiedOnboarding({ children }: UnifiedOnboardingProps) {
     const tourSkipped = localStorage.getItem(STORAGE_KEYS.tourSkipped);
     const celebrationShown = localStorage.getItem(STORAGE_KEYS.celebrationShown);
 
+    // Accountants manage clients, not their own fiscal profile — skip wizard entirely
+    if (isAccountant) {
+      if (!welcomeShown) {
+        localStorage.setItem(STORAGE_KEYS.welcomeShown, 'true');
+      }
+      setPhase('checklist');
+      return;
+    }
+
     // First login - show welcome
     if (!welcomeShown && needsFiscalSetup) {
       setPhase('welcome');
@@ -1059,7 +1068,7 @@ export function UnifiedOnboarding({ children }: UnifiedOnboardingProps) {
 
     // Default - show checklist in background
     setPhase('checklist');
-  }, [isLoading, user, needsFiscalSetup, isComplete]);
+  }, [isLoading, user, needsFiscalSetup, isComplete, isAccountant]);
 
   // Phase handlers
   const handleWelcomeContinue = () => {

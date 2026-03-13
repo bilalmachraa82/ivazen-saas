@@ -222,6 +222,27 @@ export default function Export() {
 
   if (loading || !user) return null;
 
+  // Accountant with no clients
+  if (isAccountant && clients.length === 0) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <ZenHeader
+            icon={Download}
+            title="Apuramento"
+            description="Declaração Periódica de IVA — exporte os dados validados"
+          />
+          <ZenEmptyState
+            icon={Users}
+            title="Sem clientes associados"
+            description="Adicione clientes na página de Definições para exportar dados de IVA."
+            action={{ label: "Ir para Definições", onClick: () => navigate('/settings') }}
+          />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   // Accountant without client: show selector + empty state
   if (isAccountant && clients.length > 0 && !selectedClientId) {
     return (

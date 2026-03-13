@@ -61,27 +61,29 @@ interface DashboardLayoutProps {
   children: ReactNode;
 }
 
-// Definição dos grupos de navegação — fluxo linear "Declaração Periódica (IVA)"
+// Navegação simplificada — 4 grupos para contabilistas, fluxo claro
 const navGroups = [
   {
-    id: 'inicio',
-    label: 'Início',
+    id: 'carteira',
+    label: 'Carteira',
     icon: LayoutDashboard,
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: FileText, tourId: 'nav-dashboard' },
       { href: '/centro-fiscal', label: 'Centro Fiscal', icon: PieChart, tourId: 'nav-fiscal-center' },
-      { href: '/accountant', label: 'Painel Contabilista', icon: Briefcase, tourId: 'nav-accountant', requireAccountant: true, hideForAccountant: true },
     ]
   },
   {
-    id: 'declaracao-periodica',
-    label: 'Declaração Periódica (IVA)',
+    id: 'trabalho',
+    label: 'Trabalho',
     icon: Landmark,
     items: [
       { href: '/upload', label: 'Carregar Faturas', icon: Upload, tourId: 'nav-upload', hideForAccountant: true },
       { href: '/validation', label: 'Compras', icon: CheckCircle, tourId: 'nav-validation' },
       { href: '/sales', label: 'Vendas', icon: TrendingUp, tourId: 'nav-sales' },
       { href: '/export', label: 'Apuramento', icon: FileOutput, tourId: 'nav-export' },
+      { href: '/seguranca-social', label: 'Segurança Social', icon: Shield, tourId: 'nav-ss', obligation: 'ss' as const },
+      { href: '/modelo-10', label: 'Modelo 10 (Retenções)', icon: Receipt, tourId: 'nav-modelo10', obligation: 'modelo10' as const },
+      { href: '/reconciliation', label: 'Reconciliação', icon: ArrowLeftRight, tourId: 'nav-reconciliation', requireAccountant: true },
     ]
   },
   {
@@ -98,31 +100,14 @@ const navGroups = [
     ]
   },
   {
-    id: 'obrigacoes',
-    label: 'Obrigações Fiscais',
-    icon: Receipt,
-    items: [
-      { href: '/modelo-10', label: 'Modelo 10 (Retenções)', icon: Receipt, tourId: 'nav-modelo10', obligation: 'modelo10' as const },
-      { href: '/seguranca-social', label: 'Segurança Social', icon: Shield, tourId: 'nav-ss', obligation: 'ss' as const },
-      { href: '/reconciliation', label: 'Reconciliação', icon: ArrowLeftRight, tourId: 'nav-reconciliation', requireAccountant: true },
-    ]
-  },
-  {
-    id: 'analise',
-    label: 'Análise',
-    icon: PieChart,
+    id: 'sistema',
+    label: 'Sistema',
+    icon: Settings,
     items: [
       { href: '/documents', label: 'Todos os Documentos', icon: List, tourId: 'nav-documents' },
       { href: '/reports', label: 'Relatórios', icon: ClipboardList, tourId: 'nav-reports' },
       { href: '/iva-calculator', label: 'Calculadora IVA', icon: Calculator, tourId: 'nav-vat', hideForAccountant: true },
       { href: '/glossario', label: 'Glossário', icon: BookOpen, tourId: 'nav-glossario', hideForAccountant: true },
-    ]
-  },
-  {
-    id: 'conta',
-    label: 'Conta',
-    icon: User,
-    items: [
       { href: '/settings', label: 'Definições', icon: Settings, tourId: 'nav-settings' },
     ]
   },
@@ -236,7 +221,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     });
     // Se nenhum grupo está ativo, abrir o primeiro
     if (!Object.values(initialState).some(v => v)) {
-      initialState['inicio'] = true;
+      initialState['carteira'] = true;
     }
     return initialState;
   });
@@ -249,7 +234,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       initialState[group.id] = hasActiveItem;
     });
     if (!Object.values(initialState).some(v => v)) {
-      initialState['inicio'] = true;
+      initialState['carteira'] = true;
     }
     return initialState;
   });
@@ -288,8 +273,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   useEffect(() => {
     if (!isAccountant) return;
 
-    setOpenGroups((prev) => ({ ...prev, inicio: true }));
-    setMobileOpenGroups((prev) => ({ ...prev, inicio: true }));
+    setOpenGroups((prev) => ({ ...prev, carteira: true }));
+    setMobileOpenGroups((prev) => ({ ...prev, carteira: true }));
   }, [isAccountant, location.pathname]);
 
   const visibleNavGroups = navGroups
@@ -385,9 +370,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <NavGroup
               key={group.id}
               group={group}
-              isOpen={isAccountant && group.id === 'inicio' ? true : mobileOpenGroups[group.id]}
+              isOpen={isAccountant && group.id === 'carteira' ? true : mobileOpenGroups[group.id]}
               onToggle={() => {
-                if (isAccountant && group.id === 'inicio') return;
+                if (isAccountant && group.id === 'carteira') return;
                 toggleMobileGroup(group.id);
               }}
               location={location}
@@ -516,9 +501,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <NavGroup
               key={group.id}
               group={group}
-              isOpen={isAccountant && group.id === 'inicio' ? true : openGroups[group.id]}
+              isOpen={isAccountant && group.id === 'carteira' ? true : openGroups[group.id]}
               onToggle={() => {
-                if (isAccountant && group.id === 'inicio') return;
+                if (isAccountant && group.id === 'carteira') return;
                 toggleGroup(group.id);
               }}
               location={location}
