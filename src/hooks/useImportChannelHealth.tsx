@@ -13,6 +13,7 @@ export interface ChannelHealth {
   lastActivity: string | null;
   recordsImported: number;
   lastError: string | null;
+  trackingMode: 'dedicated' | 'derived' | 'none';
 }
 
 export interface ImportChannelHealthData {
@@ -102,6 +103,7 @@ export function useImportChannelHealth(options: UseImportChannelHealthOptions = 
             lastActivity: lastApiSync?.created_at ?? atCredentialsRes.data?.last_sync_at ?? null,
             recordsImported: apiImported,
             lastError: lastApiSync?.status === 'error' ? 'Erro no último sync' : null,
+            trackingMode: 'dedicated',
           },
           csv_excel: {
             id: 'csv_excel',
@@ -109,6 +111,7 @@ export function useImportChannelHealth(options: UseImportChannelHealthOptions = 
             lastActivity: null,
             recordsImported: 0,
             lastError: null,
+            trackingMode: 'none',
           },
           pdf_ocr: {
             id: 'pdf_ocr',
@@ -116,6 +119,7 @@ export function useImportChannelHealth(options: UseImportChannelHealthOptions = 
             lastActivity: null,
             recordsImported: 0,
             lastError: null,
+            trackingMode: 'none',
           },
           saft: {
             id: 'saft',
@@ -123,6 +127,7 @@ export function useImportChannelHealth(options: UseImportChannelHealthOptions = 
             lastActivity: null,
             recordsImported: 0,
             lastError: null,
+            trackingMode: 'none',
           },
           modelo10: {
             id: 'modelo10',
@@ -130,6 +135,7 @@ export function useImportChannelHealth(options: UseImportChannelHealthOptions = 
             lastActivity: null,
             recordsImported: withholdingsCount,
             lastError: null,
+            trackingMode: 'derived',
           },
         },
         totalImported: purchaseCount + salesCount + withholdingsCount,

@@ -131,13 +131,28 @@ interface ChannelCardProps {
   lastActivity: string | null;
   recordsImported: number;
   lastError: string | null;
+  trackingMode: 'dedicated' | 'derived' | 'none';
   primary: boolean;
 }
 
-function ChannelCard({ meta, status, lastActivity, recordsImported, lastError, primary }: ChannelCardProps) {
+function ChannelCard({ meta, status, lastActivity, recordsImported, lastError, trackingMode, primary }: ChannelCardProps) {
   const badge = channelStatusBadge(status);
   const StatusIcon = badge.icon;
   const fullRoute = meta.route + (meta.routeParams || '');
+  const hasTracking = trackingMode !== 'none';
+  const recordsLabel = trackingMode === 'derived' ? 'Registos derivados' : 'Registos';
+  const recordsValue = hasTracking ? recordsImported.toLocaleString('pt-PT') : 'Sob procura';
+  const recordsHint =
+    trackingMode === 'none'
+      ? 'Sem tracking dedicado por canal'
+      : trackingMode === 'derived'
+        ? 'Contagem inferida a partir dos registos finais'
+        : null;
+  const lastUsageValue = hasTracking && lastActivity
+    ? formatDistanceToNow(new Date(lastActivity), { addSuffix: true, locale: pt })
+    : hasTracking
+      ? '—'
+      : 'Consultar detalhe';
 
   return (
     <ZenCard
@@ -174,17 +189,20 @@ function ChannelCard({ meta, status, lastActivity, recordsImported, lastError, p
         {/* Metrics row */}
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Registos</div>
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{recordsLabel}</div>
             <div className="mt-0.5 text-lg font-semibold text-foreground">
-              {recordsImported.toLocaleString('pt-PT')}
+              {recordsValue}
             </div>
+            {recordsHint && (
+              <div className="mt-1 text-[10px] leading-tight text-muted-foreground">
+                {recordsHint}
+              </div>
+            )}
           </div>
           <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2">
             <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Último uso</div>
             <div className="mt-0.5 text-sm font-medium text-foreground">
-              {lastActivity
-                ? formatDistanceToNow(new Date(lastActivity), { addSuffix: true, locale: pt })
-                : '—'}
+              {lastUsageValue}
             </div>
           </div>
         </div>
@@ -404,8 +422,8 @@ export default function ImportCenter() {
               value={data.totalImported.toLocaleString('pt-PT')}
             />
             <SummaryMetric
-              label="Canais ativos"
-              value={String(Object.values(data.channels).filter((ch) => ch.status === 'active').length)}
+              label="Tracking por canal"
+              value={Object.values(data.channels).some((ch) => ch.trackingMode === 'none') ? 'Parcial' : 'Completo'}
             />
             <SummaryMetric
               label="Credenciais AT"
@@ -416,6 +434,13 @@ export default function ImportCenter() {
               value={data.atEnvironment === 'production' ? 'Produção' : data.atEnvironment === 'test' ? 'Teste' : '—'}
             />
           </div>
+        )}
+
+        {data && (
+          <p className="text-sm text-muted-foreground">
+            O total importado reflete todos os registos já carregados no cliente. Apenas alguns canais mostram
+            tracking dedicado; os restantes funcionam por disponibilidade e ação manual.
+          </p>
         )}
 
         {/* ── Next actions ── */}
@@ -468,6 +493,7 @@ export default function ImportCenter() {
                   lastActivity={ch?.lastActivity ?? null}
                   recordsImported={ch?.recordsImported ?? 0}
                   lastError={ch?.lastError ?? null}
+                  trackingMode={ch?.trackingMode ?? 'none'}
                   primary={primary}
                 />
               );
