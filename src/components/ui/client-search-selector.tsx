@@ -8,6 +8,7 @@ import { Check, ChevronsUpDown, Search, SortAsc, SortDesc, Hash, Users, Loader2 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { readinessConfig, type ClientReadiness } from '@/lib/clientReadiness';
 import {
   Command,
   CommandEmpty,
@@ -41,6 +42,8 @@ interface ClientSearchSelectorProps {
   ownAccountLabel?: string;
   placeholder?: string;
   className?: string;
+  /** Optional readiness map — shows colored dot per client when provided */
+  readinessMap?: Map<string, ClientReadiness>;
 }
 
 export function ClientSearchSelector({
@@ -53,6 +56,7 @@ export function ClientSearchSelector({
   ownAccountLabel = 'Minha conta',
   placeholder = 'Selecionar cliente...',
   className,
+  readinessMap,
 }: ClientSearchSelectorProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -245,9 +249,17 @@ export function ClientSearchSelector({
                       )}
                     />
                     <div className="flex flex-col min-w-0 flex-1">
-                      <span className="truncate font-medium">
-                        {client.full_name || client.company_name || 'Cliente'}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {readinessMap && readinessMap.has(client.id) && (
+                          <span
+                            className={cn('h-2 w-2 rounded-full shrink-0', readinessConfig[readinessMap.get(client.id)!].dot)}
+                            title={readinessConfig[readinessMap.get(client.id)!].label}
+                          />
+                        )}
+                        <span className="truncate font-medium">
+                          {client.full_name || client.company_name || 'Cliente'}
+                        </span>
+                      </div>
                       {client.nif && (
                         <span className="text-xs text-muted-foreground">
                           NIF: {client.nif}

@@ -14,10 +14,11 @@ import { UnifiedOnboarding } from '@/components/onboarding/UnifiedOnboarding';
 import { TaxFlowWidget } from '@/components/dashboard/TaxFlowWidget';
 import { AttentionItems } from '@/components/dashboard/AttentionItems';
 import { FiscalDeadlines } from '@/components/accountant/FiscalDeadlines';
-import { 
-  FileText, 
-  Clock, 
-  CheckCircle, 
+import { useClientReadiness, readinessConfig, readinessOrder } from '@/hooks/useClientReadiness';
+import {
+  FileText,
+  Clock,
+  CheckCircle,
   AlertTriangle,
   Upload,
   ArrowRight,
@@ -40,6 +41,7 @@ export default function Dashboard() {
     isAccountant ? (selectedClientId ?? null) : undefined,
   );
   const { myRequest } = useAccountantRequest();
+  const { summary, totalClients } = useClientReadiness();
   const navigate = useNavigate();
 
   const hasPendingRequest = myRequest?.status === 'pending';
@@ -85,17 +87,54 @@ export default function Dashboard() {
         </div>
 
         {isAccountant && !hasSelectedClient ? (
-          <ZenEmptyState
-            icon={Users}
-            title="Selecione um cliente para começar"
-            description="Use o seletor no menu lateral para abrir o Centro Fiscal de um cliente. A partir daí, verá compras, vendas, Segurança Social, Modelo 10 e pendências reais."
-            variant="primary"
-            action={{
-              label: 'Abrir Centro Fiscal',
-              onClick: () => navigate('/centro-fiscal'),
-              icon: ArrowRight,
-            }}
-          />
+          <>
+            {/* Portfolio readiness summary */}
+            {totalClients > 0 && (
+              <ZenCard withLine animationDelay="75ms" className="shadow-lg">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                    <Users className="h-5 w-5 text-primary" />
+                    Estado da Carteira
+                    <Badge variant="secondary" className="ml-auto text-xs">{totalClients} clientes</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    {readinessOrder.map((status) => {
+                      const config = readinessConfig[status];
+                      const count = summary[status];
+                      if (count === 0) return null;
+                      return (
+                        <div
+                          key={status}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm ${config.badge}`}
+                        >
+                          <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${config.dot}`} />
+                          <span className="font-semibold">{count}</span>
+                          <span className="text-xs truncate">{config.label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-3">
+                    Selecione um cliente no menu lateral para abrir o Centro Fiscal.
+                  </p>
+                </CardContent>
+              </ZenCard>
+            )}
+
+            {totalClients === 0 && (
+              <ZenEmptyState
+                icon={Users}
+                title="Sem clientes associados"
+                description="Adicione clientes na página de Definições para começar."
+                action={{
+                  label: 'Ir para Definições',
+                  onClick: () => navigate('/settings'),
+                }}
+              />
+            )}
+          </>
         ) : (
           <>
             {/* Stats Grid */}

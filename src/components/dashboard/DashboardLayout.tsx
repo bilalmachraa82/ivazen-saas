@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAccountantClients } from '@/hooks/useAccountantClients';
 import { useSelectedClient } from '@/hooks/useSelectedClient';
 import { useTaxpayerKind } from '@/hooks/useTaxpayerKind';
+import { useClientReadiness } from '@/hooks/useClientReadiness';
 import { taxpayerKindBadge, isObligationPrimary } from '@/lib/taxpayerKind';
 import { ClientSearchSelector } from '@/components/ui/client-search-selector';
 import { Button } from '@/components/ui/button';
@@ -199,6 +200,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { clients, isAccountant, isLoading: isLoadingClients } = useAccountantClients();
   const { selectedClientId, setSelectedClientId } = useSelectedClient();
   const { taxpayerKind } = useTaxpayerKind(isAccountant ? (selectedClientId ?? null) : undefined);
+  const { readinessMap } = useClientReadiness();
 
   // Resolve selected client for display
   const selectedClient = selectedClientId
@@ -353,6 +355,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   isLoading={isLoadingClients}
                   className="w-full"
                   placeholder="Selecionar cliente..."
+                  readinessMap={readinessMap}
                 />
                 {selectedClient && selectedClient.nif && (
                   <p className="text-[10px] text-sidebar-foreground/50 font-mono mt-1 px-2">NIF: {selectedClient.nif}</p>
@@ -484,6 +487,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   isLoading={isLoadingClients}
                   className="w-full"
                   placeholder="Selecionar cliente..."
+                  readinessMap={readinessMap}
                 />
                 {selectedClient && selectedClient.nif && (
                   <p className="text-[10px] text-sidebar-foreground/50 font-mono mt-1 px-2">NIF: {selectedClient.nif}</p>
