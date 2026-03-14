@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
+import { featureFlags } from '@/lib/featureFlags';
 
 interface GuideSection {
   id: string;
@@ -36,7 +37,13 @@ interface GuideSection {
   items: { text: string; link?: string; highlight?: boolean }[];
 }
 
-const sections: GuideSection[] = [
+const buildSections = (): GuideSection[] => {
+  const atccAvailable = featureFlags.atControlCenterV1;
+  const importStepText = atccAvailable
+    ? '3. Se faltarem dados → Centro de Importação ou AT Control Center'
+    : '3. Se faltarem dados → Centro de Importação';
+
+  return [
   {
     id: 'fluxo',
     title: 'Fluxo padrão por cliente',
@@ -45,7 +52,8 @@ const sections: GuideSection[] = [
     items: [
       { text: '1. Escolher cliente no Dashboard', link: '/dashboard' },
       { text: '2. Abrir Centro Fiscal — hub do cliente', link: '/centro-fiscal' },
-      { text: '3. Se faltarem dados → Centro de Importação ou AT Control Center', link: '/centro-importacao' },
+      { text: importStepText, link: '/centro-importacao' },
+      ...(atccAvailable ? [{ text: '   ↳ ou AT Control Center (monitorização de sync)', link: '/at-control-center' }] : []),
       { text: '4. Compras → validar classificação IA', link: '/validation' },
       { text: '5. Vendas → confirmar receitas / recibos verdes', link: '/sales' },
       { text: '6. Segurança Social → quando aplicável (ENI)', link: '/seguranca-social' },
@@ -115,6 +123,7 @@ const sections: GuideSection[] = [
     ],
   },
 ];
+};
 
 const shortcuts = [
   { keys: 'Cmd+K', desc: 'Pesquisa rápida / paleta de comandos' },
@@ -127,6 +136,7 @@ const shortcuts = [
 ];
 
 export default function AccountantGuide() {
+  const sections = buildSections();
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['fluxo']));
 
   const toggleSection = (id: string) => {
@@ -160,8 +170,10 @@ export default function AccountantGuide() {
                 <p className="font-semibold text-lg text-foreground mb-1">Regra de Ouro</p>
                 <p className="text-muted-foreground">
                   Se há dados, trabalha-se a partir do <Link to="/centro-fiscal" className="text-primary font-medium hover:underline">Centro Fiscal</Link>.
-                  Se não há dados, o próximo passo é <Link to="/centro-importacao" className="text-primary font-medium hover:underline">Importação</Link> ou{' '}
-                  <Link to="/at-control-center" className="text-primary font-medium hover:underline">AT Control Center</Link>.
+                  Se não há dados, o próximo passo é <Link to="/centro-importacao" className="text-primary font-medium hover:underline">Importação</Link>
+                  {featureFlags.atControlCenterV1 && (
+                    <>{' '}ou <Link to="/at-control-center" className="text-primary font-medium hover:underline">AT Control Center</Link></>
+                  )}.
                 </p>
               </div>
             </div>

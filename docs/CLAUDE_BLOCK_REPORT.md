@@ -132,5 +132,10 @@ Relatório estruturado para auditoria automática do Codex.
   - Conteúdo do guia é estático (hardcoded em React). Se o SOP mudar, precisa de actualizar o componente. Aceitável para produto em fase de entrega — evita complexidade de CMS/markdown runtime.
   - Página só acessível a accountants (requireRole). Clientes não vêem o guia — intencional, foco accountant-only.
   - Nenhuma alteração em lógica fiscal, edge functions, ou motores de cálculo.
+- **Auditoria Codex** (2 rondas):
+  - Ronda 1 (commit `03cab72`): feature entregue, enviada para auditoria
+  - Ronda 2 — 2 findings corrigidos:
+    - **P2**: Link hardcoded `/at-control-center` no guia não respeitava feature flag — agora `buildSections()` e "Regra de Ouro" condicionam links ao `featureFlags.atControlCenterV1`. Se flag off, link e texto não aparecem.
+    - **P3**: Card "Como Começar" aparecia quando `totalClients === 0` (contradição com empty state) — agora condicionado a `totalClients > 0`.
 - **Pronto para auditoria do Codex?** Sim
 - **Próximo passo sugerido**: BLOCO 5 (a definir)

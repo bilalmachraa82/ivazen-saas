@@ -137,8 +137,8 @@ export default function Dashboard() {
               />
             )}
 
-            {/* Quick-start guide for accountants */}
-            <ZenCard withLine animationDelay="150ms" className="shadow-lg">
+            {/* Quick-start guide for accountants — only when they have clients */}
+            {totalClients > 0 && <ZenCard withLine animationDelay="150ms" className="shadow-lg">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg font-semibold flex items-center gap-2">
                   <HelpCircle className="h-5 w-5 text-primary" />
@@ -183,7 +183,7 @@ export default function Dashboard() {
                   </Link>
                 </div>
               </CardContent>
-            </ZenCard>
+            </ZenCard>}
           </>
         ) : (
           <>
