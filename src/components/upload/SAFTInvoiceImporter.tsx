@@ -612,46 +612,67 @@ export function SAFTInvoiceImporter({ selectedClientId, clientName, onComplete }
       )}
 
       {/* Complete Step */}
-      {step === 'complete' && (
-        <Card className="border-green-500/30 bg-green-500/5">
-          <CardContent className="py-12">
-            <div className="flex flex-col items-center gap-4">
-              <div className="p-4 rounded-full bg-green-500/20">
-                <CheckCircle2 className="h-12 w-12 text-green-500" />
-              </div>
-              <p className="text-lg font-medium">Importacao Concluida</p>
-              <div className="text-center space-y-1">
-                <p className="text-muted-foreground">
-                  <strong className="text-green-600">{importedCount}</strong> fatura{importedCount !== 1 ? 's' : ''} importada{importedCount !== 1 ? 's' : ''} com sucesso
-                </p>
-                {duplicatesCount > 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    {duplicatesCount} fatura{duplicatesCount !== 1 ? 's' : ''} duplicada{duplicatesCount !== 1 ? 's' : ''} ignorada{duplicatesCount !== 1 ? 's' : ''}
-                  </p>
-                )}
-                {invoiceType === 'purchase' && importedCount > 0 && (
-                  <p className="text-sm text-muted-foreground mt-2">
-                    As faturas de compra estao a ser classificadas pela IA em segundo plano.
-                  </p>
-                )}
-              </div>
-              <div className="flex gap-2 flex-wrap justify-center">
-                <Button onClick={resetImport} variant="outline">
-                  Importar Mais
-                </Button>
-                <Button onClick={() => navigate(invoiceType === 'purchase' ? '/validation' : '/social-security')}>
-                  {invoiceType === 'purchase' ? 'Ver Validação' : 'Ver Segurança Social'}
-                </Button>
-                {onComplete && (
-                  <Button variant="ghost" onClick={onComplete}>
-                    Concluir
+      {step === 'complete' && (() => {
+        const hasSuccess = importedCount > 0;
+        const cardClass = hasSuccess
+          ? 'border-green-500/30 bg-green-500/5'
+          : 'border-amber-500/30 bg-amber-500/5';
+        const iconClass = hasSuccess ? 'bg-green-500/20' : 'bg-amber-500/20';
+        const iconColor = hasSuccess ? 'text-green-500' : 'text-amber-500';
+        const title = hasSuccess
+          ? 'Importação Concluída'
+          : duplicatesCount > 0
+            ? 'Todas as Faturas já Existiam'
+            : 'Nenhuma Fatura Importada';
+
+        return (
+          <Card className={cardClass}>
+            <CardContent className="py-12">
+              <div className="flex flex-col items-center gap-4">
+                <div className={`p-4 rounded-full ${iconClass}`}>
+                  {hasSuccess
+                    ? <CheckCircle2 className={`h-12 w-12 ${iconColor}`} />
+                    : <AlertCircle className={`h-12 w-12 ${iconColor}`} />
+                  }
+                </div>
+                <p className="text-lg font-medium">{title}</p>
+                <div className="text-center space-y-1">
+                  {hasSuccess && (
+                    <p className="text-muted-foreground">
+                      <strong className="text-green-600">{importedCount}</strong> fatura{importedCount !== 1 ? 's' : ''} importada{importedCount !== 1 ? 's' : ''} com sucesso
+                    </p>
+                  )}
+                  {duplicatesCount > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      {duplicatesCount} fatura{duplicatesCount !== 1 ? 's' : ''} duplicada{duplicatesCount !== 1 ? 's' : ''} ignorada{duplicatesCount !== 1 ? 's' : ''}
+                    </p>
+                  )}
+                  {invoiceType === 'purchase' && importedCount > 0 && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      As faturas de compra estão a ser classificadas pela IA em segundo plano.
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-2 flex-wrap justify-center">
+                  <Button onClick={resetImport} variant="outline">
+                    Importar Mais
                   </Button>
-                )}
+                  {hasSuccess && (
+                    <Button onClick={() => navigate(invoiceType === 'purchase' ? '/validation' : '/sales')}>
+                      {invoiceType === 'purchase' ? 'Ver Validação' : 'Ver Vendas'}
+                    </Button>
+                  )}
+                  {onComplete && (
+                    <Button variant="ghost" onClick={onComplete}>
+                      Concluir
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        );
+      })()}
     </div>
   );
 }

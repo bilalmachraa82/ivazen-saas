@@ -692,10 +692,10 @@ export default function Upload() {
                 <Button 
                   variant="outline" 
                   size="lg"
-                  onClick={() => navigate(isPurchase ? '/validation' : '/social-security')}
+                  onClick={() => navigate(isPurchase ? '/validation' : '/sales')}
                   className="border-primary/30 hover:bg-primary/5 hover:border-primary/50 transition-all duration-300"
                 >
-                  {isPurchase ? 'Ver Validação' : 'Ver Segurança Social'}
+                  {isPurchase ? 'Ver Validação' : 'Ver Vendas'}
                 </Button>
               </div>
             </CardContent>
