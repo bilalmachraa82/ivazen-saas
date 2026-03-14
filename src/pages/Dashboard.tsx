@@ -28,6 +28,8 @@ import {
   Briefcase,
   Sparkles,
   Users,
+  BookOpen,
+  HelpCircle,
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -134,6 +136,54 @@ export default function Dashboard() {
                 }}
               />
             )}
+
+            {/* Quick-start guide for accountants */}
+            <ZenCard withLine animationDelay="150ms" className="shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                  <HelpCircle className="h-5 w-5 text-primary" />
+                  Como Começar
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <Link to="/centro-fiscal" className="group rounded-lg border p-4 hover:border-primary/40 hover:bg-primary/5 transition-all">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">1</span>
+                      <span className="text-sm font-medium group-hover:text-primary transition-colors">Selecionar Cliente</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Escolha no menu lateral e abra o Centro Fiscal</p>
+                  </Link>
+                  <Link to="/centro-importacao" className="group rounded-lg border p-4 hover:border-primary/40 hover:bg-primary/5 transition-all">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">2</span>
+                      <span className="text-sm font-medium group-hover:text-primary transition-colors">Importar Dados</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">SIRE CSV, recibos verdes Excel, ou upload manual</p>
+                  </Link>
+                  <Link to="/validation" className="group rounded-lg border p-4 hover:border-primary/40 hover:bg-primary/5 transition-all">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">3</span>
+                      <span className="text-sm font-medium group-hover:text-primary transition-colors">Validar e Trabalhar</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Compras, Vendas, SS ou Modelo 10 conforme o cliente</p>
+                  </Link>
+                  <Link to="/export" className="group rounded-lg border p-4 hover:border-primary/40 hover:bg-primary/5 transition-all">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">4</span>
+                      <span className="text-sm font-medium group-hover:text-primary transition-colors">Exportar</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Gerar apuramento IVA, PDF ou Excel</p>
+                  </Link>
+                </div>
+                <div className="mt-3 flex justify-end">
+                  <Link to="/guide" className="text-xs text-primary hover:underline flex items-center gap-1">
+                    <BookOpen className="h-3 w-3" />
+                    Ver guia completo
+                  </Link>
+                </div>
+              </CardContent>
+            </ZenCard>
           </>
         ) : (
           <>

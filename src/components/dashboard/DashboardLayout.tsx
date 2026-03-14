@@ -109,6 +109,7 @@ const navGroups = [
       { href: '/reports', label: 'Relatórios', icon: ClipboardList, tourId: 'nav-reports' },
       { href: '/iva-calculator', label: 'Calculadora IVA', icon: Calculator, tourId: 'nav-vat', hideForAccountant: true },
       { href: '/glossario', label: 'Glossário', icon: BookOpen, tourId: 'nav-glossario', hideForAccountant: true },
+      { href: '/guide', label: 'Guia', icon: HelpCircle, tourId: 'nav-guide', requireAccountant: true },
       { href: '/settings', label: 'Definições', icon: Settings, tourId: 'nav-settings' },
     ]
   },

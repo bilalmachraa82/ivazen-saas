@@ -87,3 +87,50 @@ Relatório estruturado para auditoria automática do Codex.
 - **Pronto para auditoria do Codex?** Sim — **APROVADO** (2 rondas)
 - **Commits**: `88e9973` (feature), `f63a70c` (fixes P1+P2)
 - **Próximo passo sugerido**: BLOCO 4 — Help/onboarding integrado
+
+---
+
+## BLOCO 4 — Help/onboarding integrado
+
+- **Objetivo**: Dar à contabilista um ponto de ajuda permanente dentro da app, reduzir dependência de explicação manual, tornar uso da equipa autónomo
+- **Diagnóstico**:
+  - Onboarding multi-fase existia mas só aparece no 1º login (não re-acessível)
+  - Command Palette (Cmd+K) e Keyboard shortcuts (Shift+?) existem mas requerem descoberta
+  - SOP + Guia de Adoção existiam em docs/ mas sem acesso dentro da app
+  - Sidebar não tinha nenhum link "Ajuda" ou "Guia"
+  - Dashboard de contabilista sem cliente mostrava readiness mas sem orientação "o que fazer agora"
+- **O que alterei**:
+  1. **AccountantGuide.tsx (novo)** — página `/guide` com referência in-app para contabilistas. Conteúdo extraído do SOP e Guia de Adoção existentes:
+     - Regra de ouro (com links ao Centro Fiscal e Importação)
+     - Fluxo padrão por cliente (9 passos com links directos)
+     - Como trabalhar IVA (4 passos)
+     - Como trabalhar Segurança Social (4 passos + nota ENI)
+     - Como trabalhar Modelo 10 (5 passos)
+     - Métodos de importação (5 opções com links)
+     - Cliente sem dados — o que fazer (6 cenários)
+     - Atalhos de teclado (7 atalhos principais)
+     - Clientes de referência para formação (Bilal, CAAD, Justyna)
+  2. **DashboardLayout.tsx** — adicionado nav item "Guia" (ícone HelpCircle) no grupo Sistema, visível só para contabilistas (`requireAccountant: true`)
+  3. **Dashboard.tsx** — card "Como Começar" visível quando contabilista não tem cliente selecionado. 4 passos com links directos: Selecionar Cliente → Importar Dados → Validar e Trabalhar → Exportar. Link "Ver guia completo" para `/guide`.
+  4. **App.tsx** — rota `/guide` com `requireRole="accountant"`, lazy-loaded
+- **Docs existentes integradas**:
+  - `docs/SOP_EQUIPE_CONTABILIDADE_2026-03-13.md` → fluxo padrão, regra de ouro, como trabalhar cada obrigação, cliente sem dados
+  - `docs/IVAzen_Guia_Adopcao_Contabilista.md` → métodos de importação, primeiros passos, atalhos
+  - `docs/HANDOFF_EQUIPE_CLIENTE_2026-03-13.md` → clientes de referência para formação
+- **Como a ajuda ficou acessível**:
+  - Sidebar → "Guia" (grupo Sistema, só accountants)
+  - Dashboard → card "Como Começar" (4 passos com links, só quando sem cliente selecionado)
+  - Dashboard → link "Ver guia completo" → `/guide`
+  - Conteúdo renderizado como componentes React com collapsible, links directos às páginas, badges, atalhos de teclado
+- **Ficheiros tocados**:
+  - `src/pages/AccountantGuide.tsx` (novo)
+  - `src/App.tsx` (nova rota)
+  - `src/components/dashboard/DashboardLayout.tsx` (nav item)
+  - `src/pages/Dashboard.tsx` (card "Como Começar")
+- **Validações corridas**: `npm run build` ✓ (125 entries), `npm test` ✓ (834/834 pass)
+- **Riscos/tradeoffs**:
+  - Conteúdo do guia é estático (hardcoded em React). Se o SOP mudar, precisa de actualizar o componente. Aceitável para produto em fase de entrega — evita complexidade de CMS/markdown runtime.
+  - Página só acessível a accountants (requireRole). Clientes não vêem o guia — intencional, foco accountant-only.
+  - Nenhuma alteração em lógica fiscal, edge functions, ou motores de cálculo.
+- **Pronto para auditoria do Codex?** Sim
+- **Próximo passo sugerido**: BLOCO 5 (a definir)

@@ -53,6 +53,7 @@ const EFaturaSync          = lazy(() => import('./pages/EFaturaSync'));
 const BulkClientSync       = lazy(() => import('./pages/BulkClientSync'));
 const ATControlCenter      = lazy(() => import('./pages/ATControlCenter'));
 const AdminCertificates    = lazy(() => import('./pages/AdminCertificates'));
+const AccountantGuide      = lazy(() => import('./pages/AccountantGuide'));
 
 // Protected pages — admin role
 const AdminPartners        = lazy(() => import('./pages/AdminPartners'));
@@ -183,6 +184,9 @@ const App = () => (
                     )}
                     <Route path="/admin/certificates" element={
                       <PageRoute requireRole="accountant"><AdminCertificates /></PageRoute>
+                    } />
+                    <Route path="/guide" element={
+                      <PageRoute requireRole="accountant"><AccountantGuide /></PageRoute>
                     } />
 
                     {/* ---- Protected routes — admin role ---- */}
