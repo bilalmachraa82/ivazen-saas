@@ -19,6 +19,7 @@ import {
   BULK_INVOICE_CONFIG
 } from '@/lib/bulkInvoiceProcessor';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { resolveScopedClientId } from '@/lib/clientScope';
 
@@ -29,6 +30,7 @@ interface BulkInvoiceUploadProps {
 
 export function BulkInvoiceUpload({ selectedClientId, clientName }: BulkInvoiceUploadProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [queue, setQueue] = useState<InvoiceQueueItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -494,15 +496,48 @@ export function BulkInvoiceUpload({ selectedClientId, clientName }: BulkInvoiceU
         </div>
       )}
 
-      {/* Summary */}
-      {savedCount > 0 && (
-        <Alert className="border-green-200 bg-green-50">
-          <CheckCircle className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-800">
-            <strong>{savedCount} fatura{savedCount !== 1 ? 's' : ''}</strong> guardada{savedCount !== 1 ? 's' : ''} com sucesso!
-            {invoiceType === 'purchase' && ' As faturas de compra estao a ser classificadas pela IA em segundo plano.'}
-          </AlertDescription>
-        </Alert>
+      {/* Completion Summary */}
+      {!isProcessing && totalCount > 0 && pendingCount === 0 && processingCount === 0 && (
+        <Card className="border-green-500/30 bg-green-500/5">
+          <CardContent className="py-8">
+            <div className="flex flex-col items-center gap-4">
+              <div className="p-3 rounded-full bg-green-500/20">
+                <CheckCircle className="h-10 w-10 text-green-500" />
+              </div>
+              <p className="text-lg font-medium">Processamento Concluído</p>
+              <div className="text-center space-y-1">
+                {savedCount > 0 && (
+                  <p className="text-muted-foreground">
+                    <strong className="text-green-600">{savedCount}</strong> fatura{savedCount !== 1 ? 's' : ''} guardada{savedCount !== 1 ? 's' : ''} com sucesso
+                  </p>
+                )}
+                {errorCount > 0 && (
+                  <p className="text-sm text-red-600">
+                    {errorCount} fatura{errorCount !== 1 ? 's' : ''} com erro
+                  </p>
+                )}
+                {unsavedCount > 0 && (
+                  <p className="text-sm text-amber-600">
+                    {unsavedCount} processada{unsavedCount !== 1 ? 's' : ''} mas não gravada{unsavedCount !== 1 ? 's' : ''}
+                  </p>
+                )}
+                {invoiceType === 'purchase' && savedCount > 0 && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    As faturas de compra estão a ser classificadas pela IA em segundo plano.
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-2 mt-2">
+                <Button variant="outline" onClick={handleClearAll}>
+                  Nova Importação
+                </Button>
+                <Button onClick={() => navigate(invoiceType === 'purchase' ? '/validation' : '/social-security')}>
+                  {invoiceType === 'purchase' ? 'Ver Validação' : 'Ver Segurança Social'}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

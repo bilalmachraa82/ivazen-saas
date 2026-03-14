@@ -50,4 +50,34 @@ Relatório estruturado para auditoria automática do Codex.
   - Queries de sales/withholdings dependem de RLS — se RLS não filtrar por accountant, pode trazer dados de outros contabilistas. Mitigado pelo `.in('client_id', batch)` que limita aos IDs conhecidos.
 - **Pronto para auditoria do Codex?** Sim
 - **Commits**: `107ac02` (feature), `dc6f78b` (fixes da 3ª auditoria)
-- **Próximo passo sugerido**: BLOCO 3 — Feedback de importação
+- **Próximo passo sugerido**: N/A — bloco fechado
+
+---
+
+## BLOCO 3 — Feedback de importação
+
+- **Objetivo**: Aumentar confiança da contabilista quando importa dados — mostrar o que entrou, o que foi ignorado, e dar next step claro
+- **Diagnóstico** (5 fluxos auditados):
+  - Single Upload: success card genérico sem dados extraídos, sem confirmação visual
+  - Bulk Invoice: inline stats mas sem card de conclusão nem CTAs de navegação (dead end)
+  - SAFT Importer: bom summary mas sem CTAs para validação/compras/vendas
+  - Modelo10 Bulk: flui para BulkReviewTable (adequado, fora de escopo)
+  - Duplicados: Single upload tem detecção rica, SAFT conta duplicados, Bulk não tem (aceitável — ficheiros diferentes)
+- **O que alterei**:
+  1. **Upload.tsx** — success card agora mostra dados extraídos (NIF, nº documento, data, valor, nome fornecedor). Helper `setLastInvoice()` propaga `extractedData` de todos os paths (QR, AI, mismatch, force upload). Contabilista vê imediatamente se a IA capturou os dados certos.
+  2. **BulkInvoiceUpload.tsx** — adicionado card de conclusão quando processamento termina (0 pendentes, 0 a processar). Mostra: guardadas (verde), erros (vermelho), não gravadas (amber). CTAs: "Nova Importação" + "Ver Validação" / "Ver Segurança Social" conforme tipo.
+  3. **SAFTInvoiceImporter.tsx** — step complete agora tem CTA "Ver Validação" (compras) ou "Ver Segurança Social" (vendas) além do "Importar Mais" existente.
+- **Ficheiros tocados**:
+  - `src/pages/Upload.tsx`
+  - `src/components/upload/BulkInvoiceUpload.tsx`
+  - `src/components/upload/SAFTInvoiceImporter.tsx`
+- **Validações corridas**: `npm run build` ✓ (124 entries), `npm test` ✓ (834/834 pass)
+- **Cenários de duplicado/existente cobertos**:
+  - Single Upload: detecção por QR (ATCUD/NIF+doc+data), mostra card com dados do existente, opção "Forçar Upload" — **sem alterações, já funcionava**
+  - SAFT: detecção por document_number + document_date + client_id, mostra contagem de duplicados no summary — **sem alterações, já funcionava**
+  - Bulk: sem detecção de duplicados (cada ficheiro é processado independentemente pela AI) — **fora de escopo**, risco baixo pois AI extraction gera registos distintos
+- **Riscos/tradeoffs**:
+  - `lastInvoiceData` depende de `extractedData` nos hooks. Para uploads via QR sem AI (parseQR path), `extractedData` pode não estar no result — nesses casos o summary não aparece (graceful degradation, não é erro).
+  - Nenhuma alteração em lógica de processamento, deduplicação, ou edge functions.
+- **Pronto para auditoria do Codex?** Sim
+- **Próximo passo sugerido**: BLOCO 4 — Help/onboarding integrado

@@ -122,6 +122,29 @@ export default function Upload() {
   const [detectedQRContent, setDetectedQRContent] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [lastInvoiceId, setLastInvoiceId] = useState<string | null>(null);
+  const [lastInvoiceData, setLastInvoiceData] = useState<{
+    supplier_nif?: string;
+    supplier_name?: string | null;
+    document_number?: string | null;
+    document_date?: string;
+    total_amount?: number;
+  } | null>(null);
+
+  /** Set both ID and summary data from upload result */
+  const setLastInvoice = (result: { invoiceId?: string; extractedData?: any }) => {
+    setLastInvoiceId(result.invoiceId || null);
+    if (result.extractedData) {
+      setLastInvoiceData({
+        supplier_nif: result.extractedData.supplier_nif,
+        supplier_name: result.extractedData.supplier_name,
+        document_number: result.extractedData.document_number,
+        document_date: result.extractedData.document_date,
+        total_amount: result.extractedData.total_amount,
+      });
+    } else {
+      setLastInvoiceData(null);
+    }
+  };
   const [useAIExtraction, setUseAIExtraction] = useState(false);
   
   // Type mismatch warning state
@@ -257,7 +280,7 @@ export default function Upload() {
     }
 
     if (result.success) {
-      setLastInvoiceId(result.invoiceId || null);
+      setLastInvoice(result);
       resetState();
     }
   };
@@ -373,7 +396,7 @@ export default function Upload() {
       }
       
       if (result.success) {
-        setLastInvoiceId(result.invoiceId || null);
+        setLastInvoice(result);
         setSelectedFile(null);
         setUseAIExtraction(false);
         clearDuplicateState();
@@ -453,7 +476,7 @@ export default function Upload() {
     }
 
     if (result.success) {
-      setLastInvoiceId(result.invoiceId || null);
+      setLastInvoice(result);
       resetState();
       clearDuplicateState();
     }
@@ -468,13 +491,13 @@ export default function Upload() {
       if (invoiceType === 'purchase') {
         const result = await purchaseUpload.processInvoiceWithAI(pendingImage, pendingImage.name);
         if (result.success) {
-          setLastInvoiceId(result.invoiceId || null);
+          setLastInvoice(result);
           resetState();
         }
       } else {
         const result = await salesUpload.processSalesInvoiceWithAI(pendingImage, pendingImage.name);
         if (result.success) {
-          setLastInvoiceId(result.invoiceId || null);
+          setLastInvoice(result);
           resetState();
         }
       }
@@ -497,13 +520,13 @@ export default function Upload() {
         if (detectedType === 'purchase') {
           const result = await purchaseUpload.processInvoiceWithAI(pendingImage, pendingImage.name);
           if (result.success) {
-            setLastInvoiceId(result.invoiceId || null);
+            setLastInvoice(result);
             resetState();
           }
         } else {
           const result = await salesUpload.processSalesInvoiceWithAI(pendingImage, pendingImage.name);
           if (result.success) {
-            setLastInvoiceId(result.invoiceId || null);
+            setLastInvoice(result);
             resetState();
           }
         }
@@ -519,7 +542,7 @@ export default function Upload() {
         }
         
         if (result.success) {
-          setLastInvoiceId(result.invoiceId || null);
+          setLastInvoice(result);
           resetState();
         }
       }
@@ -549,7 +572,7 @@ export default function Upload() {
       }
 
       if (result.success) {
-        setLastInvoiceId(result.invoiceId || null);
+        setLastInvoice(result);
         resetState();
         clearDuplicateState();
         toast.success('Factura guardada (duplicado forçado)');
@@ -571,6 +594,7 @@ export default function Upload() {
 
   const handleNewInvoice = () => {
     setLastInvoiceId(null);
+    setLastInvoiceData(null);
     setCapturedImage(null);
     setSelectedFile(null);
     setDetectedQRContent(null);
@@ -612,11 +636,50 @@ export default function Upload() {
               <h2 className="text-3xl font-bold text-foreground mb-3">
                 {isPurchase ? 'Factura de Compra Processada!' : 'Factura de Venda Processada!'}
               </h2>
-              <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                {isPurchase 
-                  ? 'A factura foi guardada com harmonia e está pronta para classificação IA.'
+              <p className="text-muted-foreground mb-4 max-w-md mx-auto">
+                {isPurchase
+                  ? 'A factura foi guardada e está pronta para classificação IA.'
                   : 'A factura de venda foi guardada e será contabilizada nas suas receitas.'}
               </p>
+
+              {/* Extracted data summary */}
+              {lastInvoiceData && (
+                <div className="bg-background/60 rounded-lg p-4 border border-border/50 mb-6 max-w-md mx-auto text-left">
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    {lastInvoiceData.supplier_nif && (
+                      <div>
+                        <span className="text-muted-foreground">NIF:</span>
+                        <span className="ml-2 font-mono">{lastInvoiceData.supplier_nif}</span>
+                      </div>
+                    )}
+                    {lastInvoiceData.document_number && (
+                      <div>
+                        <span className="text-muted-foreground">Doc:</span>
+                        <span className="ml-2 font-mono">{lastInvoiceData.document_number}</span>
+                      </div>
+                    )}
+                    {lastInvoiceData.document_date && (
+                      <div>
+                        <span className="text-muted-foreground">Data:</span>
+                        <span className="ml-2">
+                          {format(new Date(lastInvoiceData.document_date), 'dd MMM yyyy', { locale: pt })}
+                        </span>
+                      </div>
+                    )}
+                    {lastInvoiceData.total_amount != null && (
+                      <div>
+                        <span className="text-muted-foreground">Total:</span>
+                        <span className="ml-2 font-semibold">
+                          {new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(lastInvoiceData.total_amount)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  {lastInvoiceData.supplier_name && (
+                    <p className="text-xs text-muted-foreground mt-2">{lastInvoiceData.supplier_name}</p>
+                  )}
+                </div>
+              )}
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button 
                   onClick={handleNewInvoice} 

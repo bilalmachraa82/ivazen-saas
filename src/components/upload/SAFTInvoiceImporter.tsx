@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { parseInvoiceFile, ParsedInvoice, formatCurrency, ParseResult } from '@/lib/csvParser';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -52,6 +53,7 @@ interface InvoiceForImport extends ParsedInvoice {
 
 export function SAFTInvoiceImporter({ selectedClientId, clientName, onComplete }: SAFTInvoiceImporterProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [step, setStep] = useState<ImportStep>('instructions');
   const [invoices, setInvoices] = useState<InvoiceForImport[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
@@ -633,12 +635,15 @@ export function SAFTInvoiceImporter({ selectedClientId, clientName, onComplete }
                   </p>
                 )}
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap justify-center">
                 <Button onClick={resetImport} variant="outline">
                   Importar Mais
                 </Button>
+                <Button onClick={() => navigate(invoiceType === 'purchase' ? '/validation' : '/social-security')}>
+                  {invoiceType === 'purchase' ? 'Ver Validação' : 'Ver Segurança Social'}
+                </Button>
                 {onComplete && (
-                  <Button onClick={onComplete}>
+                  <Button variant="ghost" onClick={onComplete}>
                     Concluir
                   </Button>
                 )}
