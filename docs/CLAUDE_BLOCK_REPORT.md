@@ -200,7 +200,30 @@ Relatório estruturado para auditoria automática do Codex.
 3. **Credential decryption** — 410/423 credenciais falham decrypt at runtime (AT_ENCRYPTION_KEY mismatch). Só 13 com accountant_at_config funcionam. Limitação infraestrutural, não do produto.
 4. **Conteúdo do guia estático** — Se SOP mudar, AccountantGuide.tsx precisa de update manual. Aceitável para fase actual.
 
-- **O que alterei**: Criação de `docs/HANDOFF_OPERACIONAL_FINAL.md` (documento consolidado de entrega)
+### Gaps P0 identificados na revisão Codex (pós-BLOCO 5)
+
+| Gap | Estado | Acção necessária |
+|-----|--------|-----------------|
+| Sentry DSN em Vercel | Por verificar | Confirmar `VITE_SENTRY_DSN` configurado — sem isto, erros em produção invisíveis |
+| Teste real export AT | Por fazer | 1 apuramento IVA + 1 Modelo 10 submetido/validado no fluxo AT real |
+| Suporte operacionalizado | Parcial | ChatWidget existe (`src/components/support/ChatWidget.tsx`) mas não está montado em nenhuma página. Definir: montar, quem responde, SLA |
+| Recovery documentado | Por fazer | Procedimento para recuperar dados apagados acidentalmente |
+| Smoke test live | Por fazer | 3 clientes × 3 obrigações no `ivazen.aiparati.pt` |
+
+### Gaps P1 (primeira semana pós-entrega)
+
+| Gap | Estado |
+|-----|--------|
+| Badge universal de frescura de dados | `last_sync_at` existe em hooks mas não está surfaced na journey principal |
+| Lock transversal de período fechado | SS e M10 têm estados parciais mas não há lock que impeça edição de períodos declarados |
+| Proveniência visível por documento | `image_path` diferencia fonte (saft-import/, at-sync/) mas não está surfaced na UI |
+| Ownership operacional | Definir quem na equipa importa, pede credenciais, fecha período, escala suporte |
+
+### Fora de scope (decisão consciente)
+- **Client self-service** — produto accountant-only por design
+- **Billing / Stripe** — resolve-se com facturação directa à Adélia, não precisa de ser in-app
+
+- **O que alterei**: Criação de `docs/HANDOFF_OPERACIONAL_FINAL.md` (documento consolidado de entrega, 13 secções incluindo "O que falta para 100%")
 - **Ficheiros tocados**:
   - `docs/HANDOFF_OPERACIONAL_FINAL.md` (novo — handoff consolidado)
   - `docs/CLAUDE_BLOCK_REPORT.md` (BLOCO 5 adicionado)

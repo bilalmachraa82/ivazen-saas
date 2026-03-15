@@ -225,4 +225,46 @@ Total de clientes: **405**
 
 ---
 
+## 13. O que falta para 100%
+
+### P0 — Antes de dizer "entregue"
+
+| Item | Estado | Acção |
+|------|--------|-------|
+| Push do handoff final | **FEITO** (`c51744a` live) | — |
+| Sentry DSN em produção | **Por verificar** | Confirmar `VITE_SENTRY_DSN` no Vercel. Sem isto, erros em produção são invisíveis. |
+| Teste real de export no portal AT | **Por fazer** | Gerar 1 apuramento IVA e 1 export Modelo 10 e submeter/validar no fluxo AT real. O código gera o formato, mas não está validado por aceitação. |
+| Operacionalizar suporte | **Parcial** | ChatWidget com `suporte@ivazen.pt` existe em `src/components/support/ChatWidget.tsx` mas **não está montado em nenhuma página**. Decidir: montar o widget, definir quem responde, e comunicar à equipa. |
+| Documentar recovery de dados | **Por fazer** | Procedimento para recuperar facturas/dados apagados acidentalmente. Supabase faz backups, mas a equipa não sabe como pedir restore. |
+| Smoke test live pós-push | **Por fazer** | Alguém percorre 3 clientes × 3 obrigações no live (`ivazen.aiparati.pt`) para confirmar que o deploy está funcional. |
+
+### P1 — Primeira semana
+
+| Item | Estado | Acção |
+|------|--------|-------|
+| Badge universal de frescura | **Parcial** | `last_sync_at` existe em hooks (useClientFiscalCenter, ATControlCenter, BulkClientSync) mas não está visível como badge na carteira/journey principal. Gap: contabilista pode trabalhar com dados stale sem saber. |
+| Lock de período fechado | **Não existe** | SS e Modelo 10 têm noção de estados mas não há lock transversal que impeça edição de facturas/classificações de períodos já declarados. Risco: alteração acidental de dados submetidos. |
+| Fluxo de update de credenciais AT | **Por verificar** | Quando clientes mudam passwords no portal AT, como se actualizam no IVAzen? Confirmar que o fluxo existe e não quebra silenciosamente. |
+| Proveniência visível por documento | **Não existe** | Quando há dados AT + manual + SAFT, a contabilista não vê claramente "qual é a fonte de verdade" por documento. `image_path` diferencia (saft-import/, at-sync/), mas não está surfaced na UI. |
+| Ownership operacional | **Por definir** | Quem na equipa da Adélia faz: importar, pedir credenciais, fechar período, escalar suporte? Sem isto, a equipa não se auto-organiza. |
+
+### P2 — Primeiro mês
+
+| Item | Estado | Acção |
+|------|--------|-------|
+| Triage de carteira em massa | **Não existe** | Vista que mostra "126 precisam credenciais → acção bulk". Transformaria handoff de "arranja cada um" para "a app ajuda". |
+| Alerting de negócio | **Não existe** | Sentry é para erros de código. Falta: "syncs falharam", "credenciais expiraram", "cliente stale há >30 dias". |
+| Undo / recovery de acções destrutivas | **Não existe** | Reclassificação em massa errada, apagar facturas — não há undo. Não é backup; é procedimento operacional. |
+| Release guardrails (CI/CD) | **Fraco** | GitHub Actions existe mas token pode não ter scope `workflow`. Sem CI, push para main vai directo para produção sem validação automática. |
+| Product analytics | **Não existe** | Sem Mixpanel/PostHog, não sabemos se a equipa usa a app 1×/dia ou abandonou. Descobrimos churn quando a factura não é paga. |
+| RGPD DPA | **Por verificar** | App trata NIFs e dados financeiros. Existe DPA com sub-processadores (Supabase, Vercel, OVH)? |
+| a11y baseline | **Não feito** | Pode ser requisito legal para contabilistas que servem entidades públicas. |
+
+### Fora de scope (decisão consciente)
+
+- **Client self-service** — produto fechado como accountant-only. Role `client` existe na base mas não é gap do scope actual.
+- **Billing / Stripe** — só é gap para SaaS self-serve. Para entrega à Adélia como produto/serviço, resolve-se com facturação directa.
+
+---
+
 *Este documento consolida e substitui: HANDOFF_EQUIPE_CLIENTE, SOP_EQUIPE_CONTABILIDADE, IVAzen_Guia_Adopcao_Contabilista, CARTEIRA_ADELIA_READYNESS. Os anteriores ficam como arquivo histórico.*
