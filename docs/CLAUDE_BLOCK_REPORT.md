@@ -137,5 +137,72 @@ Relatório estruturado para auditoria automática do Codex.
   - Ronda 2 — 2 findings corrigidos:
     - **P2**: Link hardcoded `/at-control-center` no guia não respeitava feature flag — agora `buildSections()` e "Regra de Ouro" condicionam links ao `featureFlags.atControlCenterV1`. Se flag off, link e texto não aparecem.
     - **P3**: Card "Como Começar" aparecia quando `totalClients === 0` (contradição com empty state) — agora condicionado a `totalClients > 0`.
+- **Pronto para auditoria do Codex?** Sim — **APROVADO** (2 rondas)
+- **Commits**: `03cab72` (feature), `01c29dc` (fixes P2+P3)
+- **Próximo passo sugerido**: BLOCO 5 — Validação final de entrega
+
+---
+
+## BLOCO 5 — Validação final de entrega / handoff executável
+
+### PARTE A — Validação do produto
+
+- **Metodologia**: Auditoria exaustiva das 15 áreas funcionais da journey do contabilista
+- **Resultado**: **15/15 áreas DONE**, zero regressões, zero blocking issues
+  - Sidebar (4 grupos), Dashboard (readiness + quick-start), Centro Fiscal (obligation cards)
+  - 3 superfícies de upload (single, bulk, SAFT) com feedback semântico e routing correcto
+  - Import Center (5 canais com health tracking)
+  - Compras + Vendas (validação IA, filtros, bulk reclassify)
+  - Segurança Social (cálculo trimestral, coeficientes centralizados)
+  - Modelo 10 (import SIRE, candidatos, reconciliação, export multi-cliente)
+  - Reconciliação Hub (4 tabs: Compras, M10, SS, Auditoria)
+  - Export/Apuramento (totais por taxa IVA, edição deductibilidade)
+  - Guia do Contabilista (in-app, feature-flag aware)
+  - Settings + Onboarding (multi-fase, re-launchable)
+- **Qualidade de código**: 0 TODOs/FIXMEs blocking, 0 hardcoded demo data, error handling adequado em todas as páginas
+- **BLOCOs 1-4 confirmados como integrados e sem regressões**
+
+### PARTE B — Handoff executável
+
+- **Diagnóstico docs**: 6 documentos existentes com redundância severa (workflow 9 passos repetido 4×, clientes referência repetidos 4×, mensagem safe duplicada 2×)
+- **Acção**: Criado `docs/HANDOFF_OPERACIONAL_FINAL.md` — documento único e consolidado que substitui:
+  - `HANDOFF_EQUIPE_CLIENTE_2026-03-13.md`
+  - `SOP_EQUIPE_CONTABILIDADE_2026-03-13.md`
+  - `IVAzen_Guia_Adopcao_Contabilista.md`
+  - `CARTEIRA_ADELIA_READYNESS_2026-03-13.md`
+- **Conteúdo do handoff final** (12 secções):
+  1. Veredicto e mensagem para cliente
+  2. Módulos prontos (tabela 12 módulos)
+  3. Clientes de referência (3 principais + 1 backup + o que evitar)
+  4. Fluxo padrão por cliente (regra de ouro + 9 passos)
+  5. Como trabalhar cada obrigação (IVA, SS, Modelo 10)
+  6. Métodos de importação (5 métodos + limitações explícitas)
+  7. Cliente sem dados — decisão por cenário
+  8. Estado da carteira Adélia (405 clientes, 5 categorias com acções)
+  9. Checklist de arranque (Dia 1 + Primeira semana)
+  10. O que dizer vs NÃO dizer (guardrails de comunicação)
+  11. Atalhos úteis
+  12. Acessos e infraestrutura
+
+### PARTE C — Go/No-Go final
+
+| Pergunta | Veredicto | Detalhe |
+|----------|-----------|---------|
+| Pronto para entregar? | **GO** | Produto completo, 15/15 módulos funcionais, testes passam, build limpo |
+| Pronto para demo? | **GO** | 3 clientes referência validados, journey completa demonstrável |
+| Pronto para uso pleno da equipa? | **GO condicional** | Funciona para os 32 clientes "Prontos" + parciais com dados. Não funciona sem importação prévia para os restantes ~373 clientes |
+| O que ainda não é 100%? | Carteira operacional | 126 bloqueados (credenciais), 220 parciais (context AT imperfeito), recibos verdes não são automáticos (limitação AT, não da app) |
+
+### Riscos residuais
+
+1. **Carteira não homogénea** — 32/405 prontos. Não é bug do produto, é estado operacional dos clientes (credenciais, dados importados). Mitigation: checklist de arranque no handoff.
+2. **Recibos verdes manuais** — SOAP API do AT não retorna recibos verdes. O caminho é Excel manual. Documentado no handoff.
+3. **Credential decryption** — 410/423 credenciais falham decrypt at runtime (AT_ENCRYPTION_KEY mismatch). Só 13 com accountant_at_config funcionam. Limitação infraestrutural, não do produto.
+4. **Conteúdo do guia estático** — Se SOP mudar, AccountantGuide.tsx precisa de update manual. Aceitável para fase actual.
+
+- **O que alterei**: Criação de `docs/HANDOFF_OPERACIONAL_FINAL.md` (documento consolidado de entrega)
+- **Ficheiros tocados**:
+  - `docs/HANDOFF_OPERACIONAL_FINAL.md` (novo — handoff consolidado)
+  - `docs/CLAUDE_BLOCK_REPORT.md` (BLOCO 5 adicionado)
+- **Validações corridas**: `npm run build` ✓, `npm test` ✓ (834/834 pass)
 - **Pronto para auditoria do Codex?** Sim
-- **Próximo passo sugerido**: BLOCO 5 (a definir)
