@@ -243,27 +243,38 @@ Total de clientes: **405**
 | Item | Estado | Acção |
 |------|--------|-------|
 | Badge universal de frescura | **Parcial** | `last_sync_at` existe em hooks (useClientFiscalCenter, ATControlCenter, BulkClientSync) mas não está visível como badge na carteira/journey principal. Gap: contabilista pode trabalhar com dados stale sem saber. |
-| Lock de período fechado | **Não existe** | SS e Modelo 10 têm noção de estados mas não há lock transversal que impeça edição de facturas/classificações de períodos já declarados. Risco: alteração acidental de dados submetidos. |
+| Lock de período fechado | **Não existe** | SS e Modelo 10 têm noção de estados mas não há lock transversal que impeça edição de facturas/classificações de períodos já declarados. **Gap mais sério do produto fiscal** — alteração acidental de dados submetidos é risco real. |
 | Fluxo de update de credenciais AT | **Por verificar** | Quando clientes mudam passwords no portal AT, como se actualizam no IVAzen? Confirmar que o fluxo existe e não quebra silenciosamente. |
-| Proveniência visível por documento | **Não existe** | Quando há dados AT + manual + SAFT, a contabilista não vê claramente "qual é a fonte de verdade" por documento. `image_path` diferencia (saft-import/, at-sync/), mas não está surfaced na UI. |
-| Ownership operacional | **Por definir** | Quem na equipa da Adélia faz: importar, pedir credenciais, fechar período, escalar suporte? Sem isto, a equipa não se auto-organiza. |
+| Ownership e suporte operacional | **Por definir** | Quem na equipa da Adélia faz: importar, pedir credenciais, fechar período, escalar suporte? Sem isto, a equipa não se auto-organiza. ChatWidget (`suporte@ivazen.pt`) existe no código mas não está montado — definir quem responde e SLA. |
 
 ### P2 — Primeiro mês
 
 | Item | Estado | Acção |
 |------|--------|-------|
-| Triage de carteira em massa | **Não existe** | Vista que mostra "126 precisam credenciais → acção bulk". Transformaria handoff de "arranja cada um" para "a app ajuda". |
+| Proveniência visível por documento | **Não existe** | Quando há dados AT + manual + SAFT, a contabilista não vê claramente "qual é a fonte de verdade" por documento. `image_path` diferencia (saft-import/, at-sync/), mas não está surfaced na UI. |
 | Alerting de negócio | **Não existe** | Sentry é para erros de código. Falta: "syncs falharam", "credenciais expiraram", "cliente stale há >30 dias". |
 | Undo / recovery de acções destrutivas | **Não existe** | Reclassificação em massa errada, apagar facturas — não há undo. Não é backup; é procedimento operacional. |
-| Release guardrails (CI/CD) | **Fraco** | GitHub Actions existe mas token pode não ter scope `workflow`. Sem CI, push para main vai directo para produção sem validação automática. |
-| Product analytics | **Não existe** | Sem Mixpanel/PostHog, não sabemos se a equipa usa a app 1×/dia ou abandonou. Descobrimos churn quando a factura não é paga. |
-| RGPD DPA | **Por verificar** | App trata NIFs e dados financeiros. Existe DPA com sub-processadores (Supabase, Vercel, OVH)? |
-| a11y baseline | **Não feito** | Pode ser requisito legal para contabilistas que servem entidades públicas. |
+| Concorrência / conflito entre contabilistas | **Não existe** | Se 2 contabilistas da mesma equipa abrirem o mesmo cliente e reclassificarem a mesma factura ao mesmo tempo, não há locking. RLS isola por accountant, mas dentro da mesma conta não há protecção. |
+| Triage de carteira em massa | **Não existe** | Vista que mostra "126 precisam credenciais → acção bulk". Transformaria handoff de "arranja cada um" para "a app ajuda". |
+| Drift de configuração entre ambientes | **Por verificar** | Não é só Sentry. Inclui: `AT_ENCRYPTION_KEY`, feature flags, config do VPS/connector. Gap real de entrega — o que está em dev pode não estar em prod. |
+
+### P3 — Trimestre
+
+| Item | Estado |
+|------|--------|
+| Release guardrails (CI/CD) | Fraco — GitHub Actions existe mas token pode não ter scope `workflow` |
+| Product analytics | Não existe — sem Mixpanel/PostHog, churn é descoberto tarde |
+| Billing / Stripe | Só relevante para SaaS self-serve; Adélia resolve com facturação directa |
+| RGPD DPA | Por verificar — DPA com sub-processadores (Supabase, Vercel, OVH) |
+| a11y baseline | Não feito — pode ser requisito legal para contabilistas que servem entidades públicas |
 
 ### Fora de scope (decisão consciente)
 
 - **Client self-service** — produto fechado como accountant-only. Role `client` existe na base mas não é gap do scope actual.
-- **Billing / Stripe** — só é gap para SaaS self-serve. Para entrega à Adélia como produto/serviço, resolve-se com facturação directa.
+
+### Resumo executivo
+
+> O que falta para 100% não é o core fiscal; é **governança operacional do produto**: dados frescos, períodos fechados, observabilidade, suporte, ownership e validação real do loop com a AT.
 
 ---
 

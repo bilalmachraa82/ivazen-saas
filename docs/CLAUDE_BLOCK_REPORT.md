@@ -215,9 +215,19 @@ Relatório estruturado para auditoria automática do Codex.
 | Gap | Estado |
 |-----|--------|
 | Badge universal de frescura de dados | `last_sync_at` existe em hooks mas não está surfaced na journey principal |
-| Lock transversal de período fechado | SS e M10 têm estados parciais mas não há lock que impeça edição de períodos declarados |
-| Proveniência visível por documento | `image_path` diferencia fonte (saft-import/, at-sync/) mas não está surfaced na UI |
-| Ownership operacional | Definir quem na equipa importa, pede credenciais, fecha período, escala suporte |
+| **Lock transversal de período fechado** | **Gap mais sério do produto fiscal** — SS e M10 têm estados parciais mas não há lock que impeça edição de períodos já declarados |
+| Fluxo de update de credenciais AT | Verificar se fluxo existe e não quebra silenciosamente quando clientes mudam passwords |
+| Ownership + suporte operacional | ChatWidget existe mas não está montado. Definir quem responde, SLA, quem na equipa importa/pede credenciais/fecha período |
+
+### Gaps P2 (primeiro mês)
+
+| Gap | Estado |
+|-----|--------|
+| Proveniência visível por documento | `image_path` diferencia fonte mas não está surfaced na UI |
+| Alerting de negócio | Sentry apanha erros de código, falta "syncs falharam" / "credenciais expiraram" |
+| Undo de acções destrutivas | Reclassificação bulk errada não tem undo operacional |
+| Concorrência entre contabilistas | 2 pessoas na mesma fatura/obrigação sem locking |
+| Drift de configuração entre ambientes | AT_ENCRYPTION_KEY, feature flags, config VPS — o que está em dev pode não estar em prod |
 
 ### Fora de scope (decisão consciente)
 - **Client self-service** — produto accountant-only por design
