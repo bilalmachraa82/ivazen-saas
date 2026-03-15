@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IVAzen — A sua Gestão Fiscal, Simplificada</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@600;700;800;900&display=swap');
+  :root {
+    --rose: #e11d74; --rose-light: #fce7f3; --rose-dark: #9d174d;
+    --emerald: #059669; --emerald-light: #d1fae5;
+    --amber: #d97706; --amber-light: #fef3c7;
+    --blue: #2563eb; --blue-light: #dbeafe;
+    --purple: #7c3aed; --purple-light: #ede9fe;
+    --cyan: #0891b2; --cyan-light: #cffafe;
+    --slate-50: #f8fafc; --slate-100: #f1f5f9; --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1; --slate-400: #94a3b8; --slate-600: #475569;
+    --slate-700: #334155; --slate-800: #1e293b; --slate-900: #0f172a;
+    --radius: 16px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: white; color: var(--slate-800); line-height: 1.7; -webkit-font-smoothing: antialiased; }
+  @media print {
+    body { font-size: 10.5pt; }
+    .page-break { page-break-before: always; }
+    .hero { padding: 40px 30px 30px; }
+    section { page-break-inside: avoid; }
+  }
+
+  .hero { background: linear-gradient(135deg, var(--slate-900) 0%, var(--rose-dark) 50%, var(--rose) 100%); color: white; padding: 80px 40px 60px; text-align: center; position: relative; overflow: hidden; }
+  .hero::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle at 30% 70%, rgba(255,255,255,0.05) 0%, transparent 50%); }
+  .hero h1 { font-family: 'Poppins', sans-serif; font-size: 3rem; font-weight: 800; letter-spacing: -0.03em; position: relative; }
+  .hero .subtitle { font-size: 1.25rem; font-weight: 300; margin-top: 12px; opacity: 0.9; position: relative; }
+  .hero .tagline { font-size: 1rem; margin-top: 20px; opacity: 0.7; position: relative; }
+  .container { max-width: 900px; margin: 0 auto; padding: 0 32px; }
+  section { padding: 48px 0; border-bottom: 1px solid var(--slate-100); }
+  section:last-of-type { border-bottom: none; }
+  h2 { font-family: 'Poppins', sans-serif; font-size: 1.6rem; font-weight: 700; color: var(--slate-900); margin-bottom: 8px; }
+  h3 { font-size: 1.1rem; font-weight: 700; color: var(--slate-800); margin: 24px 0 10px; }
+  .desc { color: var(--slate-600); font-size: 0.95rem; margin-bottom: 24px; max-width: 700px; }
+
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin: 18px 0; }
+  .card { background: white; border: 1px solid var(--slate-200); border-radius: var(--radius); padding: 22px; transition: transform 0.2s, box-shadow 0.2s; }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+  .card .ico { font-size: 1.4rem; margin-bottom: 10px; }
+  .card h4 { font-size: 0.95rem; font-weight: 700; margin-bottom: 6px; }
+  .card p { font-size: 0.85rem; color: var(--slate-600); line-height: 1.5; }
+
+  .journey { position: relative; padding-left: 40px; margin: 18px 0; }
+  .journey::before { content: ''; position: absolute; left: 15px; top: 0; bottom: 0; width: 2px; background: linear-gradient(to bottom, var(--rose), var(--emerald)); }
+  .step { position: relative; padding: 14px 20px; margin-bottom: 12px; background: var(--slate-50); border-radius: var(--radius); border: 1px solid var(--slate-200); }
+  .step::before { content: attr(data-n); position: absolute; left: -33px; top: 16px; width: 26px; height: 26px; background: var(--rose); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; }
+  .step h4 { font-size: 0.9rem; font-weight: 700; margin-bottom: 3px; }
+  .step p { font-size: 0.82rem; color: var(--slate-600); }
+  .auto { display: inline-block; background: var(--emerald-light); color: var(--emerald); font-size: 0.65rem; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-left: 4px; text-transform: uppercase; }
+
+  .cmp { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 0.85rem; }
+  .cmp thead { background: var(--slate-900); color: white; }
+  .cmp th { padding: 12px 14px; text-align: left; font-weight: 600; font-size: 0.8rem; }
+  .cmp td { padding: 10px 14px; border-bottom: 1px solid var(--slate-100); vertical-align: top; }
+  .cmp tr:nth-child(even) td { background: var(--slate-50); }
+  .g { color: var(--emerald); font-weight: 700; }
+
+  .box { border-radius: var(--radius); padding: 22px; margin: 18px 0; }
+  .box.rose { background: var(--rose-light); border-left: 4px solid var(--rose); }
+  .box.green { background: var(--emerald-light); border-left: 4px solid var(--emerald); }
+  .box.blue { background: var(--blue-light); border-left: 4px solid var(--blue); }
+  .box h4 { font-weight: 700; margin-bottom: 6px; }
+  .box p, .box li { font-size: 0.88rem; color: var(--slate-700); }
+  .box ul { padding-left: 18px; margin-top: 6px; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin: 28px 0; }
+  .stat { background: white; border: 1px solid var(--slate-200); border-radius: var(--radius); padding: 18px; text-align: center; }
+  .stat .n { font-family: 'Poppins', sans-serif; font-size: 1.8rem; font-weight: 800; color: var(--rose); }
+  .stat .l { font-size: 0.75rem; color: var(--slate-600); font-weight: 500; margin-top: 3px; }
+
+  .persona { background: white; border: 1px solid var(--slate-200); border-radius: var(--radius); padding: 24px; margin-bottom: 16px; }
+  .persona .hdr { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+  .persona .av { width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; }
+  .persona .nm { font-weight: 700; font-size: 1.05rem; }
+  .persona .rl { font-size: 0.82rem; color: var(--slate-600); }
+  .persona > p { font-size: 0.88rem; color: var(--slate-600); }
+
+  .footer { background: var(--slate-900); color: var(--slate-400); text-align: center; padding: 36px; font-size: 0.82rem; }
+  .footer a { color: var(--rose); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>IVAzen</h1>
+  <div class="subtitle">A sua Gestão Fiscal, Simplificada</div>
+  <div class="tagline">Faturas &bull; IVA &bull; Segurança Social &bull; Modelo 10 &mdash; tudo automático</div>
+</div>
+
+<div class="container">
+
+<!-- ── O PROBLEMA ── -->
+<section>
+  <h2>O Problema que Resolvemos</h2>
+  <p class="desc">Todos os meses, milhares de trabalhadores independentes e contabilistas em Portugal perdem horas a:</p>
+  <div class="card-grid">
+    <div class="card">
+      <div class="ico">📦</div>
+      <h4>Organizar faturas manualmente</h4>
+      <p>Caixas de sapatos, pastas de email, PDFs espalhados. Cada fatura precisa de ser registada, classificada, e arquivada.</p>
+    </div>
+    <div class="card">
+      <div class="ico">🔐</div>
+      <h4>Entrar no Portal AT cliente a cliente</h4>
+      <p>O contabilista faz login no Portal das Finanças de cada cliente, um a um, para descarregar faturas. Com 100 clientes, são 100 logins.</p>
+    </div>
+    <div class="card">
+      <div class="ico">🧮</div>
+      <h4>Calcular impostos em Excel</h4>
+      <p>IVA cobrado menos IVA dedutível, campo por campo. Contribuições SS com coeficientes. Modelo 10 com dezenas de prestadores. Tudo manual.</p>
+    </div>
+    <div class="card">
+      <div class="ico">⏰</div>
+      <h4>Não esquecer prazos</h4>
+      <p>IVA dia 20, SAF-T dia 5, SS último dia do mês, Modelo 10 em fevereiro, IRS em junho. Um prazo esquecido = multa.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── A SOLUÇÃO ── -->
+<section>
+  <h2>A Solução: IVAzen</h2>
+  <div class="box rose">
+    <h4>Uma plataforma que faz o trabalho por si</h4>
+    <p>O IVAzen liga-se diretamente ao Portal das Finanças (AT) via API oficial, sincroniza todas as faturas automaticamente,
+       classifica-as com Inteligência Artificial, calcula o IVA a entregar, as contribuições para a Segurança Social,
+       e prepara o Modelo 10 — tudo sem que precise de abrir um único Excel.</p>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="n">96.842</div><div class="l">Documentos Sincronizados</div></div>
+    <div class="stat"><div class="n">136</div><div class="l">Clientes AT Ligados</div></div>
+    <div class="stat"><div class="n">2×/dia</div><div class="l">Sync Automático</div></div>
+    <div class="stat"><div class="n">690</div><div class="l">Testes de Qualidade</div></div>
+  </div>
+</section>
+
+<!-- ── PARA QUEM ── -->
+<section>
+  <h2>Para Quem</h2>
+  <div class="persona">
+    <div class="hdr">
+      <div class="av" style="background: var(--blue-light); color: var(--blue);">👨‍💼</div>
+      <div><div class="nm">Trabalhador Independente</div><div class="rl">Recibos verdes &bull; Regime Simplificado ou Normal</div></div>
+    </div>
+    <p>Fotografe o QR code da fatura com o telemóvel. O IVAzen extrai os dados, classifica a despesa,
+       e calcula quanto deve pagar de IVA e Segurança Social. No fim do trimestre, exporte a Declaração Periódica num clique.</p>
+  </div>
+  <div class="persona">
+    <div class="hdr">
+      <div class="av" style="background: var(--emerald-light); color: var(--emerald);">🏢</div>
+      <div><div class="nm">Micro e Pequena Empresa</div><div class="rl">PME &bull; Até 10 empregados</div></div>
+    </div>
+    <p>Gerir faturas de fornecedores e clientes, calcular IVA mensal ou trimestral,
+       preparar Modelo 10 para prestadores de serviços. Tudo numa interface simples que qualquer pessoa da empresa pode usar.</p>
+  </div>
+  <div class="persona">
+    <div class="hdr">
+      <div class="av" style="background: var(--rose-light); color: var(--rose);">👩‍💻</div>
+      <div><div class="nm">Contabilista Certificado</div><div class="rl">OCC &bull; Gestão de múltiplos clientes</div></div>
+    </div>
+    <p>Sincronize todos os clientes com o Portal AT automaticamente. Valide faturas em lote.
+       Exporte Modelo 10 multi-cliente. Monitorize a saúde de todos os syncs num painel centralizado.
+       Poupe até 50 horas por mês.</p>
+  </div>
+</section>
+
+<!-- ── COMO FUNCIONA — CLIENTE ── -->
+<section class="page-break">
+  <h2>Como Funciona — Trabalhador Independente</h2>
+  <p class="desc">Do registo à declaração trimestral, em 6 passos simples.</p>
+  <div class="journey">
+    <div class="step" data-n="1">
+      <h4>Registe-se e configure o seu perfil fiscal</h4>
+      <p>Crie conta com email ou Google. O assistente pede o seu NIF, CAE, regime de IVA, e tipo de atividade. Demora 2 minutos.</p>
+    </div>
+    <div class="step" data-n="2">
+      <h4>Fotografe ou faça upload das faturas <span class="auto">IA</span></h4>
+      <p>Aponte a câmara do telemóvel ao QR code da fatura — os dados aparecem instantaneamente. Sem QR? Faça upload da foto ou PDF e a IA extrai tudo. Suporta até 3.000 ficheiros de uma vez.</p>
+    </div>
+    <div class="step" data-n="3">
+      <h4>A IA classifica automaticamente <span class="auto">Automático</span></h4>
+      <p>Cada fatura é classificada como dedutível (atividade), pessoal, ou mista. O campo da Declaração Periódica (20-24) e a percentagem de dedutibilidade são atribuídos automaticamente.</p>
+    </div>
+    <div class="step" data-n="4">
+      <h4>Valide com um clique</h4>
+      <p>Reveja as sugestões da IA. Concorda? Um clique para validar. Não concorda? Corrija com o editor inline. A IA aprende com as suas correções.</p>
+    </div>
+    <div class="step" data-n="5">
+      <h4>Veja o seu dashboard fiscal</h4>
+      <p>IVA cobrado vs dedutível em tempo real. Prazos fiscais com contagem regressiva. Alertas quando uma data se aproxima. Links diretos ao Portal AT.</p>
+    </div>
+    <div class="step" data-n="6">
+      <h4>Exporte a Declaração Periódica</h4>
+      <p>Excel pré-preenchido com os campos 1-96 da DP. Ficheiro SAF-T PT pronto para comunicação. Relatórios de IVA, SS, e despesas para download.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── COMO FUNCIONA — CONTABILISTA ── -->
+<section>
+  <h2>Como Funciona — Contabilista</h2>
+  <p class="desc">Gestão centralizada de todos os seus clientes com automação AT.</p>
+  <div class="journey">
+    <div class="step" data-n="1">
+      <h4>Registe-se como contabilista</h4>
+      <p>Submeta o seu nº OCC e cédula profissional. Após aprovação, acede ao painel de contabilista com todos os módulos multi-cliente.</p>
+    </div>
+    <div class="step" data-n="2">
+      <h4>Adicione clientes e credenciais AT</h4>
+      <p>Adicione clientes manualmente ou importe credenciais AT em lote (a IA extrai pares NIF + password de PDFs). Certificado digital para autenticação mTLS.</p>
+    </div>
+    <div class="step" data-n="3">
+      <h4>Sync automático 2×/dia <span class="auto">Automático</span></h4>
+      <p>Todas as faturas de compras e vendas de todos os clientes são sincronizadas automaticamente com o Portal AT. Se um sync falhar, o sistema tenta novamente com backoff inteligente.</p>
+    </div>
+    <div class="step" data-n="4">
+      <h4>Painel de controlo AT</h4>
+      <p>Veja o estado de sync de cada cliente: sucesso, falha de autenticação, erro, sem credenciais. Filtre, pesquise, exporte CSV. Corrija credenciais com um clique.</p>
+    </div>
+    <div class="step" data-n="5">
+      <h4>Valide em lote e exporte</h4>
+      <p>Selecione cliente → valide faturas → mude para o próximo. Modelo 10 multi-cliente com IA. Declaração Periódica por cliente. Reconciliação Excel vs AT automática.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── O QUE INCLUI ── -->
+<section class="page-break">
+  <h2>Tudo o que Está Incluído</h2>
+
+  <h3>Documentos & Upload</h3>
+  <div class="card-grid">
+    <div class="card"><div class="ico">📸</div><h4>Scanner QR Code</h4><p>Leia QR codes portugueses (Portaria 195/2020) com a câmara. Extração instantânea de todos os campos fiscais.</p></div>
+    <div class="card"><div class="ico">🤖</div><h4>Extração por IA</h4><p>Sem QR? A IA (Google Gemini) analisa a imagem ou PDF e extrai NIF, data, valores, tipo de documento.</p></div>
+    <div class="card"><div class="ico">📦</div><h4>Upload em Lote</h4><p>Até 3.000 ficheiros de uma vez. Deteção automática de duplicados. Processamento em paralelo.</p></div>
+    <div class="card"><div class="ico">📱</div><h4>Funciona Offline</h4><p>App instalável no telemóvel (PWA). Fotografe faturas sem internet — sincroniza quando voltar online.</p></div>
+  </div>
+
+  <h3>Motor Fiscal</h3>
+  <div class="card-grid">
+    <div class="card"><div class="ico">💰</div><h4>Cálculo de IVA</h4><p>3 taxas × 3 regiões (Continente, Açores, Madeira). Regime mensal e trimestral. Verificação Art. 53º CIVA (limiar €15.000).</p></div>
+    <div class="card"><div class="ico">🏥</div><h4>Segurança Social</h4><p>9 coeficientes de rendimento. Cálculo automático da contribuição trimestral. Guia de submissão passo-a-passo.</p></div>
+    <div class="card"><div class="ico">📝</div><h4>Modelo 10</h4><p>8 categorias de rendimento (A a R). Upload em lote com IA. Importação de recibos verdes AT. PDF oficial por beneficiário.</p></div>
+    <div class="card"><div class="ico">📅</div><h4>Prazos Fiscais</h4><p>Contagem regressiva automática: IVA (dia 20), SAF-T (dia 5), SS (último dia), Modelo 10 (fev), IRS (jun). Alertas de urgência.</p></div>
+  </div>
+
+  <h3>Exportação</h3>
+  <div class="card-grid">
+    <div class="card"><div class="ico">📑</div><h4>Declaração Periódica</h4><p>Excel com campos 1-96 da DP da AT. Pronto para copiar para o Portal das Finanças.</p></div>
+    <div class="card"><div class="ico">🗃️</div><h4>SAF-T PT</h4><p>Ficheiro XML conforme Portaria 321-A/2007 para comunicação mensal à AT.</p></div>
+    <div class="card"><div class="ico">📊</div><h4>Relatórios</h4><p>Resumo IVA, estimativa SS, análise de despesas. Por trimestre ou ano. PDF e Excel.</p></div>
+    <div class="card"><div class="ico">🔍</div><h4>Reconciliação</h4><p>Compare Excel do contabilista vs dados AT vs extração IA. Identifique discrepâncias automaticamente.</p></div>
+  </div>
+</section>
+
+<!-- ── QUANTO TEMPO POUPA ── -->
+<section>
+  <h2>Quanto Tempo Poupa</h2>
+  <table class="cmp">
+    <thead><tr><th>Tarefa</th><th>Sem IVAzen</th><th>Com IVAzen</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Registar 1 fatura</strong></td><td>3-5 minutos (digitar no Excel)</td><td>15 segundos (fotografar QR)</td></tr>
+      <tr><td><strong>Classificar despesa</strong></td><td>5-10 min (consultar legislação)</td><td>Automático (IA)</td></tr>
+      <tr><td><strong>Obter faturas AT (100 clientes)</strong></td><td>25-33 horas/mês</td><td>0 horas (automático 2×/dia)</td></tr>
+      <tr><td><strong>Calcular IVA trimestral</strong></td><td>30-60 minutos</td><td>Automático em tempo real</td></tr>
+      <tr><td><strong>Preparar Modelo 10 (50 prestadores)</strong></td><td>4-8 horas</td><td>30-45 minutos</td></tr>
+      <tr><td><strong>Gerar Declaração Periódica</strong></td><td>1-2 horas</td><td>1 clique</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box green">
+    <h4>Impacto para Contabilistas</h4>
+    <p>Com 100 clientes, o IVAzen poupa aproximadamente <strong>50 horas por mês</strong> — o equivalente a 6 dias de trabalho.
+       Tempo que pode usar para aconselhar clientes, captar novos negócios, ou simplesmente ir para casa mais cedo.</p>
+  </div>
+</section>
+
+<!-- ── SEGURANÇA ── -->
+<section>
+  <h2>Segurança & Privacidade</h2>
+  <div class="card-grid">
+    <div class="card"><div class="ico">🔐</div><h4>Encriptação de Dados</h4><p>Credenciais AT encriptadas com AES-256. Certificados mTLS para autenticação bilateral com a AT. Dados isolados por utilizador.</p></div>
+    <div class="card"><div class="ico">🛡️</div><h4>API Oficial AT</h4><p>Ligação direta aos webservices da AT com certificado digital. Sem scraping — totalmente legal e conforme.</p></div>
+    <div class="card"><div class="ico">🇪🇺</div><h4>RGPD</h4><p>Dados alojados na Europa (Frankfurt). Política de privacidade em português. Direitos de acesso e portabilidade.</p></div>
+    <div class="card"><div class="ico">✅</div><h4>Qualidade</h4><p>690 testes automatizados. Monitorização de erros em produção. Atualizações contínuas com legislação fiscal atual.</p></div>
+  </div>
+</section>
+
+<!-- ── CTA ── -->
+<section>
+  <div class="box rose" style="text-align: center; padding: 40px;">
+    <h4 style="font-size: 1.3rem;">Pronto para simplificar a sua gestão fiscal?</h4>
+    <p style="margin-top: 8px;">Registe-se gratuitamente e comece a usar o IVAzen hoje. Sem cartão de crédito. Sem compromisso.</p>
+    <p style="margin-top: 16px; font-size: 1.1rem; font-weight: 700; color: var(--rose-dark);">ivazen.aitipro.com</p>
+  </div>
+</section>
+
+</div>
+
+<div class="footer">
+  <p><strong>IVAzen</strong> — Gestão Fiscal Inteligente para Portugal</p>
+  <p style="margin-top: 6px;"><a href="https://ivazen.aitipro.com">ivazen.aitipro.com</a> &bull; Março 2026</p>
+</div>
+
+</body>
+</html>

@@ -4,7 +4,7 @@
 ---
 
 ## Setup prévio
-- Abrir `ivazen.aiparati.pt` em Chrome (modo incógnito para evitar cache PWA)
+- Abrir `ivazen.aitipro.com` em Chrome (modo incógnito para evitar cache PWA)
 - Login: conta de contabilista (Adélia ou Bilal)
 - Ter 2-3 NIFs prontos para alternar
 

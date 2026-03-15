@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IVAzen — Guia Completo do Produto 2026</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@600;700;800;900&display=swap');
+
+  :root {
+    --rose: #e11d74;
+    --rose-light: #fce7f3;
+    --rose-dark: #9d174d;
+    --emerald: #059669;
+    --emerald-light: #d1fae5;
+    --amber: #d97706;
+    --amber-light: #fef3c7;
+    --blue: #2563eb;
+    --blue-light: #dbeafe;
+    --purple: #7c3aed;
+    --purple-light: #ede9fe;
+    --cyan: #0891b2;
+    --cyan-light: #cffafe;
+    --slate-50: #f8fafc;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1;
+    --slate-400: #94a3b8;
+    --slate-600: #475569;
+    --slate-700: #334155;
+    --slate-800: #1e293b;
+    --slate-900: #0f172a;
+    --radius: 16px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: white;
+    color: var(--slate-800);
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  @media print {
+    body { font-size: 11pt; }
+    .page-break { page-break-before: always; }
+    .no-print { display: none; }
+    section { page-break-inside: avoid; }
+    .hero { padding: 40px 30px 30px; }
+  }
+
+  /* ── Hero ── */
+  .hero {
+    background: linear-gradient(135deg, var(--slate-900) 0%, var(--rose-dark) 50%, var(--rose) 100%);
+    color: white;
+    padding: 80px 40px 60px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: radial-gradient(circle at 30% 70%, rgba(255,255,255,0.05) 0%, transparent 50%);
+  }
+  .hero h1 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 3rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    position: relative;
+  }
+  .hero .subtitle {
+    font-size: 1.3rem;
+    font-weight: 300;
+    margin-top: 12px;
+    opacity: 0.9;
+    position: relative;
+  }
+  .hero .version {
+    display: inline-block;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 20px;
+    padding: 4px 16px;
+    font-size: 0.85rem;
+    margin-top: 20px;
+    position: relative;
+  }
+
+  /* ── Layout ── */
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 32px;
+  }
+
+  /* ── TOC ── */
+  .toc {
+    background: var(--slate-50);
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius);
+    padding: 32px;
+    margin: 40px auto;
+    max-width: 700px;
+  }
+  .toc h2 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.3rem;
+    margin-bottom: 16px;
+    color: var(--rose);
+  }
+  .toc ol {
+    padding-left: 24px;
+    counter-reset: toc;
+  }
+  .toc li {
+    padding: 6px 0;
+    font-size: 0.95rem;
+    color: var(--slate-700);
+    list-style: none;
+    counter-increment: toc;
+  }
+  .toc li::before {
+    content: counter(toc) ".";
+    font-weight: 700;
+    color: var(--rose);
+    margin-right: 8px;
+  }
+  .toc a { color: inherit; text-decoration: none; }
+  .toc a:hover { color: var(--rose); }
+
+  /* ── Section ── */
+  section {
+    padding: 48px 0;
+    border-bottom: 1px solid var(--slate-100);
+  }
+  section:last-child { border-bottom: none; }
+
+  h2.section-title {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--slate-900);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  h2.section-title .icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+  .section-desc {
+    color: var(--slate-600);
+    font-size: 1rem;
+    margin-bottom: 28px;
+    max-width: 700px;
+  }
+
+  h3 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--slate-800);
+    margin: 24px 0 12px;
+  }
+
+  /* ── Cards ── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+  }
+  .card {
+    background: white;
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius);
+    padding: 24px;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  }
+  .card .card-icon {
+    font-size: 1.5rem;
+    margin-bottom: 12px;
+  }
+  .card h4 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--slate-800);
+    margin-bottom: 8px;
+  }
+  .card p {
+    font-size: 0.9rem;
+    color: var(--slate-600);
+    line-height: 1.5;
+  }
+
+  /* ── Journey Steps ── */
+  .journey {
+    position: relative;
+    padding-left: 40px;
+    margin: 20px 0;
+  }
+  .journey::before {
+    content: '';
+    position: absolute;
+    left: 15px; top: 0; bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--rose), var(--emerald));
+  }
+  .journey-step {
+    position: relative;
+    padding: 16px 24px;
+    margin-bottom: 16px;
+    background: var(--slate-50);
+    border-radius: var(--radius);
+    border: 1px solid var(--slate-200);
+  }
+  .journey-step::before {
+    content: attr(data-step);
+    position: absolute;
+    left: -33px; top: 18px;
+    width: 28px; height: 28px;
+    background: var(--rose);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .journey-step h4 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--slate-800);
+    margin-bottom: 4px;
+  }
+  .journey-step p {
+    font-size: 0.88rem;
+    color: var(--slate-600);
+  }
+  .journey-step .auto-tag {
+    display: inline-block;
+    background: var(--emerald-light);
+    color: var(--emerald);
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 6px;
+    text-transform: uppercase;
+  }
+
+  /* ── Comparison Table ── */
+  .comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 0.9rem;
+  }
+  .comparison-table thead {
+    background: var(--slate-900);
+    color: white;
+  }
+  .comparison-table th {
+    padding: 14px 16px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+  .comparison-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--slate-100);
+    vertical-align: top;
+  }
+  .comparison-table tr:nth-child(even) td {
+    background: var(--slate-50);
+  }
+  .comparison-table .check { color: var(--emerald); font-weight: 700; }
+  .comparison-table .cross { color: #ef4444; }
+  .comparison-table .partial { color: var(--amber); }
+
+  /* ── Stats Banner ── */
+  .stats-banner {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin: 32px 0;
+  }
+  .stat-box {
+    background: white;
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius);
+    padding: 20px;
+    text-align: center;
+  }
+  .stat-box .number {
+    font-family: 'Poppins', sans-serif;
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--rose);
+  }
+  .stat-box .label {
+    font-size: 0.8rem;
+    color: var(--slate-600);
+    font-weight: 500;
+    margin-top: 4px;
+  }
+
+  /* ── Highlight Box ── */
+  .highlight-box {
+    border-radius: var(--radius);
+    padding: 24px;
+    margin: 20px 0;
+  }
+  .highlight-box.rose { background: var(--rose-light); border-left: 4px solid var(--rose); }
+  .highlight-box.emerald { background: var(--emerald-light); border-left: 4px solid var(--emerald); }
+  .highlight-box.blue { background: var(--blue-light); border-left: 4px solid var(--blue); }
+  .highlight-box.amber { background: var(--amber-light); border-left: 4px solid var(--amber); }
+  .highlight-box.purple { background: var(--purple-light); border-left: 4px solid var(--purple); }
+  .highlight-box h4 {
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .highlight-box p, .highlight-box li {
+    font-size: 0.9rem;
+    color: var(--slate-700);
+  }
+  .highlight-box ul { padding-left: 20px; margin-top: 8px; }
+
+  /* ── Badge ── */
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .badge.rose { background: var(--rose-light); color: var(--rose-dark); }
+  .badge.emerald { background: var(--emerald-light); color: var(--emerald); }
+  .badge.blue { background: var(--blue-light); color: var(--blue); }
+
+  /* ── Feature List ── */
+  .feature-list {
+    list-style: none;
+    padding: 0;
+  }
+  .feature-list li {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--slate-100);
+    font-size: 0.92rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .feature-list li::before {
+    content: '✓';
+    color: var(--emerald);
+    font-weight: 700;
+    font-size: 1rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    background: var(--slate-900);
+    color: var(--slate-400);
+    text-align: center;
+    padding: 40px;
+    font-size: 0.85rem;
+  }
+  .footer a { color: var(--rose); text-decoration: none; }
+
+  /* ── Persona Cards ── */
+  .persona-card {
+    background: white;
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius);
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+  .persona-card .persona-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .persona-card .persona-avatar {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+  .persona-card .persona-name {
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+  .persona-card .persona-role {
+    font-size: 0.85rem;
+    color: var(--slate-600);
+  }
+
+  /* ── Competitor row ── */
+  .competitor-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    border-bottom: 1px solid var(--slate-100);
+  }
+  .competitor-row .rank {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--rose);
+    width: 36px;
+    text-align: center;
+  }
+  .competitor-row .info h4 { font-size: 0.95rem; margin-bottom: 2px; }
+  .competitor-row .info p { font-size: 0.82rem; color: var(--slate-600); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- HERO -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="hero">
+  <h1>IVAzen</h1>
+  <div class="subtitle">Guia Completo do Produto &mdash; Capacidades, User Journeys & Vantagens Competitivas</div>
+  <div class="version">v2.0 &bull; Março 2026 &bull; Documento de Produto</div>
+</div>
+
+<div class="container">
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- TOC -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="toc">
+  <h2>Índice</h2>
+  <ol>
+    <li><a href="#overview">O que é o IVAzen</a></li>
+    <li><a href="#numbers">Números da Plataforma</a></li>
+    <li><a href="#personas">Personas & Perfis de Utilizador</a></li>
+    <li><a href="#journey-client">User Journey — Cliente (Trabalhador Independente)</a></li>
+    <li><a href="#journey-accountant">User Journey — Contabilista</a></li>
+    <li><a href="#capabilities">Todas as Capacidades (Feature Map)</a></li>
+    <li><a href="#ai">Inteligência Artificial & Automação</a></li>
+    <li><a href="#at-sync">Sincronização AT (e-Fatura)</a></li>
+    <li><a href="#tax-engine">Motor Fiscal Português</a></li>
+    <li><a href="#vs-manual">IVAzen vs Trabalho Manual</a></li>
+    <li><a href="#vs-competitors">IVAzen vs Software Concorrente</a></li>
+    <li><a href="#top10">Top 10 Software de Faturação em Portugal</a></li>
+    <li><a href="#integration">Estratégia de Integração com Software de Faturação</a></li>
+    <li><a href="#security">Segurança & Conformidade</a></li>
+    <li><a href="#tech-stack">Stack Tecnológico</a></li>
+  </ol>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 1. OVERVIEW -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="overview">
+  <h2 class="section-title">
+    <span class="icon" style="background: var(--rose-light); color: var(--rose);">🎯</span>
+    1. O que é o IVAzen
+  </h2>
+  <p class="section-desc">
+    O IVAzen é uma plataforma SaaS de gestão fiscal para trabalhadores independentes, PMEs e contabilistas em Portugal.
+    Automatiza a classificação de faturas, cálculo de IVA, contribuições para a Segurança Social, e declarações fiscais (Modelo 10),
+    com sincronização direta ao Portal das Finanças (AT) via API SOAP/mTLS.
+  </p>
+
+  <div class="highlight-box rose">
+    <h4>Proposta de Valor Única</h4>
+    <p>O IVAzen é o <strong>único software em Portugal</strong> que combina:</p>
+    <ul>
+      <li><strong>Sincronização oficial AT</strong> via webservice SOAP com certificados mTLS (não scraping)</li>
+      <li><strong>IA generativa</strong> (Google Gemini) para classificação automática de faturas</li>
+      <li><strong>Motor fiscal completo</strong> — IVA (3 regimes × 3 regiões), SS (9 coeficientes), Modelo 10 (8 categorias)</li>
+      <li><strong>Multi-contabilista</strong> — um contabilista gere centenas de clientes numa só interface</li>
+      <li><strong>PWA offline</strong> — funciona sem internet, sincroniza quando voltar online</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 2. NUMBERS -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="numbers">
+  <h2 class="section-title">
+    <span class="icon" style="background: var(--blue-light); color: var(--blue);">📊</span>
+    2. Números da Plataforma
+  </h2>
+
+  <div class="stats-banner">
+    <div class="stat-box">
+      <div class="number">96.842</div>
+      <div class="label">Documentos Sincronizados</div>
+    </div>
+    <div class="stat-box">
+      <div class="number">136</div>
+      <div class="label">Clientes com Credenciais AT</div>
+    </div>
+    <div class="stat-box">
+      <div class="number">406</div>
+      <div class="label">Utilizadores Registados</div>
+    </div>
+    <div class="stat-box">
+      <div class="number">17</div>
+      <div class="label">Edge Functions Backend</div>
+    </div>
+    <div class="stat-box">
+      <div class="number">690</div>
+      <div class="label">Testes Automatizados</div>
+    </div>
+    <div class="stat-box">
+      <div class="number">94</div>
+      <div class="label">Migrações de BD</div>
+    </div>
+  </div>
+
+  <div class="highlight-box blue">
+    <h4>Dados AT Reais</h4>
+    <ul>
+      <li><strong>61.456</strong> faturas de compras (FT: 25.711, FR: 20.580, FS: 13.315, NC: 1.650)</li>
+      <li><strong>35.386</strong> faturas de vendas (FS: 34.460, FR: 557, FT: 357)</li>
+      <li><strong>978</strong> documentos obtidos via webservice SOAP da AT (certificado digital mTLS)</li>
+      <li>Sync automático 2×/dia (06:00 + 19:30 hora de Lisboa)</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 3. PERSONAS -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="personas" class="page-break">
+  <h2 class="section-title">
+    <span class="icon" style="background: var(--purple-light); color: var(--purple);">👥</span>
+    3. Personas & Perfis de Utilizador
+  </h2>
+
+  <div class="persona-card">
+    <div class="persona-header">
+      <div class="persona-avatar" style="background: var(--blue-light); color: var(--blue);">👨‍💼</div>
+      <div>
+        <div class="persona-name">Manuel — Trabalhador Independente</div>
+        <div class="persona-role">Dono de café · NIF 2xxxxxxxx · Regime Simplificado</div>
+      </div>
+    </div>
+    <p style="font-size: 0.9rem; color: var(--slate-600);">
+      Manuel tem um café em Leiria. Recebe faturas de fornecedores (Makro, Sumol, padaria local) e precisa de classificar cada uma
+      para a Declaração Periódica de IVA. Antes do IVAzen, guardava tudo em caixas de sapatos e entregava ao contabilista no fim do trimestre.
+      Agora fotografa o QR code de cada fatura com o telemóvel — o IVAzen classifica automaticamente por IA e calcula o IVA a entregar.
+    </p>
+  </div>
+
+  <div class="persona-card">
+    <div class="persona-header">
+      <div class="persona-avatar" style="background: var(--emerald-light); color: var(--emerald);">👩‍🔧</div>
+      <div>
+        <div class="persona-name">Sofia — Microempresa</div>
+        <div class="persona-role">Oficina de automóveis · NIF 5xxxxxxxx · Regime Normal</div>
+      </div>
+    </div>
+    <p style="font-size: 0.9rem; color: var(--slate-600);">
+      Sofia tem uma oficina com 3 empregados. Fatura mais de €650.000/ano e está no regime mensal de IVA.
+      Usa o IVAzen para gerir faturas de compras (peças, ferramentas) e vendas (serviços de reparação),
+      exportar a Declaração Periódica mensal, e calcular contribuições para a Segurança Social dos trabalhadores independentes que subcontrata.
+    </p>
+  </div>
+
+  <div class="persona-card">
+    <div class="persona-header">
+      <div class="persona-avatar" style="background: var(--rose-light); color: var(--rose);">👩‍💻</div>
+      <div>
+        <div class="persona-name">Adélia — Contabilista Certificada</div>
+        <div class="persona-role">OCC nº 12345 · 242 clientes · Accounting Advantage, Lda.</div>
+      </div>
+    </div>
+    <p style="font-size: 0.9rem; color: var(--slate-600);">
+      Adélia gere a contabilidade de 242 clientes. Antes, abria o Portal das Finanças para cada cliente individualmente,
+      exportava CSVs, e cruzava dados manualmente em Excel. Agora usa o IVAzen: sincroniza todos os clientes via API AT automaticamente,
+      valida faturas em lote, exporta Modelo 10 multi-cliente, e monitoriza a saúde de todos os syncs num painel centralizado.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 4. USER JOURNEY — CLIENTE -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="journey-client">
+  <h2 class="section-title">
+    <span class="icon" style="background: var(--emerald-light); color: var(--emerald);">🛤️</span>
+    4. User Journey — Cliente (Trabalhador Independente)
+  </h2>
+  <p class="section-desc">Do registo à entrega da declaração trimestral de IVA — tudo numa app.</p>
+
+  <div class="journey">
+    <div class="journey-step" data-step="1">
+      <h4>Registo & Configuração Fiscal</h4>
+      <p>Cria conta com email ou Google. O wizard de configuração fiscal pede NIF, NISS, CAE, regime de IVA (normal/simplificado/isento), e tipo de trabalhador para SS.</p>
+    </div>
+    <div class="journey-step" data-step="2">
+      <h4>Upload de Faturas <span class="auto-tag">QR + IA</span></h4>
+      <p>Fotografa o QR code da fatura com a câmara do telemóvel — os dados fiscais são extraídos instantaneamente (NIF, ATCUD, valores IVA por taxa).
+         Sem QR? Faz upload da foto/PDF e a IA (Gemini) extrai todos os campos. Suporta upload em lote até 3.000 ficheiros.</p>
+    </div>
+    <div class="journey-step" data-step="3">
+      <h4>Classificação Automática <span class="auto-tag">IA</span></h4>
+      <p>A IA classifica cada fatura como dedutível (atividade profissional), pessoal, ou mista — e atribui o campo DP correto
+         (20=Imobilizado, 21-23=Existências, 24=Outros bens e serviços) com nível de confiança. O utilizador valida ou corrige.</p>
+    </div>
+    <div class="journey-step" data-step="4">
+      <h4>Validação & Revisão</h4>
+      <p>Página de validação com filtros por período fiscal, status, fornecedor. Cada fatura tem detalhe completo com zoom de imagem,
+         histórico de validação, e editor de classificação. Seleção em lote para validar/apagar múltiplas faturas.</p>
+    </div>
+    <div class="journey-step" data-step="5">
+      <h4>Dashboard com Prazos Fiscais</h4>
+      <p>Dashboard mostra IVA cobrado vs dedutível, faturas pendentes de validação, e prazos fiscais automáticos:
+         IVA mensal (dia 20), IVA trimestral, SAF-T (dia 5), SS trimestral (último dia), Modelo 10 (fev 28), IRS (jun 30).</p>
+    </div>
+    <div class="journey-step" data-step="6">
+      <h4>Cálculo de IVA <span class="auto-tag">Automático</span></h4>
+      <p>Calculadora de IVA com 3 ferramentas: verificação Art. 53º CIVA (limiar €15.000 desde 2025),
+         calculadora de valores (com/sem IVA para 3 taxas × 3 regiões), e cálculo do IVA a entregar (cobrado - dedutível).</p>
+    </div>
+    <div class="journey-step" data-step="7">
+      <h4>Segurança Social <span class="auto-tag">Automático</span></h4>
+      <p>Importa receitas das vendas AT, aplica coeficientes por categoria (serviços 0.75, vendas 0.20, hotelaria 0.35, etc.),
+         e calcula a contribuição trimestral (21.4% sobre rendimento relevante). Guia passo-a-passo para submissão no portal SS.</p>
+    </div>
+    <div class="journey-step" data-step="8">
+      <h4>Exportação para Declaração Periódica</h4>
+      <p>Gera Excel alinhado com os campos da DP da AT (campos 1-96), ficheiro SAF-T PT v1.04 para comunicação,
+         e relatórios por período. Edição inline de dedutibilidade antes de exportar.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 5. USER JOURNEY — CONTABILISTA -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="journey-accountant" class="page-break">
+  <h2 class="section-title">
+    <span class="icon" style="background: var(--rose-light); color: var(--rose);">🛤️</span>
+    5. User Journey — Contabilista
+  </h2>
+  <p class="section-desc">Gestão centralizada de centenas de clientes com automação AT.</p>
+
+  <div class="journey">
+    <div class="journey-step" data-step="1">
+      <h4>Candidatura a Contabilista</h4>
+      <p>Submete formulário com nº OCC, cédula profissional, especializações (fiscal, IVA, IRC, etc.), e anos de experiência.
+         Administrador aprova com verificação.</p>
+    </div>
+    <div class="journey-step" data-step="2">
+      <h4>Onboarding & Certificado AT</h4>
+      <p>Gera CSR (RSA 4096-bit) no browser, submete à AT para obter certificado digital.
+         Upload do PFX para autenticação mTLS nas APIs AT. Configuração de credenciais de sub-utilizador.</p>
+    </div>
+    <div class="journey-step" data-step="3">
+      <h4>Gestão de Clientes</h4>
+      <p>Painel de gestão: adicionar clientes existentes, criar novos (com email placeholder), pesquisar, remover.
+         Importação em lote de credenciais AT a partir de PDF (IA extrai pares NIF + password).</p>
+    </div>
+    <div class="journey-step" data-step="4">
+      <h4>Sincronização e-Fatura <span class="auto-tag">Automático 2×/dia</span></h4>
+      <p>Sync automático via cron (06:00 + 19:30): busca faturas de compras e vendas de todos os clientes no Portal AT
+         via SOAP/mTLS. Retry automático com backoff exponencial (6h→12h→24h→48h) para erros transientes.</p>
+    </div>
+    <div class="journey-step" data-step="5">
+      <h4>AT Control Center</h4>
+      <p>Painel operacional: estado de sync por cliente (sucesso, auth_failed, erro, sem credenciais, a processar).
+         Filtros por status e razão. Download CSV de relatório. Promoção de candidatos (corrigir credenciais).</p>
+    </div>
+    <div class="journey-step" data-step="6">
+      <h4>Dashboard Agregado</h4>
+      <p>Métricas agregadas de todos os clientes: faturas pendentes, receita/despesa, posição IVA do portfolio.
+         Widget de saúde do sync (taxa de sucesso, erros, dead letter queue). Ações rápidas por cliente.</p>
+    </div>
+    <div class="journey-step" data-step="7">
+      <h4>Validação em Lote</h4>
+      <p>Seleciona cliente → valida faturas → muda para próximo cliente. Contexto de cliente persiste em toda a app.
+         Validação em lote: selecionar múltiplas faturas, validar ou apagar de uma vez.</p>
+    </div>
+    <div class="journey-step" data-step="8">
+      <h4>Modelo 10 Multi-Cliente</h4>
+      <p>Upload em lote de documentos de retenção (até 500 por batch). IA extrai NIF, categoria de rendimento, valor bruto,
+         retenção. Importação de recibos verdes AT, rendas, notificações email. Exportação PDF individual por beneficiário.
+         Exportação multi-cliente para gerir portfolio inteiro.</p>
+    </div>
+    <div class="journey-step" data-step="9">
+      <h4>Reconciliação & Auditoria</h4>
+      <p>Workflow em 4 passos: Upload Excel de referência → Upload documentos → Reconciliação automática → Relatório.
+         Compara Excel vs IA vs AT com tolerâncias. Identifica discrepâncias, documentos em falta, documentos extra.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 6. CAPABILITIES -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="capabilities" class="page-break">
+  <h2 class="section-title">
+    <span class="icon" style="background: var(--cyan-light); color: var(--cyan);">🗂️</span>
+    6. Todas as Capacidades (Feature Map)
+  </h2>
+
+  <h3>📄 Gestão de Documentos</h3>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-icon">📸</div>
+      <h4>Scanner QR Code</h4>
+      <p>Câmara do telemóvel lê QR codes portugueses (Portaria 195/2020). Extrai NIF, ATCUD, tipo de documento, datas, todas as bases e taxas IVA, totais.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🤖</div>
+      <h4>Extração por IA</h4>
+      <p>Gemini (via OpenRouter) extrai dados de imagens e PDFs sem QR code. Extração em dois passes: dados completos + verificação de NIF.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">📦</div>
+      <h4>Upload em Lote</h4>
+      <p>Até 3.000 ficheiros em simultâneo. Processamento paralelo (2 concurrentes) com barra de progresso. Deteção de duplicados (ATCUD, NIF+nº+data).</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">📋</div>
+      <h4>Importação SAF-T</h4>
+      <p>Parse de ficheiros SAF-T XML (v1.04) para importar faturas diretamente da contabilidade. Mapeamento automático de campos.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">📊</div>
+      <h4>Vista Unificada</h4>
+      <p>Todos os documentos (compras, vendas, retenções) numa só tabela pesquisável com filtros por tipo, período, estado.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">📱</div>
+      <h4>Offline & PWA</h4>
+      <p>Progressive Web App instalável. Fila offline em IndexedDB — fotografe faturas sem internet, sincroniza quando voltar online.</p>
+    </div>
+  </div>
+
+  <h3>🧮 Motor Fiscal</h3>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-icon">💰</div>
+      <h4>IVA — 3 Regimes × 3 Regiões</h4>
+      <p>Normal (23/13/6%), Açores (16/9/4%), Madeira (22/12/4%). Regime mensal (vol. negócios > €650k) e trimestral. Verificação Art. 53º CIVA (limiar €15.000).</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🏥</div>
+      <h4>Segurança Social</h4>
+      <p>9 coeficientes de rendimento (serviços 0.75, vendas 0.20, hotelaria 0.35, etc.). Taxa 21.4% TI, 25.2% ENI. IAS 2026: €537.13. Regra 1º ano.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">📝</div>
+      <h4>Modelo 10</h4>
+      <p>8 categorias de rendimento (A, B, D, E, F, G, H, R) com todos os códigos de rendimento da Portaria 4/2024. PDF oficial por beneficiário.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">📅</div>
+      <h4>Prazos Fiscais Automáticos</h4>
+      <p>Calcula automaticamente: IVA mensal (dia 20), IVA trimestral, SAF-T (dia 5), SS (último dia), Modelo 10 (fev 28), IRS (jun 30). Alertas de urgência.</p>
+    </div>
+  </div>
+
+  <h3>📤 Exportação & Relatórios</h3>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-icon">📑</div>
+      <h4>Excel Declaração Periódica</h4>
+      <p>Campos DP 1-96 da AT. 4 folhas: Resumo DP, Detalhe, Lista Faturas, Lista Vendas. Grelhas mensais por fornecedor.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🗃️</div>
+      <h4>SAF-T PT v1.04</h4>
+      <p>Exportação XML conforme Portaria 321-A/2007. Header empresa, lista de faturas, entradas fiscais.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">📊</div>
+      <h4>Modelo 10 Excel & PDF</h4>
+      <p>6 folhas Excel (Resumo Verdes, Resumo Rendas, Total Geral, Detalhe, Declaração por Prestador). PDF oficial AT por beneficiário.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">📈</div>
+      <h4>Relatórios Fiscais</h4>
+      <p>3 tipos: Resumo IVA, Estimativa SS, Análise Despesas. Seleção por trimestre ou ano. Download PDF e Excel.</p>
+    </div>
+  </div>
+
+  <h3>🔗 Integração AT</h3>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-icon">🔐</div>
+      <h4>SOAP/mTLS Oficial</h4>
+      <p>Ligação direta aos webservices AT com certificado digital e autenticação mTLS. Sem scraping — API oficial conforme especificação da AT.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔄</div>
+      <h4>Sync Automático 2×/dia</h4>
+      <p>Cron PostgreSQL (pg_cron) dispara sync às 06:00 e 19:30. Queue com dead letter, retry automático com backoff exponencial.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🏥</div>
+      <h4>Health Dashboard</h4>
+      <p>Taxa de sucesso, erros por tipo (auth, timeout, rede), jobs pendentes, dead letter queue, duração média. Alerta verde/amarelo/vermelho.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">📋</div>
+      <h4>Control Center</h4>
+      <p>Estado operacional de cada cliente: sucesso, falha auth, erro, sem credenciais. Filtros, pesquisa, CSV. Ação "Promover candidato".</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 7. AI -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="ai" class="page-break">
+  <h2 class="section-title">
+    <span class="icon" style="background: var(--purple-light); color: var(--purple);">🤖</span>
+    7. Inteligência Artificial & Automação
+  </h2>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-icon">📸</div>
+      <h4>Extração de Faturas</h4>
+      <p>Google Gemini analisa imagens/PDFs e extrai: NIF emitente/cliente, nº documento, data, tipo (FT/FR/FS/NC), valores IVA por taxa, total. Two-pass extraction com fallback.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🏷️</div>
+      <h4>Classificação DP</h4>
+      <p>Classifica despesas conforme Art. 21 CIVA: ATIVIDADE/PESSOAL/MISTA. Atribui campo DP (20-24), % dedutibilidade, e confiança. Aprende com correções do utilizador.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">💼</div>
+      <h4>Categorização SS</h4>
+      <p>Categoriza vendas para Segurança Social: prestação de serviços, vendas, hotelaria, restauração, alojamento local. Usa CAE para inferência.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">📋</div>
+      <h4>Extração Modelo 10</h4>
+      <p>Extrai de documentos de retenção: NIF, categoria de rendimento (A-R), valor bruto, isento, retenção, taxa. Rejeita listagens, screenshots, documentos anulados.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">📊</div>
+      <h4>Métricas de IA</h4>
+      <p>Dashboard de precisão por fornecedor: total classificações, total correções, taxa de precisão. Badges coloridos (>90% verde, >70% amarelo, <70% vermelho).</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">📑</div>
+      <h4>Parse Inteligente</h4>
+      <p>Parse de Excel com IA (deteta tipo: lista faturas, apuramento, modelo 10). Parse de credenciais em PDF. Parse de emails AT.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 8. AT SYNC -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="at-sync">
+  <h2 class="section-title">
+    <span class="icon" style="background: var(--emerald-light); color: var(--emerald);">🔗</span>
+    8. Sincronização AT (e-Fatura)
+  </h2>
+
+  <div class="highlight-box emerald">
+    <h4>Arquitetura do Sync AT</h4>
+    <ul>
+      <li><strong>AT Connector</strong>: Microserviço Node.js em VPS dedicado com certificados mTLS</li>
+      <li><strong>SOAP API</strong>: WS-Security com AES-128-ECB + RSA-PKCS1v1.5 conforme especificação AT</li>
+      <li><strong>Edge Functions</strong>: <code>sync-efatura</code> (sync individual) + <code>process-at-sync-queue</code> (batch) + <code>sync-queue-manager</code> (gestão fila)</li>
+      <li><strong>Scheduler</strong>: pg_cron dispara <code>run_scheduled_at_sync()</code> 2×/dia</li>
+      <li><strong>Retry</strong>: Dead letter queue com backoff exponencial (6h × 2^failures, máx 48h)</li>
+      <li><strong>Credenciais</strong>: Encriptação AES-256-GCM com PBKDF2, chave rotativa</li>
+    </ul>
+  </div>
+
+  <h3>Tipos de Documento Sincronizados</h3>
+  <table class="comparison-table">
+    <thead>
+      <tr><th>Tipo</th><th>Código</th><th>Direção</th><th>Volume</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Fatura</td><td>FT</td><td>Compras + Vendas</td><td>26.068</td></tr>
+      <tr><td>Fatura-Recibo</td><td>FR</td><td>Compras + Vendas</td><td>21.137</td></tr>
+      <tr><td>Fatura Simplificada</td><td>FS</td><td>Compras + Vendas</td><td>47.775</td></tr>
+      <tr><td>Nota de Crédito</td><td>NC</td><td>Compras + Vendas</td><td>1.662</td></tr>
+      <tr><td>Nota de Débito</td><td>ND</td><td>Compras</td><td>196</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 9. TAX ENGINE -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="tax-engine" class="page-break">
+  <h2 class="section-title">
+    <span class="icon" style="background: var(--amber-light); color: var(--amber);">⚖️</span>
+    9. Motor Fiscal Português
+  </h2>
+  <p class="section-desc">Implementação completa e auditada da legislação fiscal portuguesa.</p>
+
+  <h3>Taxas de IVA (atualizadas Março 2026)</h3>
+  <table class="comparison-table">
+    <thead>
+      <tr><th>Região</th><th>Normal</th><th>Intermédia</th><th>Reduzida</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Continente</strong></td><td>23%</td><td>13%</td><td>6%</td></tr>
+      <tr><td><strong>Açores</strong></td><td>16%</td><td>9%</td><td>4%</td></tr>
+      <tr><td><strong>Madeira</strong></td><td>22%</td><td>12%</td><td>4%</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Segurança Social — Coeficientes de Rendimento</h3>
+  <table class="comparison-table">
+    <thead>
+      <tr><th>Categoria</th><th>Coeficiente</th><th>Rendimento Relevante</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Prestação de serviços</td><td>0.70</td><td>70% do rendimento bruto</td></tr>
+      <tr><td>Vendas de mercadorias</td><td>0.20</td><td>20% do rendimento bruto</td></tr>
+      <tr><td>Hotelaria e restauração</td><td>0.35</td><td>35% do rendimento bruto</td></tr>
+      <tr><td>Alojamento local</td><td>0.35</td><td>35% do rendimento bruto</td></tr>
+      <tr><td>Atividades profissionais (Tabela Art. 151)</td><td>0.75</td><td>75% do rendimento bruto</td></tr>
+      <tr><td>Rendimentos agrícolas</td><td>0.20</td><td>20% do rendimento bruto</td></tr>
+      <tr><td>Subsídios à exploração</td><td>0.20</td><td>20% do rendimento bruto</td></tr>
+      <tr><td>Mais-valias</td><td>1.00</td><td>100% do rendimento bruto</td></tr>
+      <tr><td>Outros rendimentos</td><td>1.00</td><td>100% do rendimento bruto</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Modelo 10 — Categorias de Rendimento</h3>
+  <table class="comparison-table">
+    <thead>
+      <tr><th>Cat.</th><th>Descrição</th><th>Taxa Retenção</th><th>Artigo</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>A</strong></td><td>Trabalho dependente</td><td>Tabelas AT</td><td>Art. 99 CIRS</td></tr>
+      <tr><td><strong>B</strong></td><td>Trabalho independente (recibos verdes)</td><td>25% (residentes), 25% (não residentes)</td><td>Art. 101/71 CIRS</td></tr>
+      <tr><td><strong>D</strong></td><td>Transparência fiscal</td><td>Variável</td><td>Art. 6 CIRC</td></tr>
+      <tr><td><strong>E</strong></td><td>Capitais (juros, dividendos)</td><td>28%</td><td>Art. 71 CIRS</td></tr>
+      <tr><td><strong>F</strong></td><td>Prediais (rendas)</td><td>25% (residentes), 25% (não residentes)</td><td>Art. 101 CIRS</td></tr>
+      <tr><td><strong>G</strong></td><td>Mais-valias</td><td>28%</td><td>Art. 72 CIRS</td></tr>
+      <tr><td><strong>H</strong></td><td>Pensões</td><td>Tabelas AT</td><td>Art. 99 CIRS</td></tr>
+      <tr><td><strong>R</strong></td><td>IRC (pessoas coletivas)</td><td>25%</td><td>Art. 94 CIRC</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 10. VS MANUAL -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="vs-manual" class="page-break">
+  <h2 class="section-title">
+    <span class="icon" style="background: var(--emerald-light); color: var(--emerald);">⚡</span>
+    10. IVAzen vs Trabalho Manual
+  </h2>
+
+  <table class="comparison-table">
+    <thead>
+      <tr><th>Tarefa</th><th>Método Manual</th><th>Com IVAzen</th><th>Ganho</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Registar 1 fatura</strong></td>
+        <td>Abrir Excel, digitar NIF, data, valores, classificar DP manualmente (3-5 min)</td>
+        <td>Fotografar QR code ou upload — IA classifica automaticamente (15 seg)</td>
+        <td class="check">12-20× mais rápido</td>
+      </tr>
+      <tr>
+        <td><strong>Classificar despesa (campo DP)</strong></td>
+        <td>Consultar Art. 21 CIVA, verificar CAE, decidir campo 20-24, % dedutibilidade (5-10 min por fatura complexa)</td>
+        <td>IA aplica regras CIVA automaticamente com nível de confiança, utilizador valida com 1 clique</td>
+        <td class="check">Elimina decisão manual</td>
+      </tr>
+      <tr>
+        <td><strong>Obter faturas da AT (1 cliente)</strong></td>
+        <td>Login Portal AT → Filtrar → Exportar CSV → Abrir Excel → Formatar (15-20 min)</td>
+        <td>Automático 2×/dia via API SOAP (0 min)</td>
+        <td class="check">100% automático</td>
+      </tr>
+      <tr>
+        <td><strong>Obter faturas AT (100 clientes)</strong></td>
+        <td>Repetir 100× o processo acima (25-33 horas)</td>
+        <td>Bulk sync de todos os clientes em paralelo (< 30 min)</td>
+        <td class="check">50-60× mais rápido</td>
+      </tr>
+      <tr>
+        <td><strong>Calcular IVA trimestral</strong></td>
+        <td>Somar IVA cobrado (vendas), somar IVA dedutível (compras por campo DP), calcular diferença (30-60 min)</td>
+        <td>Dashboard calcula automaticamente com dados AT reais</td>
+        <td class="check">Automático e em tempo real</td>
+      </tr>
+      <tr>
+        <td><strong>Calcular SS trimestral</strong></td>
+        <td>Somar rendimentos por categoria, aplicar coeficientes, multiplicar por 21.4% (20-30 min)</td>
+        <td>Importa receitas da AT, aplica coeficientes e calcula automaticamente</td>
+        <td class="check">Automático com dados reais</td>
+      </tr>
+      <tr>
+        <td><strong>Preparar Modelo 10 (50 prestadores)</strong></td>
+        <td>Recolher recibos, organizar por NIF, somar totais, preencher formulário AT manualmente (4-8 horas)</td>
+        <td>Upload em lote → IA extrai → agregação automática por NIF → PDF oficial (30-45 min)</td>
+        <td class="check">8-10× mais rápido</td>
+      </tr>
+      <tr>
+        <td><strong>Gerar Declaração Periódica</strong></td>
+        <td>Preencher campos 1-96 manualmente no Portal AT ou Excel (1-2 horas)</td>
+        <td>Excel pré-preenchido com todos os campos DP, pronto para copiar</td>
+        <td class="check">Eliminado o preenchimento manual</td>
+      </tr>
+      <tr>
+        <td><strong>Reconciliar dados (Excel vs AT)</strong></td>
+        <td>Comparar linha a linha, vlookups, verificar totais (2-4 horas)</td>
+        <td>Upload Excel + documentos → reconciliação automática com tolerâncias → relatório</td>
+        <td class="check">Reduz de horas a minutos</td>
+      </tr>
+      <tr>
+        <td><strong>Monitorizar prazos fiscais</strong></td>
+        <td>Verificar calendário fiscal manualmente, lembrar-se de todos os prazos</td>
+        <td>Widget automático com contagem regressiva, alertas de urgência, links diretos ao portal</td>
+        <td class="check">Zero esquecimentos</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="highlight-box emerald">
+    <h4>Impacto Estimado para Contabilista com 100 Clientes</h4>
+    <ul>
+      <li><strong>Sync AT</strong>: de ~33 horas/mês para 0 horas (automático) — poupa 33h/mês</li>
+      <li><strong>Classificação DP</strong>: de ~20 horas/mês para ~3 horas (apenas validação) — poupa 17h/mês</li>
+      <li><strong>Modelo 10 anual</strong>: de ~40 horas para ~4 horas — poupa 36h/ano</li>
+      <li><strong>SS trimestral</strong>: de ~8 horas para ~1 hora por trimestre — poupa 28h/ano</li>
+      <li><strong>Total estimado</strong>: <strong>~50 horas/mês poupadas</strong> (equivalente a ~6 dias de trabalho)</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 11. VS COMPETITORS -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="vs-competitors" class="page-break">
+  <h2 class="section-title">
+    <span class="icon" style="background: var(--rose-light); color: var(--rose);">🏆</span>
+    11. IVAzen vs Software Concorrente
+  </h2>
+  <p class="section-desc">Comparação com soluções internacionais de gestão fiscal.</p>
+
+  <table class="comparison-table">
+    <thead>
+      <tr><th>Funcionalidade</th><th>IVAzen</th><th>TaxDome</th><th>Karbon</th><th>Uku</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Sincronização AT oficial (SOAP/mTLS)</strong></td>
+        <td class="check">✓ Automático 2×/dia</td>
+        <td class="cross">✗ Sem integração PT</td>
+        <td class="cross">✗ Sem integração PT</td>
+        <td class="cross">✗ Sem integração PT</td>
+      </tr>
+      <tr>
+        <td><strong>Legislação fiscal portuguesa</strong></td>
+        <td class="check">✓ Completa (IVA/SS/M10)</td>
+        <td class="cross">✗ EUA/Canadá apenas</td>
+        <td class="cross">✗ Austrália/NZ/UK</td>
+        <td class="partial">◐ Estónia/Báltico</td>
+      </tr>
+      <tr>
+        <td><strong>IA classificação faturas</strong></td>
+        <td class="check">✓ Gemini com Art. 21 CIVA</td>
+        <td class="partial">◐ OCR básico</td>
+        <td class="cross">✗ Manual</td>
+        <td class="cross">✗ Manual</td>
+      </tr>
+      <tr>
+        <td><strong>Scanner QR code AT</strong></td>
+        <td class="check">✓ Portaria 195/2020</td>
+        <td class="cross">✗</td>
+        <td class="cross">✗</td>
+        <td class="cross">✗</td>
+      </tr>
+      <tr>
+        <td><strong>Dead letter queue + retry</strong></td>
+        <td class="check">✓ Exponential backoff</td>
+        <td class="check">✓</td>
+        <td class="cross">✗</td>
+        <td class="cross">✗</td>
+      </tr>
+      <tr>
+        <td><strong>Multi-contabilista</strong></td>
+        <td class="check">✓ Ilimitado</td>
+        <td class="check">✓</td>
+        <td class="check">✓</td>
+        <td class="check">✓</td>
+      </tr>
+      <tr>
+        <td><strong>Modelo 10 automático</strong></td>
+        <td class="check">✓ 8 categorias + PDF oficial</td>
+        <td class="cross">✗</td>
+        <td class="cross">✗</td>
+        <td class="cross">✗</td>
+      </tr>
+      <tr>
+        <td><strong>SAF-T PT export</strong></td>
+        <td class="check">✓ v1.04</td>
+        <td class="cross">✗</td>
+        <td class="cross">✗</td>
+        <td class="cross">✗</td>
+      </tr>
+      <tr>
+        <td><strong>Declaração Periódica Excel</strong></td>
+        <td class="check">✓ Campos 1-96</td>
+        <td class="cross">✗</td>
+        <td class="cross">✗</td>
+        <td class="cross">✗</td>
+      </tr>
+      <tr>
+        <td><strong>PWA offline</strong></td>
+        <td class="check">✓</td>
+        <td class="cross">✗</td>
+        <td class="cross">✗</td>
+        <td class="cross">✗</td>
+      </tr>
+      <tr>
+        <td><strong>Reconciliação multi-fonte</strong></td>
+        <td class="check">✓ Excel vs IA vs AT</td>
+        <td class="partial">◐ Básico</td>
+        <td class="cross">✗</td>
+        <td class="cross">✗</td>
+      </tr>
+      <tr>
+        <td><strong>Preço</strong></td>
+        <td class="check">Acessível</td>
+        <td class="partial">€€€ (USD 25-75/mês)</td>
+        <td class="partial">€€€ (USD 59-99/mês)</td>
+        <td class="partial">€€ (EUR 49/mês)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="highlight-box rose">
+    <h4>Vantagem Competitiva do IVAzen</h4>
+    <p>O IVAzen é a <strong>única solução que combina IA generativa + integração AT oficial + legislação fiscal portuguesa completa</strong>.
+       Os concorrentes internacionais (TaxDome, Karbon, Uku) são excelentes para os seus mercados mas <strong>não suportam Portugal</strong>.
+       As soluções portuguesas de faturação (Moloni, InvoiceXpress) fazem faturação mas <strong>não classificam, não calculam IVA/SS automaticamente,
+       e não têm IA</strong>.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 12. TOP 10 SOFTWARE -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="top10" class="page-break">
+  <h2 class="section-title">
+    <span class="icon" style="background: var(--blue-light); color: var(--blue);">🇵🇹</span>
+    12. Top 10 Software de Faturação em Portugal
+  </h2>
+  <p class="section-desc">Os software de faturação mais usados em Portugal e as suas APIs — oportunidade de integração para o IVAzen.</p>
+
+  <div style="border: 1px solid var(--slate-200); border-radius: var(--radius); overflow: hidden;">
+    <div class="competitor-row">
+      <div class="rank">1</div>
+      <div class="info">
+        <h4>Moloni <span class="badge emerald">API REST + OAuth 2.0</span></h4>
+        <p>Líder de mercado. API completa (faturas, produtos, clientes, impostos, stocks). Documentação excelente. Webhooks disponíveis.</p>
+      </div>
+    </div>
+    <div class="competitor-row">
+      <div class="rank">2</div>
+      <div class="info">
+        <h4>InvoiceXpress <span class="badge emerald">API REST + API Key</span></h4>
+        <p>Popular entre freelancers. API simples para faturas, clientes, impostos, guias. Marketplace de integrações.</p>
+      </div>
+    </div>
+    <div class="competitor-row">
+      <div class="rank">3</div>
+      <div class="info">
+        <h4>Vendus <span class="badge emerald">API REST</span></h4>
+        <p>Forte no retalho e restauração. API para POS, faturas, produtos, clientes. Integração com multibanco.</p>
+      </div>
+    </div>
+    <div class="competitor-row">
+      <div class="rank">4</div>
+      <div class="info">
+        <h4>PHC GO <span class="badge blue">API REST</span></h4>
+        <p>ERP cloud da PHC. API para faturação, contabilidade, RH, stocks. Muito usado por PMEs e contabilistas.</p>
+      </div>
+    </div>
+    <div class="competitor-row">
+      <div class="rank">5</div>
+      <div class="info">
+        <h4>Jasmin by Primavera <span class="badge emerald">API REST + OAuth 2.0</span></h4>
+        <p>Cloud ERP para PMEs. API completa (vendas, compras, financeiro, inventário). Documentação Swagger.</p>
+      </div>
+    </div>
+    <div class="competitor-row">
+      <div class="rank">6</div>
+      <div class="info">
+        <h4>Sage 50 Cloud <span class="badge blue">API REST</span></h4>
+        <p>Solução internacional com versão PT. API via Sage Business Cloud. Forte em contabilidade integrada.</p>
+      </div>
+    </div>
+    <div class="competitor-row">
+      <div class="rank">7</div>
+      <div class="info">
+        <h4>TOCOnline <span class="badge rose">API Limitada</span></h4>
+        <p>Feito por TOCs para TOCs. Faturação + contabilidade integrada. API limitada mas com exportação SAF-T.</p>
+      </div>
+    </div>
+    <div class="competitor-row">
+      <div class="rank">8</div>
+      <div class="info">
+        <h4>Colibri Digital <span class="badge blue">API REST</span></h4>
+        <p>Popular no retalho e restauração. API para POS e faturação. Integração com TPA e multibanco.</p>
+      </div>
+    </div>
+    <div class="competitor-row">
+      <div class="rank">9</div>
+      <div class="info">
+        <h4>Bill.pt <span class="badge blue">API REST</span></h4>
+        <p>Faturação simples e acessível. API básica para faturas e clientes. Popular entre microempresas.</p>
+      </div>
+    </div>
+    <div class="competitor-row">
+      <div class="rank">10</div>
+      <div class="info">
+        <h4>Primavera V10 <span class="badge blue">API SOAP + REST</span></h4>
+        <p>ERP enterprise. API completa mas complexa. Dominante em grandes empresas e grupos.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="highlight-box amber" style="margin-top: 24px;">
+    <h4>Nenhum tem servidor MCP</h4>
+    <p>Em Março 2026, <strong>nenhum dos 10 software de faturação portugueses oferece um servidor MCP</strong> (Model Context Protocol).
+       Todos têm APIs REST tradicionais. Isto é uma <strong>oportunidade enorme</strong> para o IVAzen ser o primeiro a oferecer
+       conectores inteligentes que "traduzem" entre estas APIs e a nossa plataforma fiscal.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 13. INTEGRATION STRATEGY -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="integration">
+  <h2 class="section-title">
+    <span class="icon" style="background: var(--purple-light); color: var(--purple);">🔌</span>
+    13. Estratégia de Integração com Software de Faturação
+  </h2>
+
+  <div class="highlight-box purple">
+    <h4>O Conceito</h4>
+    <p>Em vez de competir com software de faturação certificado (Moloni, InvoiceXpress, etc.), o IVAzen <strong>complementa-os</strong>.
+       O utilizador continua a faturar no seu software habitual — o IVAzen sincroniza automaticamente as faturas e adiciona
+       a camada de inteligência fiscal que os software de faturação não têm:</p>
+    <ul>
+      <li>Classificação automática de despesas por IA (Art. 21 CIVA)</li>
+      <li>Cálculo de IVA a entregar (cobrado - dedutível)</li>
+      <li>Contribuições para a Segurança Social</li>
+      <li>Modelo 10 (retenções na fonte)</li>
+      <li>Declaração Periódica (campos DP 1-96)</li>
+      <li>Reconciliação e auditoria</li>
+    </ul>
+  </div>
+
+  <h3>Fases de Implementação</h3>
+  <div class="card-grid">
+    <div class="card" style="border-left: 4px solid var(--emerald);">
+      <h4>Fase 1 — SAF-T Universal (Já implementado)</h4>
+      <p>Qualquer software certificado AT exporta SAF-T. O IVAzen já importa SAF-T PT v1.04.
+         Isto dá compatibilidade imediata com <strong>todos os 10 software</strong> sem necessidade de API.</p>
+    </div>
+    <div class="card" style="border-left: 4px solid var(--blue);">
+      <h4>Fase 2 — APIs Prioritárias (Moloni + InvoiceXpress)</h4>
+      <p>Conectores OAuth 2.0 / API Key para os 2 mais populares. Sync automático de faturas emitidas e recebidas.
+         Cobertura estimada: ~40% do mercado.</p>
+    </div>
+    <div class="card" style="border-left: 4px solid var(--purple);">
+      <h4>Fase 3 — Cloud ERPs (Jasmin + PHC GO + Sage)</h4>
+      <p>APIs REST para os ERPs cloud. Cobertura adicional: ~25% do mercado.
+         Total acumulado: ~65% do mercado português de faturação.</p>
+    </div>
+    <div class="card" style="border-left: 4px solid var(--amber);">
+      <h4>Fase 4 — Restantes (Vendus, Colibri, Bill.pt, TOCOnline, Primavera)</h4>
+      <p>Completar o ecossistema. Alguns com APIs REST, outros via SAF-T.
+         Objetivo: <strong>compatibilidade com 100% do top 10</strong>.</p>
+    </div>
+  </div>
+
+  <div class="highlight-box emerald" style="margin-top: 20px;">
+    <h4>Argumento de Venda</h4>
+    <p>"O IVAzen conecta-se com o seu software de faturação actual — Moloni, InvoiceXpress, PHC, Jasmin, ou qualquer outro que exporte SAF-T.
+       Não precisa de mudar de software. Nós adicionamos a inteligência fiscal que o seu software não tem:
+       classificação automática por IA, cálculo de IVA/SS, Modelo 10, e Declaração Periódica — tudo automático."</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 14. SECURITY -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="security" class="page-break">
+  <h2 class="section-title">
+    <span class="icon" style="background: var(--slate-200); color: var(--slate-700);">🔒</span>
+    14. Segurança & Conformidade
+  </h2>
+
+  <ul class="feature-list">
+    <li><strong>Row Level Security (RLS)</strong> — Políticas PostgreSQL garantem isolamento total de dados entre utilizadores</li>
+    <li><strong>Encriptação AES-256-GCM</strong> — Credenciais AT encriptadas com PBKDF2 key derivation e IV único por registo</li>
+    <li><strong>mTLS (Mutual TLS)</strong> — Certificados digitais para autenticação bilateral com servidores AT</li>
+    <li><strong>WS-Security</strong> — Tokens SOAP com AES-128-ECB + RSA-PKCS1v1.5 conforme especificação AT</li>
+    <li><strong>CORS restritivo</strong> — Apenas domínios autorizados podem aceder às APIs</li>
+    <li><strong>CSP Headers</strong> — Content Security Policy em todas as edge functions</li>
+    <li><strong>Rate Limiting</strong> — 5 tentativas de login, lockout progressivo até 15 minutos</li>
+    <li><strong>Session Timeout</strong> — Logout automático após 30 minutos de inatividade (aviso aos 25 min)</li>
+    <li><strong>IDOR Protection</strong> — Verificação de ownership em todas as operações de dados</li>
+    <li><strong>JWT Auth</strong> — Tokens JWT com verificação de role (service_role, client, accountant, admin)</li>
+    <li><strong>Storage RLS</strong> — Buckets Supabase com políticas de acesso por utilizador</li>
+    <li><strong>Password Strength</strong> — Indicador de força de password no registo</li>
+    <li><strong>Google OAuth 2.0</strong> — Login social seguro como alternativa</li>
+    <li><strong>690 testes automatizados</strong> — Cobertura de lógica fiscal, parsers, encriptação, e validação</li>
+    <li><strong>Sentry monitoring</strong> — Error tracking em produção com stack traces</li>
+  </ul>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 15. TECH STACK -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="tech-stack">
+  <h2 class="section-title">
+    <span class="icon" style="background: var(--cyan-light); color: var(--cyan);">🛠️</span>
+    15. Stack Tecnológico
+  </h2>
+
+  <div class="card-grid">
+    <div class="card">
+      <h4>Frontend</h4>
+      <p>React 18 + TypeScript + Vite (SWC). Tailwind CSS 3 + shadcn/ui (Radix). React Query para server state. PWA com Service Worker.</p>
+    </div>
+    <div class="card">
+      <h4>Backend</h4>
+      <p>Supabase (PostgreSQL 15 + Edge Functions Deno + Auth + Storage + Realtime). pg_cron para scheduling. RLS para segurança.</p>
+    </div>
+    <div class="card">
+      <h4>IA</h4>
+      <p>Google Gemini (via OpenRouter). 6 edge functions de IA: extração de faturas, classificação DP, categorização SS, Modelo 10, parse Excel, parse credenciais.</p>
+    </div>
+    <div class="card">
+      <h4>AT Connector</h4>
+      <p>Node.js em VPS dedicado. SOAP/mTLS com certificados digitais AT. WS-Security tokens. Retry e circuit breaker.</p>
+    </div>
+    <div class="card">
+      <h4>Deploy</h4>
+      <p>Vercel (frontend, auto-deploy de main). Supabase Cloud Frankfurt (backend). VPS para AT connector. GitHub Actions CI/CD.</p>
+    </div>
+    <div class="card">
+      <h4>Qualidade</h4>
+      <p>690 testes (Vitest + jsdom). ESLint. Sentry error tracking. 94 migrações de BD versionadas. 24 ficheiros de teste.</p>
+    </div>
+  </div>
+</section>
+
+</div><!-- /container -->
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- FOOTER -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="footer">
+  <p><strong>IVAzen</strong> — Gestão Fiscal Inteligente para Portugal</p>
+  <p style="margin-top: 8px;"><a href="https://ivazen.aitipro.com">ivazen.aitipro.com</a> &bull; Março 2026</p>
+  <p style="margin-top: 16px; font-size: 0.75rem; color: var(--slate-400);">
+    Documento gerado automaticamente. Todas as funcionalidades descritas estão implementadas e em produção.
+  </p>
+</div>
+
+</body>
+</html>

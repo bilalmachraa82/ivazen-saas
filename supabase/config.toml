@@ -1,9 +1,9 @@
 project_id = "dmprkdvkzzjtixlatnlx"
 
 [auth]
-site_url = "https://ivazen-saas.vercel.app"
+site_url = "https://ivazen.aitipro.com"
 additional_redirect_urls = [
-  "https://ivazen.aiparati.pt/**",
+  "https://ivazen.aitipro.com/**",
   "https://ivazen-saas.vercel.app/**",
   "https://*.vercel.app/**",
   "http://localhost:8080/**"
