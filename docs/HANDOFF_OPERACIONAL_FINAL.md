@@ -231,7 +231,7 @@ Total de clientes: **405**
 
 | Item | Estado | Acção |
 |------|--------|-------|
-| Push do handoff final | **FEITO** (`c51744a` live) | — |
+| Push do handoff final | **FEITO** | — |
 | Sentry DSN em produção | **Por verificar** | Confirmar `VITE_SENTRY_DSN` no Vercel. Sem isto, erros em produção são invisíveis. |
 | Teste real de export no portal AT | **Por fazer** | Gerar 1 apuramento IVA e 1 export Modelo 10 e submeter/validar no fluxo AT real. O código gera o formato, mas não está validado por aceitação. |
 | Operacionalizar suporte | **Parcial** | ChatWidget com `suporte@ivazen.pt` existe em `src/components/support/ChatWidget.tsx` mas **não está montado em nenhuma página**. Decidir: montar o widget, definir quem responde, e comunicar à equipa. |
