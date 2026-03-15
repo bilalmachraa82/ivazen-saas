@@ -167,7 +167,7 @@ Total de clientes: **405**
 ## 9. Checklist de arranque da equipa
 
 ### Dia 1
-- [ ] Login em **ivazen.aiparati.pt** com credenciais fornecidas
+- [ ] Login em **ivazen.aitipro.com** com credenciais fornecidas
 - [ ] Abrir **Dashboard** — ver "Estado da Carteira" (readiness badges)
 - [ ] Ler o **Guia** (menu lateral → Sistema → Guia)
 - [ ] Abrir cliente **Bilal Machraa** → Centro Fiscal → percorrer Compras, Vendas, SS
@@ -218,7 +218,7 @@ Total de clientes: **405**
 
 | Componente | URL/Acesso |
 |------------|------------|
-| App (produção) | `https://ivazen.aiparati.pt` |
+| App (produção) | `https://ivazen.aitipro.com` |
 | Repositório | `github.com/bilalmachraa82/ivazen-saas` |
 | Supabase | Projeto `dmprkdvkzzjtixlatnlx` (Frankfurt) |
 | AT Connector (VPS) | `137.74.112.68:8788` (Caddy proxy) |
@@ -236,7 +236,7 @@ Total de clientes: **405**
 | Teste real de export no portal AT | **Por fazer** | Gerar 1 apuramento IVA e 1 export Modelo 10 e submeter/validar no fluxo AT real. O código gera o formato, mas não está validado por aceitação. |
 | Operacionalizar suporte | **Parcial** | ChatWidget com `suporte@ivazen.pt` existe em `src/components/support/ChatWidget.tsx` mas **não está montado em nenhuma página**. Decidir: montar o widget, definir quem responde, e comunicar à equipa. |
 | Documentar recovery de dados | **Por fazer** | Procedimento para recuperar facturas/dados apagados acidentalmente. Supabase faz backups, mas a equipa não sabe como pedir restore. |
-| Smoke test live pós-push | **Por fazer** | Alguém percorre 3 clientes × 3 obrigações no live (`ivazen.aiparati.pt`) para confirmar que o deploy está funcional. |
+| Smoke test live pós-push | **Por fazer** | Alguém percorre 3 clientes × 3 obrigações no live (`ivazen.aitipro.com`) para confirmar que o deploy está funcional. |
 
 ### P1 — Primeira semana
 

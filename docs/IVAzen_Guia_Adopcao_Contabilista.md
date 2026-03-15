@@ -31,7 +31,7 @@
 ## Como começar (1.ª utilização)
 
 ### 1. Aceder ao IVAzen
-- URL: **ivazen.aiparati.pt**
+- URL: **ivazen.aitipro.com**
 - Login com email e password fornecidos
 
 ### 2. Selecionar o cliente

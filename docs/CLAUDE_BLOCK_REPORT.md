@@ -208,7 +208,7 @@ Relatório estruturado para auditoria automática do Codex.
 | Teste real export AT | Por fazer | 1 apuramento IVA + 1 Modelo 10 submetido/validado no fluxo AT real |
 | Suporte operacionalizado | Parcial | ChatWidget existe (`src/components/support/ChatWidget.tsx`) mas não está montado em nenhuma página. Definir: montar, quem responde, SLA |
 | Recovery documentado | Por fazer | Procedimento para recuperar dados apagados acidentalmente |
-| Smoke test live | Por fazer | 3 clientes × 3 obrigações no `ivazen.aiparati.pt` |
+| Smoke test live | Por fazer | 3 clientes × 3 obrigações no `ivazen.aitipro.com` |
 
 ### Gaps P1 (primeira semana pós-entrega)
 
