@@ -278,4 +278,32 @@ Total de clientes: **405**
 
 ---
 
+## 14. Recovery — como recuperar dados
+
+### Cenário 1: Facturas apagadas acidentalmente
+1. Abrir Supabase Dashboard → `dmprkdvkzzjtixlatnlx` → Table Editor → `invoices`
+2. Filtrar por `client_id` e `deleted_at` (se soft-delete) ou verificar no backup
+3. Se não houver soft-delete: Supabase faz backups diários automáticos (plano Pro) — contactar suporte Supabase para point-in-time recovery
+
+### Cenário 2: Classificação em massa errada
+1. A classificação IA cria regras em `classification_rules`
+2. Para reverter: apagar as regras erradas em `classification_rules` filtradas por `client_id` + `created_at` do período da reclassificação
+3. Re-triggar classificação: ir a Compras → seleccionar as facturas → "Reclassificar"
+
+### Cenário 3: Import duplicou dados
+1. Verificar duplicados: `SELECT document_number, document_date, COUNT(*) FROM invoices WHERE client_id = 'X' GROUP BY 1,2 HAVING COUNT(*) > 1`
+2. Apagar os duplicados mais recentes (manter os com `id` mais antigo)
+
+### Cenário 4: Credenciais AT corrompidas
+1. O cliente fornece novas credenciais do portal AT
+2. Ir a Definições → Gestão de Clientes → seleccionar cliente → actualizar credenciais
+3. Testar com sync manual no AT Control Center
+
+### Contacto de emergência
+- **Suporte técnico**: `suporte@ivazen.pt`
+- **Supabase backup/restore**: Dashboard → Settings → Database → Backups
+- **Vercel redeploy**: `vercel --prod` ou push para `main`
+
+---
+
 *Este documento consolida e substitui: HANDOFF_EQUIPE_CLIENTE, SOP_EQUIPE_CONTABILIDADE, IVAzen_Guia_Adopcao_Contabilista, CARTEIRA_ADELIA_READYNESS. Os anteriores ficam como arquivo histórico.*
