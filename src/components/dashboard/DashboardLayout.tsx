@@ -19,6 +19,7 @@ import { InstallBanner } from '@/components/pwa/InstallBanner';
 import { FloatingInstallButton } from '@/components/pwa/FloatingInstallButton';
 import { CommandPalette } from '@/components/CommandPalette';
 import { KeyboardShortcutsHelp } from '@/components/KeyboardShortcutsHelp';
+import { ChatWidget } from '@/components/support/ChatWidget';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   FileText,
@@ -657,6 +658,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Keyboard Shortcuts Help (Shift+? or Cmd+/) */}
       <KeyboardShortcutsHelp />
+
+      {/* Support Chat Widget */}
+      <ChatWidget />
     </div>
   );
 }
