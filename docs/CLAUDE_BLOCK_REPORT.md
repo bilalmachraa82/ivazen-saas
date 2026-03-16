@@ -206,7 +206,7 @@ Relatório estruturado para auditoria automática do Codex.
 |-----|--------|-----------------|
 | Sentry DSN em Vercel | Por verificar | Confirmar `VITE_SENTRY_DSN` configurado — sem isto, erros em produção invisíveis |
 | Teste real export AT | Por fazer | 1 apuramento IVA + 1 Modelo 10 submetido/validado no fluxo AT real |
-| Suporte operacionalizado | Parcial | ChatWidget existe (`src/components/support/ChatWidget.tsx`) mas não está montado em nenhuma página. Definir: montar, quem responde, SLA |
+| Suporte operacionalizado | **Montado** (`3b48329`) | ChatWidget visível em todas as páginas autenticadas. Falta: definir quem responde a `suporte@ivazen.pt` e SLA |
 | Recovery documentado | Por fazer | Procedimento para recuperar dados apagados acidentalmente |
 | Smoke test live | Por fazer | 3 clientes × 3 obrigações no `ivazen.aitipro.com` |
 
@@ -217,7 +217,7 @@ Relatório estruturado para auditoria automática do Codex.
 | Badge universal de frescura de dados | `last_sync_at` existe em hooks mas não está surfaced na journey principal |
 | **Lock transversal de período fechado** | **Gap mais sério do produto fiscal** — SS e M10 têm estados parciais mas não há lock que impeça edição de períodos já declarados |
 | Fluxo de update de credenciais AT | Verificar se fluxo existe e não quebra silenciosamente quando clientes mudam passwords |
-| Ownership + suporte operacional | ChatWidget existe mas não está montado. Definir quem responde, SLA, quem na equipa importa/pede credenciais/fecha período |
+| Ownership + suporte operacional | ChatWidget montado (`3b48329`). Falta definir quem responde, SLA, ownership de importação/credenciais/período |
 
 ### Gaps P2 (primeiro mês)
 

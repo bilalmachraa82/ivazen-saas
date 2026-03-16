@@ -234,7 +234,7 @@ Total de clientes: **405**
 | Push do handoff final | **FEITO** | — |
 | Sentry DSN em produção | **Por verificar** | Confirmar `VITE_SENTRY_DSN` no Vercel. Sem isto, erros em produção são invisíveis. |
 | Teste real de export no portal AT | **Por fazer** | Gerar 1 apuramento IVA e 1 export Modelo 10 e submeter/validar no fluxo AT real. O código gera o formato, mas não está validado por aceitação. |
-| Operacionalizar suporte | **Parcial** | ChatWidget com `suporte@ivazen.pt` existe em `src/components/support/ChatWidget.tsx` mas **não está montado em nenhuma página**. Decidir: montar o widget, definir quem responde, e comunicar à equipa. |
+| Operacionalizar suporte | **Montado** | ChatWidget (`suporte@ivazen.pt`) visível em todas as páginas autenticadas (FAQ + formulário + links úteis). Falta: definir quem responde e SLA. |
 | Documentar recovery de dados | **Por fazer** | Procedimento para recuperar facturas/dados apagados acidentalmente. Supabase faz backups, mas a equipa não sabe como pedir restore. |
 | Smoke test live pós-push | **Por fazer** | Alguém percorre 3 clientes × 3 obrigações no live (`ivazen.aitipro.com`) para confirmar que o deploy está funcional. |
 
@@ -245,7 +245,7 @@ Total de clientes: **405**
 | Badge universal de frescura | **Parcial** | `last_sync_at` existe em hooks (useClientFiscalCenter, ATControlCenter, BulkClientSync) mas não está visível como badge na carteira/journey principal. Gap: contabilista pode trabalhar com dados stale sem saber. |
 | Lock de período fechado | **Não existe** | SS e Modelo 10 têm noção de estados mas não há lock transversal que impeça edição de facturas/classificações de períodos já declarados. **Gap mais sério do produto fiscal** — alteração acidental de dados submetidos é risco real. |
 | Fluxo de update de credenciais AT | **Por verificar** | Quando clientes mudam passwords no portal AT, como se actualizam no IVAzen? Confirmar que o fluxo existe e não quebra silenciosamente. |
-| Ownership e suporte operacional | **Por definir** | Quem na equipa da Adélia faz: importar, pedir credenciais, fechar período, escalar suporte? Sem isto, a equipa não se auto-organiza. ChatWidget (`suporte@ivazen.pt`) existe no código mas não está montado — definir quem responde e SLA. |
+| Ownership e suporte operacional | **Parcial** | ChatWidget montado e visível. Falta definir: quem responde a `suporte@ivazen.pt`, SLA, e quem na equipa importa/pede credenciais/fecha período. |
 
 ### P2 — Primeiro mês
 
