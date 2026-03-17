@@ -369,9 +369,9 @@ ORDER BY tabela;
 
 1. No Supabase, vai a **Authentication** → **URL Configuration**
 2. Adiciona:
-   - **Site URL**: `https://ivazen.aiparati.pt` (ou `https://ivazen-saas.vercel.app`)
+   - **Site URL**: `https://ivazen.aitipro.com` (ou `https://ivazen-saas.vercel.app`)
    - **Redirect URLs**:
-     - `https://ivazen.aiparati.pt/**`
+     - `https://ivazen.aitipro.com/**`
      - `https://ivazen-saas.vercel.app/**`
      - `https://*.vercel.app/**` (para preview deployments)
      - `http://localhost:8080/**` (para desenvolvimento local)
@@ -404,8 +404,8 @@ Os utilizadores precisam de mudar a password. Opções:
 
 ### C2. DNS do Domínio
 
-Se `ivazen.aiparati.pt` não está a resolver:
-1. No teu registar de domínio (onde compraste `aiparati.pt`)
+Se `ivazen.aitipro.com` não está a resolver:
+1. No teu registar de domínio (onde compraste `aitipro.com`)
 2. Adiciona CNAME record:
    - **Name**: `ivazen`
    - **Value**: `cname.vercel-dns.com`

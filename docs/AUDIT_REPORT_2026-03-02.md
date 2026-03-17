@@ -8,7 +8,7 @@
 | `npm test` (Vitest) | PASS — 23 files, **621/621 tests** |
 | `npm run lint` (ESLint) | 1422 errors (mostly `no-explicit-any`) — pre-existing, not blocking |
 | `check-edge-auth` | PASS — **8 functions verified**, zero insecure patterns |
-| Production site (ivazen.aiparati.pt) | HTTP 200, 271ms, 3.9KB |
+| Production site (ivazen.aitipro.com) | HTTP 200, 271ms, 3.9KB |
 
 ### Bundle Size (top chunks)
 
