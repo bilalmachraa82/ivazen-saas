@@ -207,7 +207,7 @@ Relatório estruturado para auditoria automática do Codex.
 | Sentry DSN em Vercel | Por verificar | Confirmar `VITE_SENTRY_DSN` configurado — sem isto, erros em produção invisíveis |
 | Teste real export AT | Por fazer | 1 apuramento IVA + 1 Modelo 10 submetido/validado no fluxo AT real |
 | Suporte operacionalizado | **Montado** (`3b48329`) | ChatWidget visível em todas as páginas autenticadas. Falta: definir quem responde a `suporte@ivazen.pt` e SLA |
-| Recovery documentado | Por fazer | Procedimento para recuperar dados apagados acidentalmente |
+| Recovery documentado | **Feito** (`9d29d3f`) | Secção 14 do HANDOFF_OPERACIONAL_FINAL.md — 4 cenários de recovery |
 | Smoke test live | Por fazer | 3 clientes × 3 obrigações no `ivazen.aitipro.com` |
 
 ### Gaps P1 (primeira semana pós-entrega)

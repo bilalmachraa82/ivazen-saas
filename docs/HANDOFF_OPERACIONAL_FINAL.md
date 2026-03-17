@@ -235,7 +235,7 @@ Total de clientes: **405**
 | Sentry DSN em produção | **Por verificar** | Confirmar `VITE_SENTRY_DSN` no Vercel. Sem isto, erros em produção são invisíveis. |
 | Teste real de export no portal AT | **Por fazer** | Gerar 1 apuramento IVA e 1 export Modelo 10 e submeter/validar no fluxo AT real. O código gera o formato, mas não está validado por aceitação. |
 | Operacionalizar suporte | **Montado** | ChatWidget (`suporte@ivazen.pt`) visível em todas as páginas autenticadas (FAQ + formulário + links úteis). Falta: definir quem responde e SLA. |
-| Documentar recovery de dados | **Por fazer** | Procedimento para recuperar facturas/dados apagados acidentalmente. Supabase faz backups, mas a equipa não sabe como pedir restore. |
+| Documentar recovery de dados | **Feito** | Ver secção 14 deste documento — 4 cenários cobertos (facturas apagadas, classificação errada, imports duplicados, credenciais corrompidas). |
 | Smoke test live pós-push | **Por fazer** | Alguém percorre 3 clientes × 3 obrigações no live (`ivazen.aitipro.com`) para confirmar que o deploy está funcional. |
 
 ### P1 — Primeira semana
