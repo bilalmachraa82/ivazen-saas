@@ -285,9 +285,80 @@ Deno.serve(async (req) => {
       }
     }
 
+    const clientData: ClientData = invoice.profiles || {};
+    const rawNif = (invoice.supplier_nif || '').trim();
+    const ruleSupplierTaxId = normalizeSupplierTaxIdForRules(rawNif);
+
+    // ============================================================
+    // NIF ENRICHMENT: If supplier_name is missing, look it up from
+    // existing data (other invoices, classification_rules, examples)
+    // ============================================================
+    let enrichedSupplierName: string | null = invoice.supplier_name || null;
+
+    if (!enrichedSupplierName && ruleSupplierTaxId) {
+      console.log(`[enrich] supplier_name missing for NIF ***${ruleSupplierTaxId.slice(-3)}, looking up...`);
+
+      // 1. Check classification_rules (fastest, most reliable)
+      const { data: ruleWithName } = await supabase
+        .from('classification_rules')
+        .select('supplier_name_pattern')
+        .eq('supplier_nif', ruleSupplierTaxId)
+        .not('supplier_name_pattern', 'is', null)
+        .limit(1)
+        .maybeSingle();
+
+      if (ruleWithName?.supplier_name_pattern) {
+        enrichedSupplierName = ruleWithName.supplier_name_pattern;
+        console.log(`[enrich] Found name in rules: ${enrichedSupplierName}`);
+      }
+
+      // 2. Check classification_examples
+      if (!enrichedSupplierName) {
+        const { data: exampleWithName } = await supabase
+          .from('classification_examples')
+          .select('supplier_name')
+          .eq('supplier_nif', ruleSupplierTaxId)
+          .not('supplier_name', 'is', null)
+          .limit(1)
+          .maybeSingle();
+
+        if (exampleWithName?.supplier_name) {
+          enrichedSupplierName = exampleWithName.supplier_name;
+          console.log(`[enrich] Found name in examples: ${enrichedSupplierName}`);
+        }
+      }
+
+      // 3. Check other invoices with the same NIF that have a name
+      if (!enrichedSupplierName) {
+        const { data: otherInvoice } = await supabase
+          .from('invoices')
+          .select('supplier_name')
+          .eq('supplier_nif', ruleSupplierTaxId)
+          .not('supplier_name', 'is', null)
+          .neq('supplier_name', '')
+          .neq('supplier_name', 'N/A')
+          .limit(1)
+          .maybeSingle();
+
+        if (otherInvoice?.supplier_name) {
+          enrichedSupplierName = otherInvoice.supplier_name;
+          console.log(`[enrich] Found name in other invoices: ${enrichedSupplierName}`);
+        }
+      }
+
+      // If we found a name, backfill it onto the current invoice
+      if (enrichedSupplierName && !invoice.supplier_name) {
+        await supabase
+          .from('invoices')
+          .update({ supplier_name: enrichedSupplierName })
+          .eq('id', invoice_id);
+        console.log(`[enrich] Backfilled supplier_name for invoice ${invoice_id}`);
+      }
+    }
+
     const invoiceData: InvoiceData = {
       supplier_nif: invoice.supplier_nif,
-      supplier_name: invoice.supplier_name,
+      supplier_name: enrichedSupplierName,
       total_amount: invoice.total_amount,
       total_vat: invoice.total_vat,
       base_standard: invoice.base_standard,
@@ -296,10 +367,6 @@ Deno.serve(async (req) => {
       base_exempt: invoice.base_exempt,
       document_type: invoice.document_type,
     };
-
-    const clientData: ClientData = invoice.profiles || {};
-    const rawNif = (invoice.supplier_nif || '').trim();
-    const ruleSupplierTaxId = normalizeSupplierTaxIdForRules(rawNif);
 
     // ============================================================
     // INTRA-COMMUNITY CHECK (reverse charge):

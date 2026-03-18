@@ -555,8 +555,23 @@ async function insertPurchaseInvoicesFromAT(
     const vatTotals = mergeVatTotals(inv.lineSummary || []);
 
     const supplierNif = inv.supplierNif || "AT";
-    const supplierName = inv.supplierName || null;
+    let supplierName = inv.supplierName || null;
     const customerNif = inv.customerNif || clientNif;
+
+    // NIF enrichment: if AT didn't return a name, look it up from existing data
+    if (!supplierName && supplierNif !== "AT") {
+      const { data: knownSupplier } = await supabase
+        .from("invoices")
+        .select("supplier_name")
+        .eq("supplier_nif", supplierNif)
+        .not("supplier_name", "is", null)
+        .neq("supplier_name", "")
+        .limit(1)
+        .maybeSingle();
+      if (knownSupplier?.supplier_name) {
+        supplierName = knownSupplier.supplier_name;
+      }
+    }
 
     const documentNumber = inv.documentNumber || null;
 
