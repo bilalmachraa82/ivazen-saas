@@ -32,7 +32,8 @@ const getArg = (name) => {
   const arg = args.find(a => a.startsWith(`--${name}=`));
   return arg ? arg.split('=')[1] : null;
 };
-const NIF_PT_KEY = getArg('key');
+// Key from env var (secure) or --key= CLI arg (legacy, less secure)
+const NIF_PT_KEY = process.env.NIF_PT_API_KEY || getArg('key');
 const DRY_RUN = args.includes('--dry-run');
 const LIMIT = parseInt(getArg('limit') || '0') || 0;
 
@@ -42,18 +43,18 @@ if (!NIF_PT_KEY) {
 ║  NIF.PT API Key Required                                ║
 ╠══════════════════════════════════════════════════════════╣
 ║                                                          ║
-║  1. Vai a https://www.nif.pt/api/                        ║
-║  2. Cria conta (email + password)                        ║
-║  3. Compra créditos (€10 = 1000 lookups)                 ║
-║  4. Copia a API key do dashboard                         ║
-║  5. Corre:                                               ║
+║  Option A (secure — recommended):                        ║
+║    export NIF_PT_API_KEY=your_key                        ║
+║    node scripts/migration/enrich-nifs-from-api.mjs       ║
 ║                                                          ║
-║  node scripts/migration/enrich-nifs-from-api.mjs \\       ║
-║    --key=A_TUA_API_KEY                                   ║
+║  Option B (quick, less secure):                          ║
+║    node scripts/migration/enrich-nifs-from-api.mjs \\     ║
+║      --key=your_key                                      ║
 ║                                                          ║
 ║  Flags opcionais:                                        ║
 ║    --dry-run    Ver resultados sem gravar                 ║
 ║    --limit=10   Testar com poucos NIFs                   ║
+║    --paid       Usar delay curto (tier pago)             ║
 ║                                                          ║
 ╚══════════════════════════════════════════════════════════╝
 `);
