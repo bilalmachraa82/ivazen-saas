@@ -488,6 +488,12 @@ export function InvoiceDetailDialog({
                             <p className="text-muted-foreground">NIF/VAT</p>
                             <p className="font-mono font-medium">{invoice.supplier_nif}</p>
                           </div>
+                          {(invoice as any).supplier_cae && (
+                            <div className="col-span-2">
+                              <p className="text-muted-foreground">CAE / Sector</p>
+                              <p className="font-medium">{(invoice as any).supplier_cae}</p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

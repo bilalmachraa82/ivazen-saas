@@ -109,6 +109,7 @@ Analisa cuidadosamente:
 interface InvoiceData {
   supplier_nif: string;
   supplier_name?: string;
+  supplier_cae?: string;
   total_amount: number;
   total_vat?: number;
   base_standard?: number;
@@ -359,6 +360,7 @@ Deno.serve(async (req) => {
     const invoiceData: InvoiceData = {
       supplier_nif: invoice.supplier_nif,
       supplier_name: enrichedSupplierName,
+      supplier_cae: invoice.supplier_cae || undefined,
       total_amount: invoice.total_amount,
       total_vat: invoice.total_vat,
       base_standard: invoice.base_standard,
@@ -543,12 +545,18 @@ Razão: ${ex.reason || 'N/A'}
       }
     }
 
+    // Build supplier CAE context for the prompt
+    const supplierCaeInfo = invoiceData.supplier_cae
+      ? `- CAE Fornecedor: ${invoiceData.supplier_cae} (IMPORTANTE: indica o sector de actividade do fornecedor, usa para inferir o tipo de despesa)`
+      : '- CAE Fornecedor: Desconhecido';
+
     // Build the user prompt
     const userPrompt = `Classifica a seguinte factura:
 
 ## DADOS DA FACTURA
 - NIF Fornecedor: ${invoiceData.supplier_nif}
 - Nome Fornecedor: ${invoiceData.supplier_name || 'Desconhecido'}
+${supplierCaeInfo}
 - Tipo Documento: ${invoiceData.document_type || 'Factura'}
 - Valor Total: €${invoiceData.total_amount.toFixed(2)}
 - IVA Total: €${(invoiceData.total_vat || 0).toFixed(2)}
@@ -556,6 +564,24 @@ Razão: ${ex.reason || 'N/A'}
 - Base Taxa Intermédia (13%): €${(invoiceData.base_intermediate || 0).toFixed(2)}
 - Base Taxa Reduzida (6%): €${(invoiceData.base_reduced || 0).toFixed(2)}
 - Base Isenta: €${(invoiceData.base_exempt || 0).toFixed(2)}
+
+## REFERÊNCIA CAE → CLASSIFICAÇÃO
+- CAE 01-03: Agricultura → produção agrícola
+- CAE 10-33: Indústria → existências ou outros bens
+- CAE 35: Electricidade/Gás → ACTIVIDADE, Campo 24, 100%
+- CAE 36-39: Água/Resíduos → ACTIVIDADE, Campo 24, 100%
+- CAE 45-47: Comércio → existências (revenda) ou outros bens
+- CAE 49-53: Transportes → ACTIVIDADE, Campo 24, 100%
+- CAE 55-56: Alojamento/Restauração → ACTIVIDADE, Campo 24, 0% (regra geral)
+- CAE 58-63: Informação/Comunicação → ACTIVIDADE, Campo 24, 100%
+- CAE 64-66: Actividades financeiras → ACTIVIDADE, Campo 24, 100%
+- CAE 68: Imobiliário → depende do contexto
+- CAE 69-75: Consultoria/Profissionais → ACTIVIDADE, Campo 24, 100%
+- CAE 77-82: Serviços administrativos → ACTIVIDADE, Campo 24, 100%
+- CAE 85: Educação → ACTIVIDADE, Campo 24, 100%
+- CAE 86-88: Saúde → ACTIVIDADE, Campo 24, 100%
+- CAE 90-93: Cultura/Desporto → depende do contexto
+- CAE 94-96: Outros serviços → ACTIVIDADE, Campo 24, 100%
 
 ## DADOS DO CLIENTE
 - Empresa: ${clientData.company_name || 'N/A'}

@@ -212,6 +212,10 @@ export interface ATInvoice {
   netTotal: number;
   taxPayable: number;
   lineSummary: ATLineSummary[];
+  /** Supplier's CAE code from AT (EACCode tag) — key for classification */
+  supplierCae?: string;
+  /** AT sector classification (e.g. "G", "I", "K") */
+  sector?: string;
 }
 
 export interface ATInvoicesResponse {
@@ -298,6 +302,8 @@ export function parseInvoicesResponse(xmlText: string): ATInvoicesResponse {
       netTotal: getNumber('NetTotal'),
       taxPayable: getNumber('TaxPayable'),
       lineSummary,
+      supplierCae: getValue('EACCode') || getValue('ActivityCode') || undefined,
+      sector: getValue('Sector') || undefined,
     });
   }
   

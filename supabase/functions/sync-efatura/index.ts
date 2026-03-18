@@ -58,6 +58,10 @@ interface ATInvoice {
   netTotal: number;
   taxPayable: number;
   lineSummary: ATLineSummary[];
+  /** Supplier CAE from AT EACCode field */
+  supplierCae?: string;
+  /** AT sector classification */
+  sector?: string;
 }
 
 type SyncReasonCode =
@@ -596,6 +600,7 @@ async function insertPurchaseInvoicesFromAT(
         client_id: clientId,
         supplier_nif: supplierNif,
         supplier_name: supplierName,
+        supplier_cae: inv.supplierCae || inv.sector || null,
         customer_nif: customerNif,
         document_type: inv.documentType || "FT",
         document_date: documentDate,
