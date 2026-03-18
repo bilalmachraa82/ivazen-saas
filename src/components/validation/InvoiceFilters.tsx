@@ -43,6 +43,7 @@ export function InvoiceFilters({
           <SelectItem value="pending">Pendente</SelectItem>
           <SelectItem value="classified">Classificada</SelectItem>
           <SelectItem value="validated">Validada</SelectItem>
+          <SelectItem value="rejected">Excluída</SelectItem>
         </SelectContent>
       </Select>
 

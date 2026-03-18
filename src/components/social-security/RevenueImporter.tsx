@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -74,8 +74,7 @@ export function RevenueImporter({ onImport, onCreateSalesInvoices, currentQuarte
   const { getSuggestedCategory, savePreferencesBulk, preferences } = useCategoryPreferences();
 
   // Detect category based on user's CAE and saved preferences
-  useState(() => {
-    // First check saved preferences
+  useEffect(() => {
     const savedCategory = getSuggestedCategory(userCAE);
     if (savedCategory) {
       setDefaultCategory(savedCategory);
@@ -86,12 +85,11 @@ export function RevenueImporter({ onImport, onCreateSalesInvoices, currentQuarte
         reason: 'Baseado nas suas importações anteriores',
       });
     } else {
-      // Fallback to CAE detection
       const detection = detectCategoryFromCAE(userCAE, activityDescription);
       setDetectedCategory(detection);
       setDefaultCategory(detection.category);
     }
-  });
+  }, [userCAE, activityDescription, preferences]);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();

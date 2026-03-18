@@ -49,31 +49,43 @@ function findColumnIndex(headers: string[], fieldMappings: string[]): number {
 
 function parseDate(value: string): Date | null {
   if (!value) return null;
-  
-  // Try common Portuguese date formats
-  const formats = [
-    /^(\d{2})[-/](\d{2})[-/](\d{4})$/, // DD-MM-YYYY or DD/MM/YYYY
-    /^(\d{4})[-/](\d{2})[-/](\d{2})$/, // YYYY-MM-DD
-    /^(\d{2})[-/](\d{2})[-/](\d{2})$/, // DD-MM-YY
-  ];
-  
-  for (const format of formats) {
-    const match = value.match(format);
-    if (match) {
-      if (format === formats[0]) {
-        return new Date(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1]));
-      } else if (format === formats[1]) {
-        return new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]));
-      } else {
-        const year = parseInt(match[3]) + 2000;
-        return new Date(year, parseInt(match[2]) - 1, parseInt(match[1]));
-      }
+
+  const trimmed = value.trim();
+
+  // DD-MM-YYYY or DD/MM/YYYY (with optional time component)
+  const dmyFull = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:\s|$)/);
+  if (dmyFull) {
+    const d = parseInt(dmyFull[1]);
+    const m = parseInt(dmyFull[2]);
+    const y = parseInt(dmyFull[3]);
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      return new Date(y, m - 1, d);
     }
   }
-  
-  // Fallback to native parsing
-  const parsed = new Date(value);
-  return isNaN(parsed.getTime()) ? null : parsed;
+
+  // YYYY-MM-DD or YYYY/MM/DD (with optional time component)
+  const isoFull = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:\s|$)/);
+  if (isoFull) {
+    const y = parseInt(isoFull[1]);
+    const m = parseInt(isoFull[2]);
+    const d = parseInt(isoFull[3]);
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      return new Date(y, m - 1, d);
+    }
+  }
+
+  // DD-MM-YY (with optional time component)
+  const dmyShort = trimmed.match(/^(\d{2})[-/](\d{2})[-/](\d{2})(?:\s|$)/);
+  if (dmyShort) {
+    const d = parseInt(dmyShort[1]);
+    const m = parseInt(dmyShort[2]);
+    const y = parseInt(dmyShort[3]) + 2000;
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      return new Date(y, m - 1, d);
+    }
+  }
+
+  return null;
 }
 
 function parseNumber(value: string): number {

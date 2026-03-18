@@ -251,6 +251,50 @@ describe('parseEFaturaCSV — formatos de data', () => {
     expect(result.records[0].data.getMonth()).toBe(2);
   });
 
+  it('aceita data DD/MM/YYYY com componente de hora (fix: AT portal exports)', () => {
+    const result = parseEFaturaCSV(csvWithDate('15/02/2025 10:30:00'));
+    expect(result.records[0].data.getFullYear()).toBe(2025);
+    expect(result.records[0].data.getMonth()).toBe(1); // Fevereiro = 1
+    expect(result.records[0].data.getDate()).toBe(15);
+  });
+
+  it('aceita data DD-MM-YYYY com componente de hora', () => {
+    const result = parseEFaturaCSV(csvWithDate('15-02-2025 14:00'));
+    expect(result.records[0].data.getFullYear()).toBe(2025);
+    expect(result.records[0].data.getMonth()).toBe(1);
+    expect(result.records[0].data.getDate()).toBe(15);
+  });
+
+  it('aceita data YYYY/MM/DD (formato ISO com barras)', () => {
+    const result = parseEFaturaCSV(csvWithDate('2025/02/15'));
+    expect(result.records[0].data.getFullYear()).toBe(2025);
+    expect(result.records[0].data.getMonth()).toBe(1);
+    expect(result.records[0].data.getDate()).toBe(15);
+  });
+
+  it('aceita data YYYY-MM-DD com componente de hora', () => {
+    const result = parseEFaturaCSV(csvWithDate('2025-02-15 08:30:00'));
+    expect(result.records[0].data.getFullYear()).toBe(2025);
+    expect(result.records[0].data.getMonth()).toBe(1);
+    expect(result.records[0].data.getDate()).toBe(15);
+  });
+
+  it('Fevereiro permanece Fevereiro — não muda para Abril (bug reportado)', () => {
+    // Regression test: February dates must not shift to April
+    const result = parseEFaturaCSV(csvWithDate('28/02/2025'));
+    expect(result.records[0].data.getMonth()).toBe(1); // 1 = Fevereiro
+    expect(result.records[0].data.getDate()).toBe(28);
+    // Verify ISO output is correct for database storage
+    expect(result.records[0].data.toISOString().split('T')[0]).toBe('2025-02-28');
+  });
+
+  it('aceita data com dia/mês de um dígito (D/M/YYYY)', () => {
+    const result = parseEFaturaCSV(csvWithDate('5/2/2025'));
+    expect(result.records[0].data.getFullYear()).toBe(2025);
+    expect(result.records[0].data.getMonth()).toBe(1);
+    expect(result.records[0].data.getDate()).toBe(5);
+  });
+
   it('emite aviso quando a data é inválida', () => {
     const result = parseEFaturaCSV(csvWithDate('data-invalida'));
     expect(result.warnings.some(w => w.toLowerCase().includes('data'))).toBe(true);

@@ -46,7 +46,8 @@ export default function Validation() {
     loading, 
     filters, 
     setFilters, 
-    validateInvoice, 
+    validateInvoice,
+    rejectInvoice,
     reExtractInvoice,
     getSignedUrl,
     getFiscalPeriods,
@@ -498,6 +499,7 @@ export default function Validation() {
         onOpenChange={setDialogOpen}
         onValidate={handleValidate}
         onReExtract={reExtractInvoice}
+        onReject={rejectInvoice}
         getSignedUrl={getSignedUrl}
         onNavigate={handleNavigate}
         canNavigatePrev={selectedIndex > 0}

@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
-import { FileText, Image as ImageIcon, Calculator, Building2, ChevronLeft, ChevronRight, History, Save, Pencil, CloudDownload } from 'lucide-react';
+import { FileText, Image as ImageIcon, Calculator, Building2, ChevronLeft, ChevronRight, History, Save, Pencil, CloudDownload, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -39,6 +39,7 @@ interface InvoiceDetailDialogProps {
     warnings?: string[];
     changes?: Array<{ field: string; old_value: unknown; new_value: unknown }>;
   }>;
+  onReject?: (invoiceId: string) => Promise<boolean>;
   onNavigate?: (direction: 'prev' | 'next') => void;
   canNavigatePrev?: boolean;
   canNavigateNext?: boolean;
@@ -52,6 +53,7 @@ export function InvoiceDetailDialog({
   onValidate,
   getSignedUrl,
   onReExtract,
+  onReject,
   onNavigate,
   canNavigatePrev = false,
   canNavigateNext = false,
@@ -351,12 +353,12 @@ export function InvoiceDetailDialog({
               )}
             </div>
             <div className="flex flex-col items-end gap-1">
-              <Badge variant={invoice.status === 'validated' ? 'success' : 'warning'}>
-                {invoice.status === 'validated' ? 'Confirmada' : 'Por Confirmar'}
+              <Badge variant={invoice.status === 'validated' ? 'success' : invoice.status === 'rejected' ? 'destructive' : 'warning'}>
+                {invoice.status === 'validated' ? 'Confirmada' : invoice.status === 'rejected' ? 'Excluída' : 'Por Confirmar'}
               </Badge>
               {invoice.validated_at && (
                 <span className="text-[10px] text-muted-foreground">
-                  Confirmada em {format(new Date(invoice.validated_at), "dd/MM/yyyy 'às' HH:mm", { locale: pt })}
+                  {invoice.status === 'rejected' ? 'Excluída' : 'Confirmada'} em {format(new Date(invoice.validated_at), "dd/MM/yyyy 'às' HH:mm", { locale: pt })}
                 </span>
               )}
             </div>
@@ -488,10 +490,10 @@ export function InvoiceDetailDialog({
                             <p className="text-muted-foreground">NIF/VAT</p>
                             <p className="font-mono font-medium">{invoice.supplier_nif}</p>
                           </div>
-                          {(invoice as any).supplier_cae && (
+                          {invoice.supplier_cae && (
                             <div className="col-span-2">
                               <p className="text-muted-foreground">CAE / Sector</p>
-                              <p className="font-medium">{(invoice as any).supplier_cae}</p>
+                              <p className="font-medium">{invoice.supplier_cae}</p>
                             </div>
                           )}
                         </div>
@@ -642,6 +644,22 @@ export function InvoiceDetailDialog({
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold">Classificação</h3>
               <div className="flex items-center gap-2">
+                {onReject && invoice.status !== 'rejected' && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={async () => {
+                      if (invoice) {
+                        const ok = await onReject(invoice.id);
+                        if (ok) onOpenChange(false);
+                      }
+                    }}
+                    className="gap-1.5"
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                    Excluir
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"

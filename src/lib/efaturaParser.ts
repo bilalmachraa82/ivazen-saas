@@ -103,25 +103,39 @@ function splitDocumentoATCUD(value: string): { documento: string; atcud: string 
 
 /**
  * Normalize date from Portuguese format DD/MM/YYYY
+ * Supports: DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD, YYYY/MM/DD
+ * Also handles optional time components (e.g. "15/02/2025 10:30:00")
  */
 function parseDate(dateStr: string): Date | null {
   if (!dateStr) return null;
-  
+
   const cleaned = dateStr.trim();
-  
-  // DD/MM/YYYY or DD-MM-YYYY
-  const dmyMatch = cleaned.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+
+  // DD/MM/YYYY or DD-MM-YYYY (with optional time component)
+  const dmyMatch = cleaned.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s|$)/);
   if (dmyMatch) {
     const [, day, month, year] = dmyMatch;
-    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    const d = parseInt(day);
+    const m = parseInt(month);
+    const y = parseInt(year);
+    // Sanity-check month and day ranges
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      return new Date(y, m - 1, d);
+    }
   }
-  
-  // YYYY-MM-DD (ISO)
-  const isoMatch = cleaned.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  // YYYY-MM-DD or YYYY/MM/DD (with optional time component)
+  const isoMatch = cleaned.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:\s|$)/);
   if (isoMatch) {
-    return new Date(cleaned);
+    const [, year, month, day] = isoMatch;
+    const y = parseInt(year);
+    const m = parseInt(month);
+    const d = parseInt(day);
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      return new Date(y, m - 1, d);
+    }
   }
-  
+
   return null;
 }
 

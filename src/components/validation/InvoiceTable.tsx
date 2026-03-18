@@ -35,6 +35,7 @@ const statusConfig = {
   pending: { label: 'Por Classificar', variant: 'secondary' as const, icon: Clock },
   classified: { label: 'Por Confirmar', variant: 'warning' as const, icon: AlertCircle },
   validated: { label: 'Confirmada', variant: 'success' as const, icon: CheckCircle },
+  rejected: { label: 'Excluída', variant: 'destructive' as const, icon: AlertCircle },
 };
 
 const getConfidenceConfig = (confidence: number) => {

@@ -1264,6 +1264,7 @@ export type Database = {
           qr_raw: string | null
           requires_accountant_validation: boolean | null
           status: string | null
+          supplier_cae: string | null
           supplier_name: string | null
           supplier_nif: string
           supplier_vat_id: string | null
@@ -1306,6 +1307,7 @@ export type Database = {
           qr_raw?: string | null
           requires_accountant_validation?: boolean | null
           status?: string | null
+          supplier_cae?: string | null
           supplier_name?: string | null
           supplier_nif: string
           supplier_vat_id?: string | null
@@ -1348,6 +1350,7 @@ export type Database = {
           qr_raw?: string | null
           requires_accountant_validation?: boolean | null
           status?: string | null
+          supplier_cae?: string | null
           supplier_name?: string | null
           supplier_nif?: string
           supplier_vat_id?: string | null
@@ -1670,6 +1673,7 @@ export type Database = {
           qr_raw: string | null
           revenue_category: string | null
           status: string | null
+          supplier_cae: string | null
           supplier_nif: string
           total_amount: number
           total_vat: number | null
@@ -1702,6 +1706,7 @@ export type Database = {
           qr_raw?: string | null
           revenue_category?: string | null
           status?: string | null
+          supplier_cae?: string | null
           supplier_nif: string
           total_amount: number
           total_vat?: number | null
@@ -1734,6 +1739,7 @@ export type Database = {
           qr_raw?: string | null
           revenue_category?: string | null
           status?: string | null
+          supplier_cae?: string | null
           supplier_nif?: string
           total_amount?: number
           total_vat?: number | null
@@ -1846,6 +1852,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      supplier_directory: {
+        Row: {
+          activity: string | null
+          cae: string | null
+          city: string | null
+          confidence: number
+          created_at: string
+          name: string
+          nif: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          activity?: string | null
+          cae?: string | null
+          city?: string | null
+          confidence?: number
+          created_at?: string
+          name: string
+          nif: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          activity?: string | null
+          cae?: string | null
+          city?: string | null
+          confidence?: number
+          created_at?: string
+          name?: string
+          nif?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       tax_withholdings: {
         Row: {
@@ -2515,5 +2557,5 @@ export const Constants = {
     },
   },
 } as const
-A new version of Supabase CLI is available: v2.75.0 (currently installed v2.72.7)
+A new version of Supabase CLI is available: v2.78.1 (currently installed v2.72.7)
 We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

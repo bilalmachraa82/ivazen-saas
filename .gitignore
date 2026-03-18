@@ -43,5 +43,10 @@ scripts/__pycache__/
 bun.lockb
 deno.lock
 
+# Environment files (contain secrets)
+.env
+.env.*
+!.env.example
+
 # Lovable artifacts
 .lovable/

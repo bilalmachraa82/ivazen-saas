@@ -413,6 +413,29 @@ export function useInvoices(externalClientId?: string | null) {
     }
   };
 
+  const rejectInvoice = async (invoiceId: string, reason?: string) => {
+    try {
+      const { error } = await supabase
+        .from('invoices')
+        .update({
+          status: 'rejected',
+          validated_at: new Date().toISOString(),
+          validated_by: user?.id,
+        })
+        .eq('id', invoiceId);
+
+      if (error) throw error;
+
+      toast.success('Factura excluída');
+      await fetchInvoices();
+      return true;
+    } catch (error) {
+      console.error('Error rejecting invoice:', error);
+      toast.error('Erro ao excluir factura');
+      return false;
+    }
+  };
+
   const getSignedUrl = async (imagePath: string) => {
     const { data, error } = await supabase.storage
       .from('invoices')
@@ -466,6 +489,7 @@ export function useInvoices(externalClientId?: string | null) {
     filters,
     setFilters: setFiltersAndResetPage,
     validateInvoice,
+    rejectInvoice,
     reExtractInvoice,
     getSignedUrl,
     getFiscalPeriods,
