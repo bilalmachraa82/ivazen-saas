@@ -299,61 +299,31 @@ Deno.serve(async (req) => {
     if (!enrichedSupplierName && ruleSupplierTaxId) {
       console.log(`[enrich] supplier_name missing for NIF ***${ruleSupplierTaxId.slice(-3)}, looking up...`);
 
-      // 1. Check classification_rules (fastest, most reliable)
-      const { data: ruleWithName } = await supabase
-        .from('classification_rules')
-        .select('supplier_name_pattern')
-        .eq('supplier_nif', ruleSupplierTaxId)
-        .not('supplier_name_pattern', 'is', null)
-        .limit(1)
+      // Single lookup: supplier_directory (aggregates all sources)
+      const { data: dirEntry } = await supabase
+        .from('supplier_directory')
+        .select('name, cae, source')
+        .eq('nif', ruleSupplierTaxId)
         .maybeSingle();
 
-      if (ruleWithName?.supplier_name_pattern) {
-        enrichedSupplierName = ruleWithName.supplier_name_pattern;
-        console.log(`[enrich] Found name in rules: ${enrichedSupplierName}`);
-      }
-
-      // 2. Check classification_examples
-      if (!enrichedSupplierName) {
-        const { data: exampleWithName } = await supabase
-          .from('classification_examples')
-          .select('supplier_name')
-          .eq('supplier_nif', ruleSupplierTaxId)
-          .not('supplier_name', 'is', null)
-          .limit(1)
-          .maybeSingle();
-
-        if (exampleWithName?.supplier_name) {
-          enrichedSupplierName = exampleWithName.supplier_name;
-          console.log(`[enrich] Found name in examples: ${enrichedSupplierName}`);
+      if (dirEntry?.name) {
+        enrichedSupplierName = dirEntry.name;
+        // Also pick up CAE if invoice doesn't have one
+        if (!invoice.supplier_cae && dirEntry.cae) {
+          invoice.supplier_cae = dirEntry.cae;
         }
+        console.log(`[enrich] Found in supplier_directory: ${enrichedSupplierName} (source: ${dirEntry.source})`);
       }
 
-      // 3. Check other invoices with the same NIF that have a name
-      if (!enrichedSupplierName) {
-        const { data: otherInvoice } = await supabase
-          .from('invoices')
-          .select('supplier_name')
-          .eq('supplier_nif', ruleSupplierTaxId)
-          .not('supplier_name', 'is', null)
-          .neq('supplier_name', '')
-          .neq('supplier_name', 'N/A')
-          .limit(1)
-          .maybeSingle();
-
-        if (otherInvoice?.supplier_name) {
-          enrichedSupplierName = otherInvoice.supplier_name;
-          console.log(`[enrich] Found name in other invoices: ${enrichedSupplierName}`);
-        }
-      }
-
-      // If we found a name, backfill it onto the current invoice
+      // Backfill onto the current invoice
       if (enrichedSupplierName && !invoice.supplier_name) {
+        const backfill: Record<string, unknown> = { supplier_name: enrichedSupplierName };
+        if (dirEntry?.cae && !invoice.supplier_cae) backfill.supplier_cae = dirEntry.cae;
         await supabase
           .from('invoices')
-          .update({ supplier_name: enrichedSupplierName })
+          .update(backfill)
           .eq('id', invoice_id);
-        console.log(`[enrich] Backfilled supplier_name for invoice ${invoice_id}`);
+        console.log(`[enrich] Backfilled supplier data for invoice ${invoice_id}`);
       }
     }
 

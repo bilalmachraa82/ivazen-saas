@@ -560,20 +560,37 @@ async function insertPurchaseInvoicesFromAT(
 
     const supplierNif = inv.supplierNif || "AT";
     let supplierName = inv.supplierName || null;
+    let supplierCae = inv.supplierCae || inv.sector || null;
     const customerNif = inv.customerNif || clientNif;
 
-    // NIF enrichment: if AT didn't return a name, look it up from existing data
-    if (!supplierName && supplierNif !== "AT") {
-      const { data: knownSupplier } = await supabase
-        .from("invoices")
-        .select("supplier_name")
-        .eq("supplier_nif", supplierNif)
-        .not("supplier_name", "is", null)
-        .neq("supplier_name", "")
-        .limit(1)
-        .maybeSingle();
-      if (knownSupplier?.supplier_name) {
-        supplierName = knownSupplier.supplier_name;
+    // If AT returned name/CAE, upsert into supplier_directory
+    if (supplierNif !== "AT" && /^\d{9}$/.test(supplierNif)) {
+      if (supplierName || supplierCae) {
+        await supabase
+          .from("supplier_directory")
+          .upsert({
+            nif: supplierNif,
+            name: supplierName || supplierNif,
+            cae: supplierCae,
+            source: "at",
+            confidence: 70,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "nif", ignoreDuplicates: true });
+      }
+
+      // If AT didn't return a name, look it up from supplier_directory
+      if (!supplierName) {
+        const { data: dirEntry } = await supabase
+          .from("supplier_directory")
+          .select("name, cae")
+          .eq("nif", supplierNif)
+          .maybeSingle();
+        if (dirEntry?.name && dirEntry.name !== supplierNif) {
+          supplierName = dirEntry.name;
+        }
+        if (!supplierCae && dirEntry?.cae) {
+          supplierCae = dirEntry.cae;
+        }
       }
     }
 
@@ -668,6 +685,7 @@ async function insertSalesInvoicesFromAT(
       .insert({
         client_id: clientId,
         supplier_nif: clientNif,
+        supplier_cae: inv.supplierCae || inv.sector || null,
         customer_nif: customerNif,
         customer_name: customerName,
         document_type: inv.documentType || "FT",
