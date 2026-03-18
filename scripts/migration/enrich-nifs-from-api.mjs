@@ -79,10 +79,15 @@ async function lookupNif(nif) {
     // NIF.PT returns: nif_validation, title, address, pc4, pc3, city, activity, cae, ...
     const record = data.records?.[nif] || data.records?.[Object.keys(data.records || {})[0]];
     if (!record) return { error: 'Sem dados' };
+    // cae comes as array (e.g. ["62010","63120"]) — take the primary (first)
+    const caeRaw = record.cae;
+    const cae = Array.isArray(caeRaw) ? caeRaw[0] : (caeRaw || null);
+    // activity may contain HTML tags — strip them
+    const activity = (record.activity || '').replace(/<[^>]+>/g, '').trim() || null;
     return {
       name: record.title || null,
-      cae: record.cae || null,
-      activity: record.activity || null,
+      cae,
+      activity,
       city: record.city || null,
     };
   } catch (e) {
@@ -145,9 +150,9 @@ async function main() {
 
     if (result.error) {
       console.log(`❌ ${result.error}`);
-      if (result.error.includes('Rate limit')) {
-        console.log('   Aguardando 5s...');
-        await sleep(5000);
+      if (result.error.includes('Limit') || result.error.includes('Rate limit') || result.error.includes('429')) {
+        console.log('   Rate limit — aguardando 65s...');
+        await sleep(65000);
         i--; // Retry
         continue;
       }
@@ -168,8 +173,15 @@ async function main() {
       notFound++;
     }
 
-    // Rate limit: ~5 req/s to be safe
-    await sleep(200);
+    // Free tier: ~1 req/min. Paid: ~5 req/s.
+    // Use 62s for free tier to stay under the limit.
+    const DELAY = getArg('paid') ? 200 : 62000;
+    if (DELAY > 1000) {
+      const remaining = nifsToProcess.length - i - 1;
+      const eta = Math.round(remaining * DELAY / 60000);
+      process.stdout.write(`   (free tier: ~${eta}min restantes)\n`);
+    }
+    await sleep(DELAY);
   }
 
   console.log(`\n=== Lookup Complete ===`);

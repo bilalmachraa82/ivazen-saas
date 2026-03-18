@@ -24,24 +24,43 @@ export function ImageZoom({ src, alt, className }: ImageZoomProps) {
                 src?.includes('application/pdf') ||
                 src?.includes('content-type=application%2Fpdf');
 
-  // Fetch PDF as blob to bypass X-Frame-Options / CSP restrictions
+  // Fetch PDF as blob to bypass X-Frame-Options / CSP restrictions on signed URLs.
+  // Uses no-cors fallback and retries with Supabase storage download if needed.
   useEffect(() => {
     if (!isPDF || !src) return;
     let cancelled = false;
     setPdfBlobUrl(null);
     setIsPDFLoading(true);
 
-    fetch(src)
-      .then(r => r.blob())
-      .then(blob => {
+    (async () => {
+      try {
+        // Try direct fetch first (works if CORS headers are set)
+        const resp = await fetch(src);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const blob = await resp.blob();
         if (cancelled) return;
-        const url = URL.createObjectURL(blob);
-        setPdfBlobUrl(url);
-        setIsPDFLoading(false);
-      })
-      .catch(() => {
+        setPdfBlobUrl(URL.createObjectURL(blob));
+      } catch {
+        // If fetch fails (CORS), try downloading via Supabase SDK
+        try {
+          const { supabase } = await import('@/integrations/supabase/client');
+          // Extract the storage path from the signed URL
+          // Signed URLs look like: .../storage/v1/object/sign/invoices/path?token=...
+          const match = src.match(/\/object\/sign\/invoices\/([^?]+)/);
+          if (match) {
+            const path = decodeURIComponent(match[1]);
+            const { data: blob } = await supabase.storage.from('invoices').download(path);
+            if (blob && !cancelled) {
+              setPdfBlobUrl(URL.createObjectURL(blob));
+            }
+          }
+        } catch {
+          // Both methods failed — pdfBlobUrl stays null, show fallback
+        }
+      } finally {
         if (!cancelled) setIsPDFLoading(false);
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
@@ -151,13 +170,19 @@ export function ImageZoom({ src, alt, className }: ImageZoomProps) {
           </div>
         )}
 
-        {pdfBlobUrl && (
+        {pdfBlobUrl ? (
           <iframe
             src={`${pdfBlobUrl}#toolbar=1&navpanes=0`}
             title={alt}
             className="w-full h-full border-0"
           />
-        )}
+        ) : !isPDFLoading ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted text-muted-foreground p-6 text-center">
+            <FileText className="h-12 w-12 mb-3" />
+            <p className="text-sm font-medium mb-2">Preview indisponível</p>
+            <p className="text-xs mb-4">Use os botões abaixo para abrir ou descarregar o PDF.</p>
+          </div>
+        ) : null}
         
         {/* PDF indicator */}
         <div className="absolute top-4 left-4 flex items-center gap-2 bg-background/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium text-muted-foreground">
