@@ -194,7 +194,8 @@ export function EFaturaCSVImporter({ clientId, year, quarter }: EFaturaCSVImport
       return sum + r.valorIva * deductibility;
     }, 0);
 
-  // Import selected records into the invoices table
+  // Import selected records — auto-detect vendas vs compras by comparing
+  // the emitter NIF in the CSV with the client's NIF.
   const handleImport = async () => {
     const selectedRecords = classifiedRecords.filter(r => r.selected);
     if (selectedRecords.length === 0) {
@@ -209,29 +210,24 @@ export function EFaturaCSVImporter({ clientId, year, quarter }: EFaturaCSVImport
     }
 
     setIsImporting(true);
-    let imported = 0;
+    let importedCompras = 0;
+    let importedVendas = 0;
     let skipped = 0;
 
     try {
+      // Fetch client NIF to detect vendas vs compras
+      const { data: clientProfile } = await supabase
+        .from('profiles')
+        .select('nif')
+        .eq('id', effectiveClientId)
+        .maybeSingle();
+      const clientNif = clientProfile?.nif || '';
+
       for (const record of selectedRecords) {
-        // Calculate fiscal period
         const fiscalPeriod = `${record.data.getFullYear()}${String(record.data.getMonth() + 1).padStart(2, '0')}`;
 
-        // Check for duplicates (same supplier_nif + document_number + date)
-        if (record.numeroDocumento) {
-          const { data: existing } = await supabase
-            .from('invoices')
-            .select('id')
-            .eq('client_id', effectiveClientId)
-            .eq('supplier_nif', record.nif)
-            .eq('document_number', record.numeroDocumento)
-            .limit(1);
-
-          if (existing && existing.length > 0) {
-            skipped++;
-            continue;
-          }
-        }
+        // Auto-detect: if the emitter NIF matches the client NIF, it's a sale (venda)
+        const isVenda = clientNif && record.nif === clientNif;
 
         // Determine VAT base fields from rate
         const vatRate = record.baseTributavel > 0
@@ -239,12 +235,9 @@ export function EFaturaCSVImporter({ clientId, year, quarter }: EFaturaCSVImport
           : 0;
 
         const vatFields: Record<string, number | null> = {
-          base_standard: null,
-          vat_standard: null,
-          base_intermediate: null,
-          vat_intermediate: null,
-          base_reduced: null,
-          vat_reduced: null,
+          base_standard: null, vat_standard: null,
+          base_intermediate: null, vat_intermediate: null,
+          base_reduced: null, vat_reduced: null,
           base_exempt: null,
         };
 
@@ -261,41 +254,90 @@ export function EFaturaCSVImporter({ clientId, year, quarter }: EFaturaCSVImport
           vatFields.base_exempt = record.baseTributavel;
         }
 
-        const { error } = await supabase
-          .from('invoices')
-          .insert({
-            client_id: effectiveClientId,
-            supplier_nif: record.nif || 'CSV-IMPORT',
-            supplier_name: record.nome || null,
-            document_date: record.data.toISOString().split('T')[0],
-            document_number: record.numeroDocumento || null,
-            document_type: record.tipoDocumento || 'FT',
-            atcud: record.atcud || null,
-            total_amount: record.valorTotal,
-            total_vat: record.valorIva,
-            ...vatFields,
-            fiscal_period: fiscalPeriod,
-            fiscal_region: 'PT',
-            image_path: `efatura-csv/${effectiveClientId}/${record.numeroDocumento || Date.now()}`,
-            status: 'pending',
-            efatura_source: 'csv_portal',
-            // Pre-fill AI classification from rule-based classification
-            ai_classification: record.classification?.classification || null,
-            ai_dp_field: record.classification?.dpField || null,
-            ai_deductibility: record.classification?.deductibility || null,
-            ai_confidence: record.classification?.confidence || null,
-            ai_reason: record.classification?.reason || null,
-          });
+        if (isVenda) {
+          // --- VENDA: insert into sales_invoices ---
+          // Check for duplicates in sales
+          if (record.numeroDocumento) {
+            const { data: existing } = await supabase
+              .from('sales_invoices')
+              .select('id')
+              .eq('client_id', effectiveClientId)
+              .eq('document_number', record.numeroDocumento)
+              .limit(1);
+            if (existing && existing.length > 0) { skipped++; continue; }
+          }
 
-        if (error) {
-          console.error('Insert error:', error);
+          const { error } = await supabase
+            .from('sales_invoices')
+            .insert({
+              client_id: effectiveClientId,
+              supplier_nif: effectiveClientId,
+              customer_nif: '999999990', // CSV compras doesn't have buyer NIF
+              customer_name: null,
+              document_date: record.data.toISOString().split('T')[0],
+              document_number: record.numeroDocumento || null,
+              document_type: record.tipoDocumento || 'FR',
+              atcud: record.atcud || null,
+              total_amount: record.valorTotal,
+              total_vat: record.valorIva,
+              ...vatFields,
+              fiscal_period: fiscalPeriod,
+              fiscal_region: 'PT',
+              image_path: `efatura-csv/${effectiveClientId}/${record.numeroDocumento || Date.now()}`,
+              status: 'pending',
+              revenue_category: 'prestacao_servicos',
+              import_source: 'efatura_csv',
+            });
+          if (error) { console.error('Insert venda error:', error); }
+          else { importedVendas++; }
         } else {
-          imported++;
+          // --- COMPRA: insert into invoices ---
+          if (record.numeroDocumento) {
+            const { data: existing } = await supabase
+              .from('invoices')
+              .select('id')
+              .eq('client_id', effectiveClientId)
+              .eq('supplier_nif', record.nif)
+              .eq('document_number', record.numeroDocumento)
+              .limit(1);
+            if (existing && existing.length > 0) { skipped++; continue; }
+          }
+
+          const { error } = await supabase
+            .from('invoices')
+            .insert({
+              client_id: effectiveClientId,
+              supplier_nif: record.nif || 'CSV-IMPORT',
+              supplier_name: record.nome || null,
+              document_date: record.data.toISOString().split('T')[0],
+              document_number: record.numeroDocumento || null,
+              document_type: record.tipoDocumento || 'FT',
+              atcud: record.atcud || null,
+              total_amount: record.valorTotal,
+              total_vat: record.valorIva,
+              ...vatFields,
+              fiscal_period: fiscalPeriod,
+              fiscal_region: 'PT',
+              image_path: `efatura-csv/${effectiveClientId}/${record.numeroDocumento || Date.now()}`,
+              status: 'pending',
+              efatura_source: 'csv_portal',
+              ai_classification: record.classification?.classification || null,
+              ai_dp_field: record.classification?.dpField || null,
+              ai_deductibility: record.classification?.deductibility || null,
+              ai_confidence: record.classification?.confidence || null,
+              ai_reason: record.classification?.reason || null,
+            });
+          if (error) { console.error('Insert compra error:', error); }
+          else { importedCompras++; }
         }
       }
 
+      const imported = importedCompras + importedVendas;
       if (imported > 0) {
-        toast.success(`${imported} facturas importadas com sucesso`, {
+        const parts = [];
+        if (importedCompras > 0) parts.push(`${importedCompras} compras`);
+        if (importedVendas > 0) parts.push(`${importedVendas} vendas`);
+        toast.success(`${imported} facturas importadas (${parts.join(' + ')})`, {
           description: skipped > 0 ? `${skipped} duplicados ignorados` : undefined,
         });
         handleReset();
