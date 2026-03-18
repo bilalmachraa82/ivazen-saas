@@ -15,13 +15,39 @@ export function ImageZoom({ src, alt, className }: ImageZoomProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPDFLoading, setIsPDFLoading] = useState(true);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const dragStart = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Detect if the source is a PDF
-  const isPDF = src?.toLowerCase().includes('.pdf') || 
+  const isPDF = src?.toLowerCase().includes('.pdf') ||
                 src?.includes('application/pdf') ||
                 src?.includes('content-type=application%2Fpdf');
+
+  // Fetch PDF as blob to bypass X-Frame-Options / CSP restrictions
+  useEffect(() => {
+    if (!isPDF || !src) return;
+    let cancelled = false;
+    setPdfBlobUrl(null);
+    setIsPDFLoading(true);
+
+    fetch(src)
+      .then(r => r.blob())
+      .then(blob => {
+        if (cancelled) return;
+        const url = URL.createObjectURL(blob);
+        setPdfBlobUrl(url);
+        setIsPDFLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) setIsPDFLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      setPdfBlobUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
+    };
+  }, [src, isPDF]);
 
   const handleZoomIn = () => setScale((s) => Math.min(s + 0.5, 4));
   const handleZoomOut = () => setScale((s) => Math.max(s - 0.5, 1));
@@ -125,13 +151,13 @@ export function ImageZoom({ src, alt, className }: ImageZoomProps) {
           </div>
         )}
 
-        <iframe
-          src={`${src}#toolbar=1&navpanes=0`}
-          title={alt}
-          className="w-full h-full border-0"
-          onLoad={() => setIsPDFLoading(false)}
-          onError={() => setIsPDFLoading(false)}
-        />
+        {pdfBlobUrl && (
+          <iframe
+            src={`${pdfBlobUrl}#toolbar=1&navpanes=0`}
+            title={alt}
+            className="w-full h-full border-0"
+          />
+        )}
         
         {/* PDF indicator */}
         <div className="absolute top-4 left-4 flex items-center gap-2 bg-background/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium text-muted-foreground">
