@@ -174,8 +174,8 @@ async function main() {
     }
 
     // Free tier: ~1 req/min. Paid: ~5 req/s.
-    // Use 62s for free tier to stay under the limit.
-    const DELAY = getArg('paid') ? 200 : 62000;
+    const IS_PAID = args.includes('--paid');
+    const DELAY = IS_PAID ? 250 : 62000;
     if (DELAY > 1000) {
       const remaining = nifsToProcess.length - i - 1;
       const eta = Math.round(remaining * DELAY / 60000);
