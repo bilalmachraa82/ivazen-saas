@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
-import { FileText, Image as ImageIcon, Calculator, Building2, ChevronLeft, ChevronRight, History, Save, Pencil } from 'lucide-react';
+import { FileText, Image as ImageIcon, Calculator, Building2, ChevronLeft, ChevronRight, History, Save, Pencil, CloudDownload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -101,8 +101,21 @@ export function InvoiceDetailDialog({
     }
   }, [invoice?.id]);
 
+  // Detect if image_path is a placeholder (AT sync, CSV import, SAFT, etc.)
+  const isPlaceholderImage = invoice?.image_path
+    ? /^(at-sync|efatura-csv|imported|saft[-_])/.test(invoice.image_path)
+    : false;
+
+  const importSourceLabel = invoice?.image_path?.startsWith('at-sync/')
+    ? 'AT e-Fatura (sync automático)'
+    : invoice?.image_path?.startsWith('efatura-csv/')
+    ? 'CSV e-Fatura (importação manual)'
+    : invoice?.image_path?.startsWith('imported/')
+    ? 'Importação SAF-T'
+    : 'Importação externa';
+
   useEffect(() => {
-    if (invoice?.image_path && open) {
+    if (invoice?.image_path && open && !isPlaceholderImage) {
       setLoadingImage(true);
       getSignedUrl(invoice.image_path)
         .then(setImageUrl)
@@ -110,7 +123,7 @@ export function InvoiceDetailDialog({
     } else {
       setImageUrl(null);
     }
-  }, [invoice?.image_path, open]);
+  }, [invoice?.image_path, open, isPlaceholderImage]);
 
   // Keyboard shortcuts for navigation
   useEffect(() => {
@@ -358,7 +371,7 @@ export function InvoiceDetailDialog({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 lg:gap-6 px-6 pb-6">
           {/* Left: Invoice Image */}
           <div className="order-2 lg:order-1">
-            <Tabs defaultValue="image" className="w-full">
+            <Tabs defaultValue={isPlaceholderImage ? "details" : "image"} className="w-full">
               <TabsList className="w-full">
                 <TabsTrigger value="image" className="flex-1 gap-2">
                   <ImageIcon className="h-4 w-4" />
@@ -381,6 +394,20 @@ export function InvoiceDetailDialog({
                   </div>
                 ) : imageUrl ? (
                   <ImageZoom src={imageUrl} alt="Invoice" />
+                ) : isPlaceholderImage ? (
+                  <div className="aspect-[3/4] bg-muted/50 rounded-lg flex flex-col items-center justify-center text-muted-foreground p-6 text-center">
+                    <CloudDownload className="h-12 w-12 mb-3 text-primary/40" />
+                    <p className="text-sm font-medium mb-1">Documento importado electronicamente</p>
+                    <p className="text-xs text-muted-foreground">
+                      Origem: {importSourceLabel}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Os dados foram extraídos directamente da AT — não existe imagem associada.
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Consulte os <strong>Detalhes</strong> para ver toda a informação do documento.
+                    </p>
+                  </div>
                 ) : (
                   <div className="aspect-[3/4] bg-muted rounded-lg flex flex-col items-center justify-center text-muted-foreground">
                     <ImageIcon className="h-12 w-12 mb-2" />
