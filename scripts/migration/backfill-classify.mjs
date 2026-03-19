@@ -112,29 +112,55 @@ async function fetchPendingInvoices() {
 
   if (rulesOnly) {
     // Only process invoices that have matching classification rules
+    // Paginate through ruled NIFs in chunks of 200 (Supabase .in() limit)
     const { data: rules } = await supabase
       .from('classification_rules')
       .select('supplier_nif')
       .gte('confidence', 70);
 
-    const ruledNifs = (rules || []).map(r => r.supplier_nif);
+    const ruledNifs = [...new Set((rules || []).map(r => r.supplier_nif))];
     if (ruledNifs.length === 0) {
       console.log('No classification rules found. Run without --rules-only first.');
       return [];
     }
 
-    let query = supabase
-      .from('invoices')
-      .select('id, supplier_nif, supplier_name, client_id')
-      .eq('status', 'pending')
-      .in('supplier_nif', ruledNifs.slice(0, 200)) // Supabase IN limit
-      .order('created_at', { ascending: true })
-      .limit(limit);
+    console.log(`Rules cover ${ruledNifs.length} unique NIFs. Fetching matching pending invoices...`);
 
-    if (clientFilter) query = query.eq('client_id', clientFilter);
-    const { data, error } = await query;
-    if (error) throw error;
-    return data || [];
+    const NIF_BATCH = 200;
+    const PAGE_SIZE = 1000;
+    let allInvoices = [];
+
+    for (let i = 0; i < ruledNifs.length; i += NIF_BATCH) {
+      const nifChunk = ruledNifs.slice(i, i + NIF_BATCH);
+
+      // Paginate within each NIF chunk (Supabase returns max 1000 per query)
+      let offset = 0;
+      while (allInvoices.length < limit) {
+        let query = supabase
+          .from('invoices')
+          .select('id, supplier_nif, supplier_name, client_id')
+          .eq('status', 'pending')
+          .in('supplier_nif', nifChunk)
+          .order('created_at', { ascending: true })
+          .range(offset, offset + PAGE_SIZE - 1);
+
+        if (clientFilter) query = query.eq('client_id', clientFilter);
+        const { data, error } = await query;
+        if (error) throw error;
+
+        const rows = data || [];
+        allInvoices = allInvoices.concat(rows);
+        offset += PAGE_SIZE;
+
+        // No more rows in this chunk
+        if (rows.length < PAGE_SIZE) break;
+      }
+
+      if (allInvoices.length >= limit) break;
+    }
+
+    console.log(`Found ${allInvoices.length} invoices covered by rules (limit: ${limit})`);
+    return allInvoices.slice(0, limit);
   }
 
   // Default: fetch pending invoices

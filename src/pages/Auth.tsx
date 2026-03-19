@@ -381,7 +381,7 @@ export default function Auth() {
           </div>
 
           <p className="text-white/50 text-sm animate-fade-in" style={{ animationDelay: '400ms' }}>
-            IVAzen © 2025 - Gestão IVA Sem Stress
+            IVAzen © 2026 - Gestão IVA Sem Stress
           </p>
         </div>
       </div>

@@ -417,6 +417,22 @@ Deno.serve(async (req) => {
 
         if (globalRule) {
           rule = globalRule;
+        } else {
+          // Cross-client fallback: same supplier classified by another client
+          // Safe because supplier type (EDP=electricity, NOS=telecom) is client-independent
+          const { data: crossClientRule } = await supabase
+            .from('classification_rules')
+            .select('*')
+            .eq('supplier_nif', ruleSupplierTaxId)
+            .gte('confidence', 75)
+            .order('usage_count', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (crossClientRule) {
+            rule = crossClientRule;
+            console.log(`[cross-client] Using rule from client ${crossClientRule.client_id} for supplier ***${ruleSupplierTaxId?.slice(-3)}`);
+          }
         }
       }
 
