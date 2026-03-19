@@ -424,7 +424,7 @@ Deno.serve(async (req) => {
             .from('classification_rules')
             .select('*')
             .eq('supplier_nif', ruleSupplierTaxId)
-            .gte('confidence', 75)
+            .gte('confidence', 70)
             .order('usage_count', { ascending: false })
             .limit(1)
             .maybeSingle();
@@ -652,11 +652,11 @@ Responde APENAS com um objecto JSON válido no seguinte formato:
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError, 'Raw:', aiContent?.slice(0, 300));
       classification = {
-        classification: 'ACTIVIDADE',
+        classification: 'PESSOAL',
         dp_field: 24,
-        deductibility: 100,
-        confidence: 30,
-        reason: 'Classificação automática (AI parse error) - verificar manualmente'
+        deductibility: 0,
+        confidence: 20,
+        reason: 'Classificação provisória (AI parse error) - verificar manualmente'
       };
     }
 
