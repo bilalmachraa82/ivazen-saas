@@ -50,3 +50,4 @@ deno.lock
 
 # Lovable artifacts
 .lovable/
+.gstack/

@@ -75,39 +75,49 @@ async function fetchPendingInvoices() {
 
     const ruledNifs = new Set((existingRules || []).map(r => r.supplier_nif));
 
-    // Step 2: Get pending invoices
-    let query = supabase
-      .from('invoices')
-      .select('id, supplier_nif, supplier_name, client_id')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: true })
-      .limit(5000); // Fetch more to find unique NIFs
-
-    if (clientFilter) query = query.eq('client_id', clientFilter);
-    const { data: pending, error } = await query;
-
-    if (error) throw error;
-
-    // Step 3: Pick 1 per unique NIF (excluding already-ruled NIFs from AI calls)
+    // Step 2: Paginate through ALL pending invoices to find unique NIFs
+    const PAGE_SIZE = 1000;
     const seenNifs = new Set();
     const uniqueInvoices = [];
-    const ruledInvoices = [];
+    let offset = 0;
+    let scanned = 0;
 
-    for (const inv of (pending || [])) {
-      const nif = inv.supplier_nif || 'UNKNOWN';
-      if (ruledNifs.has(nif)) {
-        // Has rule — add to ruled list (these will use deterministic path, no AI)
-        ruledInvoices.push(inv);
-      } else if (!seenNifs.has(nif)) {
-        seenNifs.add(nif);
-        uniqueInvoices.push(inv);
+    console.log(`Scanning pending invoices for unique NIFs (${ruledNifs.size} NIFs already have rules)...`);
+
+    while (uniqueInvoices.length < limit) {
+      let query = supabase
+        .from('invoices')
+        .select('id, supplier_nif, supplier_name, client_id')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true })
+        .range(offset, offset + PAGE_SIZE - 1);
+
+      if (clientFilter) query = query.eq('client_id', clientFilter);
+      const { data: page, error } = await query;
+      if (error) throw error;
+
+      const rows = page || [];
+      scanned += rows.length;
+
+      for (const inv of rows) {
+        const nif = inv.supplier_nif || 'UNKNOWN';
+        if (!ruledNifs.has(nif) && !seenNifs.has(nif)) {
+          seenNifs.add(nif);
+          uniqueInvoices.push(inv);
+          if (uniqueInvoices.length >= limit) break;
+        }
+      }
+
+      offset += PAGE_SIZE;
+      if (rows.length < PAGE_SIZE) break; // No more pages
+
+      if (scanned % 10000 === 0) {
+        console.log(`  ...scanned ${scanned} invoices, found ${uniqueInvoices.length} unique NIFs so far`);
       }
     }
 
-    // Return unique NIFs first (need AI), then ruled (free, no AI cost)
-    const combined = [...uniqueInvoices, ...ruledInvoices];
-    console.log(`Unique NIFs without rules: ${uniqueInvoices.length}, With rules: ${ruledInvoices.length}`);
-    return combined.slice(0, limit);
+    console.log(`Scanned ${scanned} invoices. Found ${uniqueInvoices.length} unique NIFs without rules.`);
+    return uniqueInvoices.slice(0, limit);
   }
 
   if (rulesOnly) {

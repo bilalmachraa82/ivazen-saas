@@ -8,34 +8,40 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// Portuguese IVA classification rules (high-level) based on Artigo 21 CIVA
-// NOTE: This is a heuristic layer for first-pass classification. When ambiguous, reduce confidence and require review.
+// Portuguese IVA classification rules (high-level) based on Arts. 20, 21, 23 CIVA
+// NOTE: Heuristic layer for first-pass classification. The supplier NIF identifies the type of expense,
+// but deductibility ultimately depends on the buyer's activity and regime (Art. 20/23 CIVA).
+// When ambiguous, reduce confidence and require accountant review.
 const IVA_RULES = `
-# Regras de Dedutibilidade IVA - Artigo 21º CIVA (Portugal)
+# Regras de Dedutibilidade IVA - Arts. 20.º, 21.º e 23.º CIVA (Portugal)
 
-Estas regras ajudam a estimar a dedutibilidade de IVA em compras. Quando houver dúvida (ex.: viaturas, deslocações, combustível sem indicação do tipo), reduz a confiança e pede validação manual.
+Estas regras ajudam a estimar a dedutibilidade de IVA em compras. São heurísticas — a dedutibilidade final depende do enquadramento da aquisição na actividade tributada do sujeito passivo (Art. 20.º CIVA) e das exclusões do Art. 21.º CIVA. Em caso de dúvida, reduz a confiança e pede validação do contabilista.
 
-## DEDUTÍVEL A 100% (deductibility=100)
-- Regra geral: inputs usados exclusivamente na actividade tributada (mercadorias para revenda, consumíveis, serviços profissionais, software/licenças, publicidade, equipamentos, água/electricidade/gás no estabelecimento).
-- Combustíveis e despesas de viaturas apenas quando o uso/actividade se enquadra claramente nas excepções legais (ex.: transporte de mercadorias, táxis/TVDE, rent-a-car, escolas de condução, etc.).
+PRINCÍPIO GERAL: O NIF do fornecedor identifica o tipo de despesa, mas não determina sozinho a dedutibilidade. Esta depende do nexo causal entre a aquisição e as operações tributáveis do adquirente. Sujeitos passivos mistos aplicam pro-rata (Art. 23.º CIVA).
 
-## DEDUTÍVEL A 50% (deductibility=50)
-- Combustíveis (gasóleo, GPL, gás natural, biocombustíveis) para viaturas ligeiras de passageiros quando não há prova suficiente para 100%.
-- Despesas de transporte, alojamento e alimentação estritamente ligadas à ORGANIZAÇÃO de congressos/feiras/seminários (quando explicitamente identificado).
+## TIPICAMENTE DEDUTÍVEL A 100% (deductibility=100)
+- Regra geral (Art. 20.º): inputs afectos exclusivamente à actividade tributada (mercadorias para revenda, consumíveis, serviços profissionais, software/licenças, publicidade, equipamentos).
+- Água, electricidade, gás e telecomunicações no estabelecimento — tipicamente dedutíveis quando afectos à actividade tributada.
+- Combustíveis e despesas de viaturas apenas quando o uso/actividade se enquadra nas excepções do Art. 21.º n.º 2 (ex.: transporte de mercadorias, táxis/TVDE, rent-a-car, escolas de condução).
+
+## TIPICAMENTE DEDUTÍVEL A 50% (deductibility=50)
+- Combustíveis (gasóleo, GPL, gás natural, biocombustíveis) para viaturas ligeiras de passageiros, na ausência de prova de enquadramento nas excepções do Art. 21.º n.º 2.
+- Despesas de transporte, alojamento e alimentação ligadas à ORGANIZAÇÃO de congressos/feiras/seminários (quando explicitamente identificado).
 
 ## DEDUTÍVEL A 25% (deductibility=25)
 - Despesas de PARTICIPAÇÃO em congressos/feiras/seminários (quando explicitamente identificado).
 
-## NÃO DEDUTÍVEL (deductibility=0)
-- Gasolina para viaturas ligeiras de passageiros (na falta de indicação de excepção/uso enquadrado).
-- Alojamento, restauração, bebidas, recepções e despesas de representação (regra geral).
-- Aquisição/aluguer/manutenção de viaturas de turismo e despesas associadas quando não enquadradas nas excepções legais.
-- Despesas claramente pessoais.
+## REGRA GERAL NÃO DEDUTÍVEL (deductibility=0)
+- Gasolina para viaturas ligeiras de passageiros (Art. 21.º n.º 1 al. b), na ausência de excepção).
+- Alojamento, restauração, bebidas, recepções e despesas de representação (Art. 21.º n.º 1 al. c/d — regra geral, excepto quando ligadas a congressos/feiras).
+- Aquisição/aluguer/manutenção de viaturas de turismo quando não enquadradas nas excepções do Art. 21.º n.º 2.
+- Despesas claramente pessoais ou sem nexo com a actividade tributada.
 `;
 
 // System prompt for classification
 const SYSTEM_PROMPT = `És um contabilista certificado português especializado em classificação de facturas para IVA.
-A tua função é analisar dados de facturas e classificá-las segundo o Código do IVA (CIVA), especificamente o Artigo 21º sobre dedutibilidade.
+A tua função é analisar dados de facturas e pré-classificá-las segundo o CIVA (Arts. 20.º, 21.º e 23.º).
+A classificação é uma sugestão inicial — a validação final cabe ao contabilista certificado.
 
 ${IVA_RULES}
 
@@ -46,50 +52,54 @@ ${IVA_RULES}
 - Campo 22: Existências taxa normal 23% (café, mercadorias taxa normal)
 - Campo 24: Outros bens e serviços (serviços, consumíveis, material escritório, comunicações, combustíveis)
 
-## FORNECEDORES PORTUGUESES CONHECIDOS - CLASSIFICAÇÃO OBRIGATÓRIA
-Quando identificares estes fornecedores pelo NIF ou nome, DEVES usar a classificação indicada:
+## FORNECEDORES PORTUGUESES CONHECIDOS - CLASSIFICAÇÃO INDICATIVA
+O NIF identifica o fornecedor e o tipo provável de despesa. A dedutibilidade indicada assume afectação à actividade tributada (Art. 20.º CIVA). O contabilista valida o enquadramento final.
 
-### ÁGUA (classification: ACTIVIDADE, dp_field: 24, deductibility: 100)
+### ÁGUA (tipicamente: ACTIVIDADE, dp_field: 24, deductibility: 100)
 - Vimagua (NIF 504812578), Águas do Porto (NIF 504075156), EPAL (NIF 500077568)
 - AdP - Águas de Portugal, Indaqua, Águas de Gaia, Águas de Coimbra
-- Qualquer entidade com "Água" ou "Águas" no nome
+- Entidades com "Água" ou "Águas" no nome
 
-### ELECTRICIDADE (classification: ACTIVIDADE, dp_field: 24, deductibility: 100)
+### ELECTRICIDADE (tipicamente: ACTIVIDADE, dp_field: 24, deductibility: 100)
 - EDP Comercial (NIF 503504564), EDP Serviço Universal (NIF 504172577)
 - Endesa (NIF 503207430), Iberdrola (NIF 509534401), Galp Power (NIF 513445311)
 - Goldenergy (NIF 509846830), Coopernico, Luzboa, SU Electricidade (NIF 510329490)
-- Qualquer entidade com "Energia", "Electricidade" ou "Power" no nome
+- Entidades com "Energia", "Electricidade" ou "Power" no nome
 
-### GÁS (classification: ACTIVIDADE, dp_field: 24, deductibility: 100)
+### GÁS (tipicamente: ACTIVIDADE, dp_field: 24, deductibility: 100)
 - Galp Gás Natural, Lisboagás (NIF 503474705)
-- Qualquer entidade com "Gás" no nome
+- Entidades com "Gás" no nome
 
-### TELECOMUNICAÇÕES (classification: ACTIVIDADE, dp_field: 24, deductibility: 100)
+### TELECOMUNICAÇÕES (tipicamente: ACTIVIDADE, dp_field: 24, deductibility: 100)
 - NOS (NIF 504453513), MEO/PT (NIF 500019020), Vodafone (NIF 502530830)
 - NOWO (NIF 505280740), Digi (NIF 517424334)
 
-### COMBUSTÍVEIS (classification: ACTIVIDADE, dp_field: 24, deductibility: 50)
+### COMBUSTÍVEIS (tipicamente: ACTIVIDADE, dp_field: 24, deductibility: 50)
 - GALP (NIF 504960847), BP (NIF 502130800), Repsol (NIF 503358375)
 - Cepsa (NIF 503245064), Prio (NIF 503667790)
-- ATENÇÃO: Combustível é SEMPRE 50% dedutível para viaturas ligeiras de passageiros
+- Regra geral para viaturas ligeiras de passageiros: 50% (gasóleo/GPL/GNV), 0% (gasolina) — Art. 21.º n.º 1 al. b)
+- Pode ser 100% se enquadrado nas excepções do Art. 21.º n.º 2 (transporte mercadorias, táxis, etc.)
 
-### SOFTWARE / CLOUD (classification: ACTIVIDADE, dp_field: 24, deductibility: 100)
+### SOFTWARE / CLOUD (tipicamente: ACTIVIDADE, dp_field: 24, deductibility: 100)
 - Google Ireland (VAT IE6388047V), Microsoft Ireland (VAT IE8256796U)
 - Amazon/AWS, Adobe, Dropbox, Zoom, Slack, GitHub, Atlassian
+- Tipicamente afecto à actividade — sujeitos passivos mistos podem requerer pro-rata (Art. 23.º)
 
-### CONTABILIDADE / CONSULTORIA (classification: ACTIVIDADE, dp_field: 24, deductibility: 100)
-- Qualquer entidade com "Contabilidade", "Consultoria", "Advocacia", "Advogados" no nome
+### CONTABILIDADE / CONSULTORIA (tipicamente: ACTIVIDADE, dp_field: 24, deductibility: 100)
+- Entidades com "Contabilidade", "Consultoria", "Advocacia", "Advogados" no nome
+- Serviços profissionais tipicamente afectos à actividade
 
-### ELEVADORES / MANUTENÇÃO EDIFÍCIO (classification: ACTIVIDADE, dp_field: 24, deductibility: 100)
+### ELEVADORES / MANUTENÇÃO EDIFÍCIO (tipicamente: ACTIVIDADE, dp_field: 24, deductibility: 100)
 - OTIS, Schindler, ThyssenKrupp, KONE
-- Qualquer entidade de manutenção de edifícios/elevadores
+- Entidades de manutenção de edifícios/elevadores — tipicamente afectos ao estabelecimento
 
-## REGRAS CRÍTICAS
-1. NUNCA classifiques água, electricidade ou telecomunicações como "Combustível"
-2. Água e electricidade são SEMPRE 100% dedutíveis para actividade profissional
-3. Combustível: se não houver detalhe suficiente, assume 50% para gasóleo/GPL/GNV e 0% para gasolina (viaturas ligeiras passageiros) e baixa a confiança
-4. Software/Cloud de empresas estrangeiras (Google, Microsoft) = ACTIVIDADE, Campo 24, 100%
-5. Se o fornecedor é claramente de uma categoria acima, usa essa classificação independentemente de outros dados
+## ORIENTAÇÕES DE CLASSIFICAÇÃO
+1. NUNCA classifiques água, electricidade ou telecomunicações como "Combustível" — são categorias distintas
+2. Água, electricidade e telecomunicações no estabelecimento são tipicamente 100% dedutíveis quando afectas à actividade tributada
+3. Combustível sem detalhe suficiente: assume 50% para gasóleo/GPL/GNV e 0% para gasolina (viaturas ligeiras passageiros), e baixa a confiança
+4. Software/Cloud de empresas estrangeiras (Google, Microsoft): tipicamente ACTIVIDADE, Campo 24 — confirmar afectação
+5. A classificação por fornecedor é indicativa. A dedutibilidade final depende do enquadramento do sujeito passivo
+6. Quando o contexto é ambíguo ou o sujeito passivo pode ter regime misto (Art. 23.º CIVA), reduz a confiança para < 85
 
 ## OUTPUT ESPERADO
 Deves classificar cada factura com:
@@ -102,8 +112,9 @@ Deves classificar cada factura com:
 Analisa cuidadosamente:
 - O NIF do fornecedor (identifica o tipo de negócio)
 - O nome do fornecedor (identifica a categoria de serviço)
-- A actividade do cliente (CAE/descrição)
+- A actividade do cliente (CAE/descrição) — fundamental para determinar o nexo causal
 - O contexto da despesa
+- O regime do sujeito passivo (se disponível)
 `;
 
 interface InvoiceData {
@@ -143,6 +154,31 @@ interface ClassificationResult {
   confidence: number;
   reason: string;
 }
+
+// Only these supplier NIFs are safe for cross-client rule reuse.
+// Utilities/telecoms where classification is buyer-independent (Art. 20-21-23 CIVA).
+const SAFE_GLOBAL_NIFS = new Set([
+  // Electricity
+  '503504564', // EDP Comercial
+  '504172577', // EDP Serviço Universal
+  '503207430', // Endesa
+  '509534401', // Iberdrola
+  '513445311', // Galp Power
+  '509846830', // Goldenergy
+  '510329490', // SU Electricidade
+  // Water
+  '504812578', // Vimagua
+  '504075156', // Águas do Porto
+  '500077568', // EPAL
+  // Gas
+  '503474705', // Lisboagás
+  // Telecoms
+  '504453513', // NOS
+  '500019020', // MEO/PT
+  '502530830', // Vodafone
+  '505280740', // NOWO
+  '517424334', // Digi
+]);
 
 function normalizeSupplierTaxIdForRules(raw: string): string | null {
   const s = (raw || '').trim().toUpperCase();
@@ -417,9 +453,11 @@ Deno.serve(async (req) => {
 
         if (globalRule) {
           rule = globalRule;
+        } else if (!SAFE_GLOBAL_NIFS.has(ruleSupplierTaxId)) {
+          // Cross-client blocked — NIF not in safe whitelist (utilities/telecoms only)
+          console.log(`[cross-client] Blocked — NIF ***${ruleSupplierTaxId?.slice(-3)} not in safe whitelist`);
         } else {
-          // Cross-client fallback: same supplier classified by another client
-          // Safe because supplier type (EDP=electricity, NOS=telecom) is client-independent
+          // Cross-client fallback: only for safe suppliers (utilities/telecoms)
           const { data: crossClientRule } = await supabase
             .from('classification_rules')
             .select('*')
@@ -431,7 +469,7 @@ Deno.serve(async (req) => {
 
           if (crossClientRule) {
             rule = crossClientRule;
-            console.log(`[cross-client] Using rule from client ${crossClientRule.client_id} for supplier ***${ruleSupplierTaxId?.slice(-3)}`);
+            console.log(`[cross-client] Using safe rule from client ${crossClientRule.client_id} for supplier ***${ruleSupplierTaxId?.slice(-3)}`);
           }
         }
       }
@@ -439,8 +477,10 @@ Deno.serve(async (req) => {
       if (rule) {
         console.log(`Deterministic classification for supplier ***${ruleSupplierTaxId?.slice(-3)}: ${rule.classification} (rule ID: ${rule.id})`);
 
-        // Auto-approve if rule is high confidence AND well-tested (≥3 uses)
-        const autoApprove = rule.confidence >= 90 && (rule.usage_count || 0) >= 3;
+        // Auto-approve only for same-client rules with high confidence AND well-tested (≥3 uses)
+        // Cross-client rules always require accountant validation (Art. 20-21-23 CIVA)
+        const isCrossClient = rule.client_id !== invoice.client_id;
+        const autoApprove = !isCrossClient && rule.confidence >= 90 && (rule.usage_count || 0) >= 3;
 
         // Update invoice with rule-based classification
         const { error: updateError } = await supabase
@@ -450,7 +490,7 @@ Deno.serve(async (req) => {
             ai_dp_field: rule.dp_field,
             ai_deductibility: rule.deductibility,
             ai_confidence: rule.confidence,
-            ai_reason: `Regra automática por NIF (${rule.is_global ? 'global' : 'cliente'})`,
+            ai_reason: `Regra automática por NIF (${isCrossClient ? 'cross-client seguro' : rule.is_global ? 'global' : 'cliente'})`,
             status: 'classified',
             requires_accountant_validation: !autoApprove,
           })
@@ -470,6 +510,7 @@ Deno.serve(async (req) => {
           })
           .eq('id', rule.id);
 
+        const ruleSource = isCrossClient ? 'cross-client seguro' : rule.is_global ? 'global' : 'cliente';
         return new Response(
           JSON.stringify({
             success: true,
@@ -478,7 +519,7 @@ Deno.serve(async (req) => {
               dp_field: rule.dp_field,
               deductibility: rule.deductibility,
               confidence: rule.confidence,
-              reason: `Regra automática por NIF (${rule.is_global ? 'global' : 'cliente'})`,
+              reason: `Regra automática por NIF (${ruleSource})`,
             },
             source: 'rule',
             rule_id: rule.id,
