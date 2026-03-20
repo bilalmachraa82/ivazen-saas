@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useAccountantClients, type AccountantClient } from '@/hooks/useAccountantClients';
 import { toast } from 'sonner';
 
 export interface AvailableClient {
@@ -12,14 +13,6 @@ export interface AvailableClient {
   email: string | null;
   phone: string | null;
   address: string | null;
-}
-
-export interface AccountantClient extends AvailableClient {
-  iva_cadence?: 'monthly' | 'quarterly' | null;
-  pending_invoices: number;
-  validated_invoices: number;
-  access_level?: string;
-  is_primary?: boolean;
 }
 
 export interface ClientAccountant {
@@ -40,36 +33,11 @@ export function useClientManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<AvailableClient[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-
-  // Check if user is accountant
-  const { data: isAccountant } = useQuery({
-    queryKey: ['user-role-accountant', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return false;
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('role', 'accountant')
-        .single();
-      return !!data;
-    },
-    enabled: !!user?.id,
-  });
-
-  // Fetch accountant's clients
-  const { data: clients, isLoading: isLoadingClients } = useQuery({
-    queryKey: ['accountant-clients', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      const { data, error } = await supabase.rpc('get_accountant_clients', {
-        accountant_uuid: user.id
-      });
-      if (error) throw error;
-      return (data || []) as AccountantClient[];
-    },
-    enabled: !!user?.id && isAccountant === true,
-  });
+  const {
+    clients,
+    isLoading: isLoadingClients,
+    isAccountant,
+  } = useAccountantClients({ enabled: !!user?.id });
 
   // Search available clients
   const searchClients = async (term: string) => {
@@ -106,6 +74,7 @@ export function useClientManagement() {
     onSuccess: () => {
       toast.success('Cliente associado com sucesso');
       queryClient.invalidateQueries({ queryKey: ['accountant-clients'] });
+      queryClient.invalidateQueries({ queryKey: ['accountant-clients-unified'] });
       setSearchResults([]);
       setSearchTerm('');
     },
@@ -127,6 +96,7 @@ export function useClientManagement() {
     onSuccess: () => {
       toast.success('Cliente removido da carteira');
       queryClient.invalidateQueries({ queryKey: ['accountant-clients'] });
+      queryClient.invalidateQueries({ queryKey: ['accountant-clients-unified'] });
     },
     onError: (error: Error) => {
       console.error('Remove client error:', error);
@@ -135,7 +105,7 @@ export function useClientManagement() {
   });
 
   return {
-    isAccountant: isAccountant === true,
+    isAccountant,
     clients: clients || [],
     isLoadingClients,
     searchTerm,

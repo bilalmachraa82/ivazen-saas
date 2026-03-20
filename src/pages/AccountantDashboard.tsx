@@ -45,6 +45,8 @@ import {
 export default function AccountantDashboard() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const [filterClientId, setFilterClientId] = useState<string | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const {
     isAccountant,
     isCheckingRole,
@@ -59,31 +61,28 @@ export default function AccountantDashboard() {
     isBatchValidating,
     validateInvoice,
     isValidating,
-  } = useAccountant();
+  } = useAccountant(filterClientId);
 
   const { setSelectedClientId: setGlobalSelectedClientId } = useSelectedClient();
+  const hasClientFilter = Boolean(filterClientId);
 
   // Local expand/collapse state for client list (not global context)
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const selectedClientInvoices = useMemo(() => {
     if (!allInvoices || !selectedClientId) return [];
     return allInvoices.filter(inv => inv.client_id === selectedClientId);
   }, [allInvoices, selectedClientId]);
 
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
-  const [filterClientId, setFilterClientId] = useState<string | null>(null);
 
   // Filter data based on selected client
   const filteredInvoices = useMemo(() => {
     if (!allInvoices) return [];
-    if (!filterClientId) return allInvoices;
-    return allInvoices.filter(inv => inv.client_id === filterClientId);
-  }, [allInvoices, filterClientId]);
+    return allInvoices;
+  }, [allInvoices]);
 
   const filteredPendingInvoices = useMemo(() => {
-    if (!filterClientId) return pendingInvoices;
-    return pendingInvoices.filter(inv => inv.client_id === filterClientId);
-  }, [pendingInvoices, filterClientId]);
+    return pendingInvoices;
+  }, [pendingInvoices]);
 
   const filteredClients = useMemo(() => {
     if (!filterClientId) return clients;
@@ -92,9 +91,8 @@ export default function AccountantDashboard() {
 
   const filteredSalesInvoices = useMemo(() => {
     if (!allSalesInvoices) return [];
-    if (!filterClientId) return allSalesInvoices;
-    return allSalesInvoices.filter(inv => inv.client_id === filterClientId);
-  }, [allSalesInvoices, filterClientId]);
+    return allSalesInvoices;
+  }, [allSalesInvoices]);
 
   const filteredMetrics = useMemo(() => {
     if (!filterClientId || !allInvoices) return metrics;
@@ -122,6 +120,16 @@ export default function AccountantDashboard() {
   const selectedClientName = filterClientId 
     ? clients.find(c => c.id === filterClientId)?.company_name || clients.find(c => c.id === filterClientId)?.full_name
     : null;
+
+  useEffect(() => {
+    if (!filterClientId) {
+      setSelectedClientId(null);
+      setSelectedInvoices([]);
+      return;
+    }
+
+    setSelectedClientId(filterClientId);
+  }, [filterClientId]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -199,6 +207,25 @@ export default function AccountantDashboard() {
     return client?.company_name || client?.full_name || 'Cliente';
   };
 
+  const showDetailedAccountantView = hasClientFilter;
+
+  const handleClientFilterChange = (value: string) => {
+    const nextClientId = value === 'all' ? null : value;
+    setFilterClientId(nextClientId);
+  };
+
+  const handleToggleClientDetails = (clientId: string) => {
+    if (selectedClientId === clientId) {
+      setSelectedClientId(null);
+      setFilterClientId(null);
+      setSelectedInvoices([]);
+      return;
+    }
+
+    setSelectedClientId(clientId);
+    setFilterClientId(clientId);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-8 animate-fade-in">
@@ -208,7 +235,7 @@ export default function AccountantDashboard() {
             <p className="text-muted-foreground mt-1">
               {filterClientId 
                 ? `A ver dados de: ${selectedClientName}`
-                : 'Gestão centralizada de clientes e facturas'
+                : 'Visão global da carteira. Selecione um cliente para abrir detalhe de compras, fiscalidade e reconciliação.'
               }
             </p>
           </div>
@@ -225,7 +252,7 @@ export default function AccountantDashboard() {
               <Filter className="h-4 w-4 text-muted-foreground" />
               <Select
                 value={filterClientId || 'all'}
-                onValueChange={(value) => setFilterClientId(value === 'all' ? null : value)}
+                onValueChange={handleClientFilterChange}
               >
                 <SelectTrigger className="w-[220px]">
                   <SelectValue placeholder="Todos os clientes" />
@@ -243,7 +270,7 @@ export default function AccountantDashboard() {
                 <Button
                   size="icon"
                   variant="ghost"
-                  onClick={() => setFilterClientId(null)}
+                  onClick={() => handleClientFilterChange('all')}
                   className="h-8 w-8"
                 >
                   <X className="h-4 w-4" />
@@ -275,7 +302,7 @@ export default function AccountantDashboard() {
                   <FileText className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Facturas</p>
+                  <p className="text-sm text-muted-foreground">Compras</p>
                   <p className="text-2xl font-bold">{filteredMetrics.totalInvoices}</p>
                 </div>
               </div>
@@ -288,7 +315,7 @@ export default function AccountantDashboard() {
                   <Clock className="h-5 w-5 text-warning" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Pendentes</p>
+                  <p className="text-sm text-muted-foreground">Por Rever</p>
                   <p className="text-2xl font-bold">{filteredMetrics.pendingValidation}</p>
                 </div>
               </div>
@@ -315,7 +342,9 @@ export default function AccountantDashboard() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">IVA Ded.</p>
-                  <p className="text-lg font-bold text-success">{formatCurrency(filteredMetrics.totalVatDeductible)}</p>
+                  <p className="text-lg font-bold text-success">
+                    {showDetailedAccountantView ? formatCurrency(filteredMetrics.totalVatDeductible) : 'Selecione cliente'}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -348,30 +377,41 @@ export default function AccountantDashboard() {
           </Card>
         </div>
 
-        {/* Aggregated Metrics Widget - Full Width */}
-        <AggregatedMetricsWidget
-          clients={filteredClients.map(c => ({
-            ...c,
-            ssStatus: c.ssStatus,
-            ssContribution: c.ssContribution,
-          }))}
-          invoices={filteredInvoices.map(inv => ({
-            id: inv.id,
-            client_id: inv.client_id,
-            status: inv.status,
-            total_amount: inv.total_amount,
-            total_vat: inv.total_vat,
-            final_deductibility: inv.final_deductibility,
-            document_date: inv.document_date,
-          }))}
-          isLoading={isLoadingInvoices}
-        />
+        {showDetailedAccountantView ? (
+          <>
+            <AggregatedMetricsWidget
+              clients={filteredClients.map(c => ({
+                ...c,
+                ssStatus: c.ssStatus,
+                ssContribution: c.ssContribution,
+              }))}
+              invoices={filteredInvoices.map(inv => ({
+                id: inv.id,
+                client_id: inv.client_id,
+                status: inv.status,
+                total_amount: inv.total_amount,
+                total_vat: inv.total_vat,
+                final_deductibility: inv.final_deductibility,
+                document_date: inv.document_date,
+              }))}
+              isLoading={isLoadingInvoices}
+            />
 
-        {/* Attention Items */}
-        <AttentionItems
-          pendingValidation={filteredMetrics.pendingValidation}
-          lowConfidence={filteredPendingInvoices.filter(inv => (inv.ai_confidence ?? 100) < 80).length}
-        />
+            <AttentionItems
+              pendingValidation={filteredMetrics.pendingValidation}
+              lowConfidence={filteredPendingInvoices.filter(inv => (inv.ai_confidence ?? 100) < 80).length}
+            />
+          </>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Detalhe Operacional</CardTitle>
+              <CardDescription>
+                A visão global da carteira fica leve e imediata. Escolha um cliente para abrir compras, IVA, reconciliação e gráficos sem carregar a base inteira no browser.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        )}
 
         {/* Fiscal Overview Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -380,10 +420,23 @@ export default function AccountantDashboard() {
             pendingValidation={filteredMetrics.pendingValidation}
             ivaCadence="both"
           />
-          <AggregatedFiscalSummary
-            clients={filteredClients}
-            invoices={filteredInvoices}
-          />
+          {showDetailedAccountantView ? (
+            <AggregatedFiscalSummary
+              clients={filteredClients}
+              invoices={filteredInvoices}
+            />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Resumo Fiscal</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Selecione um cliente para ver IVA dedutível, categorias e resumo trimestral com detalhe documental.
+                </p>
+              </CardContent>
+            </Card>
+          )}
           <SyncHealthWidget />
         </div>
 
@@ -395,7 +448,7 @@ export default function AccountantDashboard() {
             </TabsTrigger>
             <TabsTrigger value="pending" className="gap-2">
               <Clock className="h-4 w-4" />
-              Pendentes ({filteredPendingInvoices.length})
+              Pendentes ({filteredMetrics.pendingValidation})
             </TabsTrigger>
             <TabsTrigger value="charts" className="gap-2">
               <TrendingUp className="h-4 w-4" />
@@ -412,12 +465,12 @@ export default function AccountantDashboard() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle>Facturas Pendentes de Validação</CardTitle>
+                  <CardTitle>Compras Pendentes de Validação</CardTitle>
                   <CardDescription>
-                    Facturas classificadas pela IA aguardando aprovação
+                    Compras classificadas pela IA aguardando aprovação
                   </CardDescription>
                 </div>
-                {selectedInvoices.length > 0 && (
+                {showDetailedAccountantView && selectedInvoices.length > 0 && (
                   <Button 
                     onClick={handleBatchValidate}
                     disabled={isBatchValidating}
@@ -433,7 +486,15 @@ export default function AccountantDashboard() {
                 )}
               </CardHeader>
               <CardContent>
-                {isLoadingInvoices ? (
+                {!showDetailedAccountantView ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Selecione um cliente para abrir a fila detalhada de validação.</p>
+                    <p className="text-sm mt-2">
+                      A visão global mostra totais da carteira; o detalhe documental é carregado cliente a cliente.
+                    </p>
+                  </div>
+                ) : isLoadingInvoices ? (
                   <div className="space-y-2">
                     {[...Array(5)].map((_, i) => (
                       <Skeleton key={i} className="h-16 w-full" />
@@ -579,16 +640,16 @@ export default function AccountantDashboard() {
                             {/* Stats */}
                             <div className="flex items-center gap-4 flex-wrap">
                               <div className="text-center px-3">
-                                <p className="text-xs text-muted-foreground">Facturas</p>
+                                <p className="text-xs text-muted-foreground">Compras</p>
                                 <p className="font-medium">{client.invoiceCount}</p>
                               </div>
                               <div className="text-center px-3">
-                                <p className="text-xs text-muted-foreground">Pendentes</p>
-                                <p className="font-medium text-warning">{client.classifiedCount}</p>
+                                <p className="text-xs text-muted-foreground">Por Rever</p>
+                                <p className="font-medium text-warning">{client.pendingCount}</p>
                               </div>
                               <div className="text-center px-3">
-                                <p className="text-xs text-muted-foreground">IVA Ded.</p>
-                                <p className="font-medium text-success">{formatCurrency(client.totalDeductible)}</p>
+                                <p className="text-xs text-muted-foreground">Validadas</p>
+                                <p className="font-medium text-success">{client.validatedCount}</p>
                               </div>
                               <div className="text-center px-3">
                                 <p className="text-xs text-muted-foreground">SS</p>
@@ -615,7 +676,7 @@ export default function AccountantDashboard() {
                                 className="gap-1"
                               >
                                 <FileText className="h-3 w-3" />
-                                Facturas
+                                Compras
                               </Button>
                               <Button
                                 size="sm"
@@ -646,56 +707,68 @@ export default function AccountantDashboard() {
                                 className={`h-5 w-5 text-muted-foreground transition-transform cursor-pointer ${
                                   selectedClientId === client.id ? 'rotate-90' : ''
                                 }`}
-                                onClick={() => setSelectedClientId(
-                                  selectedClientId === client.id ? null : client.id
-                                )}
+                                onClick={() => handleToggleClientDetails(client.id)}
                               />
                             </div>
                           </div>
 
                           {/* Expanded client invoices */}
-                          {selectedClientId === client.id && selectedClientInvoices.length > 0 && (
+                          {selectedClientId === client.id && (
                             <div className="mt-4 pt-4 border-t">
-                              <p className="text-sm font-medium mb-3">Últimas facturas</p>
-                              <div className="space-y-2">
-                                {selectedClientInvoices.slice(0, 5).map((inv) => (
-                                  <div 
-                                    key={inv.id} 
-                                    className="flex items-center justify-between p-2 bg-muted/50 rounded"
-                                  >
-                                    <div className="flex items-center gap-3">
-                                      <Badge variant={
-                                        inv.status === 'validated' ? 'success' :
-                                        inv.status === 'classified' ? 'warning' : 'outline'
-                                      }>
-                                        {inv.status === 'validated' ? 'Validada' :
-                                         inv.status === 'classified' ? 'Classificada' : 'Pendente'}
-                                      </Badge>
-                                      <span className="text-sm">
-                                        {new Date(inv.document_date).toLocaleDateString('pt-PT')}
-                                      </span>
-                                      <span className="text-sm text-muted-foreground">
-                                        {getSupplierDisplayName(inv.supplier_name, inv.supplier_nif)}
-                                      </span>
-                                    </div>
-                                    <span className="font-medium">
-                                      {formatCurrency(inv.total_amount)}
-                                    </span>
+                              <p className="text-sm font-medium mb-3">Últimas compras</p>
+                              {isLoadingInvoices ? (
+                                <div className="space-y-2">
+                                  {[...Array(3)].map((_, index) => (
+                                    <Skeleton key={index} className="h-10 w-full" />
+                                  ))}
+                                </div>
+                              ) : selectedClientInvoices.length > 0 ? (
+                                <>
+                                  <div className="space-y-2">
+                                    {selectedClientInvoices.slice(0, 5).map((inv) => (
+                                      <div 
+                                        key={inv.id} 
+                                        className="flex items-center justify-between p-2 bg-muted/50 rounded"
+                                      >
+                                        <div className="flex items-center gap-3">
+                                          <Badge variant={
+                                            inv.status === 'validated' ? 'success' :
+                                            inv.status === 'classified' ? 'warning' : 'outline'
+                                          }>
+                                            {inv.status === 'validated' ? 'Validada' :
+                                             inv.status === 'classified' ? 'Classificada' : 'Pendente'}
+                                          </Badge>
+                                          <span className="text-sm">
+                                            {new Date(inv.document_date).toLocaleDateString('pt-PT')}
+                                          </span>
+                                          <span className="text-sm text-muted-foreground">
+                                            {getSupplierDisplayName(inv.supplier_name, inv.supplier_nif)}
+                                          </span>
+                                        </div>
+                                        <span className="font-medium">
+                                          {formatCurrency(inv.total_amount)}
+                                        </span>
+                                      </div>
+                                    ))}
                                   </div>
-                                ))}
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="mt-3 gap-1"
-                                onClick={() => {
-                                  setGlobalSelectedClientId(client.id);
-                                  navigate('/validation');
-                                }}
-                              >
-                                Ver todas as facturas
-                                <ArrowRight className="h-3 w-3" />
-                              </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="mt-3 gap-1"
+                                    onClick={() => {
+                                      setGlobalSelectedClientId(client.id);
+                                      navigate('/validation');
+                                    }}
+                                  >
+                                    Ver todas as compras
+                                    <ArrowRight className="h-3 w-3" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <p className="text-sm text-muted-foreground">
+                                  Não há compras carregadas para este cliente no período disponível.
+                                </p>
+                              )}
                             </div>
                           )}
                         </CardContent>
@@ -709,11 +782,22 @@ export default function AccountantDashboard() {
 
           {/* Charts Tab */}
           <TabsContent value="charts">
-            <RevenueExpenseCharts 
-              expenseInvoices={filteredInvoices}
-              salesInvoices={filteredSalesInvoices}
-              months={12}
-            />
+            {showDetailedAccountantView ? (
+              <RevenueExpenseCharts 
+                expenseInvoices={filteredInvoices}
+                salesInvoices={filteredSalesInvoices}
+                months={12}
+              />
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Gráficos Financeiros</CardTitle>
+                  <CardDescription>
+                    Selecione um cliente para cruzar compras e vendas sem sobrecarregar o painel agregado.
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Reports Tab */}
@@ -721,8 +805,8 @@ export default function AccountantDashboard() {
             <Card>
               <CardHeader>
                 <CardTitle>Relatórios e Exportação</CardTitle>
-                <CardDescription>
-                  Gere relatórios fiscais agregados para todos os clientes
+              <CardDescription>
+                  Gere relatórios fiscais e abra o detalhe operacional por cliente
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -759,12 +843,14 @@ export default function AccountantDashboard() {
                   </h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
-                      <p className="text-muted-foreground">Facturas Validadas</p>
+                      <p className="text-muted-foreground">Compras Validadas</p>
                       <p className="text-lg font-bold">{filteredMetrics.validatedThisMonth}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">IVA Dedutível</p>
-                      <p className="text-lg font-bold text-success">{formatCurrency(filteredMetrics.totalVatDeductible)}</p>
+                      <p className="text-lg font-bold text-success">
+                        {showDetailedAccountantView ? formatCurrency(filteredMetrics.totalVatDeductible) : 'Selecione cliente'}
+                      </p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">SS Pendentes</p>

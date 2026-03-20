@@ -1,24 +1,15 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchAllPages } from '@/lib/supabasePagination';
+import { useAccountantClients } from '@/hooks/useAccountantClients';
 import {
   isFiscallyEffectivePurchase,
   isPurchasePendingReview,
 } from '@/lib/fiscalStatus';
 import { enrichSupplierNames } from '@/lib/supplierNameResolver';
-
-interface ClientProfile {
-  id: string;
-  full_name: string;
-  company_name: string | null;
-  nif: string | null;
-  cae: string | null;
-  activity_description: string | null;
-  created_at: string | null;
-}
 
 interface ClientInvoice {
   id: string;
@@ -72,7 +63,6 @@ interface AccountantMetrics {
 }
 
 const CLIENT_ID_BATCH_SIZE = 20;
-const SS_DECLARATION_LIMIT = 50;
 
 function chunkArray<T>(items: T[], chunkSize: number): T[][] {
   const chunks: T[][] = [];
@@ -84,9 +74,13 @@ function chunkArray<T>(items: T[], chunkSize: number): T[][] {
   return chunks;
 }
 
-export function useAccountant() {
+export function useAccountant(detailedClientId?: string | null) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const {
+    clients,
+    isLoading: isLoadingClients,
+  } = useAccountantClients({ enabled: !!user?.id });
   
 
   // Check if user is an accountant
@@ -111,102 +105,52 @@ export function useAccountant() {
     enabled: !!user?.id,
   });
 
-  // Fetch all clients associated with this accountant via client_accountants junction table
-  const { data: clients, isLoading: isLoadingClients } = useQuery({
-    queryKey: ['accountant-clients', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-
-      // Get client IDs from junction table (source of truth)
-      const { data: associations, error: assocError } = await supabase
-        .from('client_accountants')
-        .select('client_id')
-        .eq('accountant_id', user.id);
-
-      if (assocError) throw assocError;
-      if (!associations?.length) return [];
-
-      const clientIds = associations.map(a => a.client_id);
-
-      // Fetch full profiles for those clients
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .in('id', clientIds)
-        .order('full_name');
-
-      if (error) throw error;
-      return data as ClientProfile[];
-    },
-    enabled: !!user?.id && isAccountant === true,
-  });
-
   // Fetch all invoices from clients
   const { data: allInvoices, isLoading: isLoadingInvoices } = useQuery({
-    queryKey: ['accountant-invoices', user?.id],
+    queryKey: ['accountant-invoices', user?.id, detailedClientId],
     queryFn: async () => {
-      if (!user?.id || !clients?.length) return [];
+      if (!user?.id || !detailedClientId) return [];
 
-      const clientIds = clients.map(c => c.id);
-      const clientIdBatches = chunkArray(clientIds, CLIENT_ID_BATCH_SIZE);
-
-      const invoiceBatches = await Promise.all(
-        clientIdBatches.map(async (clientIdBatch) => {
-          const rows = await fetchAllPages<ClientInvoice>(
-            (from, to) =>
-              supabase
-                .from('invoices')
-                .select('*')
-                .in('client_id', clientIdBatch)
-                .order('document_date', { ascending: false })
-                .range(from, to),
-            { pageSize: 500 },
-          );
-
-          return rows;
-        }),
+      const rows = await fetchAllPages<ClientInvoice>(
+        (from, to) =>
+          supabase
+            .from('invoices')
+            .select('*')
+            .eq('client_id', detailedClientId)
+            .order('document_date', { ascending: false })
+            .range(from, to),
+        { pageSize: 500 },
       );
 
-      const recentInvoices = invoiceBatches
-        .flat()
+      const recentInvoices = rows
         .sort((left, right) => right.document_date.localeCompare(left.document_date));
 
       return enrichSupplierNames(recentInvoices);
     },
-    enabled: !!user?.id && !!clients?.length,
+    enabled: !!user?.id && !!detailedClientId,
   });
 
   // Fetch all sales invoices from clients (for revenue charts)
   const { data: allSalesInvoices } = useQuery({
-    queryKey: ['accountant-sales-invoices', user?.id],
+    queryKey: ['accountant-sales-invoices', user?.id, detailedClientId],
     queryFn: async () => {
-      if (!user?.id || !clients?.length) return [];
+      if (!user?.id || !detailedClientId) return [];
 
-      const clientIds = clients.map(c => c.id);
-      const clientIdBatches = chunkArray(clientIds, CLIENT_ID_BATCH_SIZE);
-
-      const salesBatches = await Promise.all(
-        clientIdBatches.map(async (clientIdBatch) => {
-          const rows = await fetchAllPages(
-            (from, to) =>
-              supabase
-                .from('sales_invoices')
-                .select('id, client_id, document_date, total_amount, total_vat')
-                .in('client_id', clientIdBatch)
-                .order('document_date', { ascending: false })
-                .range(from, to),
-            { pageSize: 500 },
-          );
-
-          return rows;
-        }),
+      const rows = await fetchAllPages(
+        (from, to) =>
+          supabase
+            .from('sales_invoices')
+            .select('id, client_id, document_date, total_amount, total_vat')
+            .eq('client_id', detailedClientId)
+            .order('document_date', { ascending: false })
+            .range(from, to),
+        { pageSize: 500 },
       );
 
-      return salesBatches
-        .flat()
+      return rows
         .sort((left, right) => right.document_date.localeCompare(left.document_date));
     },
-    enabled: !!user?.id && !!clients?.length,
+    enabled: !!user?.id && !!detailedClientId,
   });
 
   // Fetch SS declarations for all clients
@@ -215,6 +159,7 @@ export function useAccountant() {
     queryFn: async () => {
       if (!user?.id || !clients?.length) return [];
 
+      const currentQuarter = getCurrentQuarter();
       const clientIds = clients.map(c => c.id);
       const clientIdBatches = chunkArray(clientIds, CLIENT_ID_BATCH_SIZE);
 
@@ -224,18 +169,14 @@ export function useAccountant() {
             .from('ss_declarations')
             .select('*')
             .in('client_id', clientIdBatch)
-            .order('period_quarter', { ascending: false })
-            .limit(SS_DECLARATION_LIMIT);
+            .eq('period_quarter', currentQuarter);
 
           if (error) throw error;
           return data as SSDeclaration[];
         }),
       );
 
-      return declarationBatches
-        .flat()
-        .sort((left, right) => right.period_quarter.localeCompare(left.period_quarter))
-        .slice(0, SS_DECLARATION_LIMIT);
+      return declarationBatches.flat();
     },
     enabled: !!user?.id && !!clients?.length,
   });
@@ -249,27 +190,44 @@ export function useAccountant() {
 
   // Calculate client stats
   const clientsWithStats = useMemo((): ClientWithStats[] => {
-    if (!clients || !allInvoices) return [];
+    if (!clients) return [];
 
     const currentQuarter = getCurrentQuarter();
+    const invoices = allInvoices || [];
+    const declarations = ssDeclarations || [];
 
     return clients.map(client => {
-      const clientInvoices = allInvoices.filter(inv => inv.client_id === client.id);
-      const pending = clientInvoices.filter(isPurchasePendingReview).length;
-      const classified = clientInvoices.filter(inv => inv.status === 'classified').length;
-      const validated = clientInvoices.filter(inv => inv.status === 'validated').length;
-      
-      const totalVat = clientInvoices.reduce((sum, inv) => sum + (inv.total_vat || 0), 0);
-      const totalDeductible = clientInvoices
-        .filter(isFiscallyEffectivePurchase)
-        .reduce((sum, inv) => {
-          const vat = inv.total_vat || 0;
-          const deductibility = (inv.final_deductibility || 0) / 100;
-          return sum + (vat * deductibility);
-        }, 0);
+      const clientInvoices = detailedClientId
+        ? invoices.filter(inv => inv.client_id === client.id)
+        : [];
+      const pending = detailedClientId
+        ? clientInvoices.filter(isPurchasePendingReview).length
+        : Number(client.pending_invoices || 0);
+      const classified = detailedClientId
+        ? clientInvoices.filter(inv => inv.status === 'classified').length
+        : 0;
+      const validated = detailedClientId
+        ? clientInvoices.filter(inv => inv.status === 'validated').length
+        : Number(client.validated_invoices || 0);
+      const invoiceCount = detailedClientId
+        ? clientInvoices.length
+        : pending + validated;
+
+      const totalVat = detailedClientId
+        ? clientInvoices.reduce((sum, inv) => sum + (inv.total_vat || 0), 0)
+        : 0;
+      const totalDeductible = detailedClientId
+        ? clientInvoices
+            .filter(isFiscallyEffectivePurchase)
+            .reduce((sum, inv) => {
+              const vat = inv.total_vat || 0;
+              const deductibility = (inv.final_deductibility || 0) / 100;
+              return sum + (vat * deductibility);
+            }, 0)
+        : 0;
 
       // Get SS status for current quarter
-      const clientSS = ssDeclarations?.filter(ss => ss.client_id === client.id) || [];
+      const clientSS = declarations.filter(ss => ss.client_id === client.id);
       const currentQuarterSS = clientSS.find(ss => ss.period_quarter === currentQuarter);
       
       let ssStatus: 'pending' | 'submitted' | 'none' = 'none';
@@ -282,7 +240,7 @@ export function useAccountant() {
 
       return {
         ...client,
-        invoiceCount: clientInvoices.length,
+        invoiceCount,
         pendingCount: pending,
         classifiedCount: classified,
         validatedCount: validated,
@@ -292,13 +250,13 @@ export function useAccountant() {
         ssContribution,
       };
     });
-  }, [clients, allInvoices, ssDeclarations]);
+  }, [clients, allInvoices, detailedClientId, ssDeclarations]);
 
   // Calculate overall metrics
   const metrics = useMemo((): AccountantMetrics => {
     const currentQuarter = getCurrentQuarter();
     
-    if (!clients || !allInvoices) {
+    if (!clients) {
       return {
         totalClients: 0,
         totalInvoices: 0,
@@ -309,23 +267,6 @@ export function useAccountant() {
         ssTotalContributions: 0,
       };
     }
-
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    const validatedThisMonth = allInvoices.filter(
-      inv => inv.status === 'validated' && inv.fiscal_period === currentMonth
-    ).length;
-
-    const pendingValidation = allInvoices.filter(
-      isPurchasePendingReview
-    ).length;
-
-    const totalVatDeductible = allInvoices
-      .filter(isFiscallyEffectivePurchase)
-      .reduce((sum, inv) => {
-        const vat = inv.total_vat || 0;
-        const deductibility = (inv.final_deductibility || 0) / 100;
-        return sum + (vat * deductibility);
-      }, 0);
 
     // SS metrics
     const ssDeclarationsPending = clients.filter(client => {
@@ -339,22 +280,62 @@ export function useAccountant() {
       (sum, ss) => sum + (ss.contribution_amount || 0), 0
     ) || 0;
 
+    if (!detailedClientId) {
+      return {
+        totalClients: clients.length,
+        totalInvoices: clients.reduce(
+          (sum, client) =>
+            sum + Number(client.pending_invoices || 0) + Number(client.validated_invoices || 0),
+          0,
+        ),
+        pendingValidation: clients.reduce(
+          (sum, client) => sum + Number(client.pending_invoices || 0),
+          0,
+        ),
+        validatedThisMonth: clients.reduce(
+          (sum, client) => sum + Number(client.validated_invoices || 0),
+          0,
+        ),
+        totalVatDeductible: 0,
+        ssDeclarationsPending,
+        ssTotalContributions,
+      };
+    }
+
+    const invoices = allInvoices || [];
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const validatedThisMonth = invoices.filter(
+      inv => inv.status === 'validated' && inv.fiscal_period === currentMonth
+    ).length;
+
+    const pendingValidation = invoices.filter(
+      isPurchasePendingReview
+    ).length;
+
+    const totalVatDeductible = invoices
+      .filter(isFiscallyEffectivePurchase)
+      .reduce((sum, inv) => {
+        const vat = inv.total_vat || 0;
+        const deductibility = (inv.final_deductibility || 0) / 100;
+        return sum + (vat * deductibility);
+      }, 0);
+
     return {
       totalClients: clients.length,
-      totalInvoices: allInvoices.length,
+      totalInvoices: invoices.length,
       pendingValidation,
       validatedThisMonth,
       totalVatDeductible,
       ssDeclarationsPending,
       ssTotalContributions,
     };
-  }, [clients, allInvoices, ssDeclarations]);
+  }, [clients, allInvoices, detailedClientId, ssDeclarations]);
 
   // Get invoices pending validation (classified but not validated)
   const pendingInvoices = useMemo(() => {
-    if (!allInvoices) return [];
+    if (!detailedClientId || !allInvoices) return [];
     return allInvoices.filter(isPurchasePendingReview);
-  }, [allInvoices]);
+  }, [allInvoices, detailedClientId]);
 
 
   // Helper to save classification example and update AI metrics

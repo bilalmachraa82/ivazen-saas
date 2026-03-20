@@ -104,11 +104,13 @@ export function CreateClientDialog({ open, onOpenChange, onSuccess }: CreateClie
         toast.success('Cliente criado com sucesso!');
         // Invalidate queries to refresh client list
         queryClient.invalidateQueries({ queryKey: ['accountant-clients'] });
+        queryClient.invalidateQueries({ queryKey: ['accountant-clients-unified'] });
         onSuccess?.();
       } else {
         toast.success('Cliente criado. Use "Esqueci a password" para gerar acesso.');
         // Invalidate queries to refresh client list
         queryClient.invalidateQueries({ queryKey: ['accountant-clients'] });
+        queryClient.invalidateQueries({ queryKey: ['accountant-clients-unified'] });
         handleClose();
         onSuccess?.();
       }
