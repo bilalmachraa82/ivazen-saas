@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { validatePortugueseNIF } from '@/lib/nifValidator';
+import { getImportSourceLabel, isElectronicImport } from '@/lib/imagePathUtils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RefreshCw, AlertTriangle as AlertTriangleIcon } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
@@ -29,7 +30,7 @@ interface InvoiceDetailDialogProps {
   onOpenChange: (open: boolean) => void;
   onValidate: (invoiceId: string, classification: {
     final_classification: string;
-    final_dp_field: number;
+    final_dp_field: number | null;
     final_deductibility: number;
   }) => Promise<boolean>;
   getSignedUrl: (imagePath: string) => Promise<string | null>;
@@ -40,6 +41,7 @@ interface InvoiceDetailDialogProps {
     changes?: Array<{ field: string; old_value: unknown; new_value: unknown }>;
   }>;
   onReject?: (invoiceId: string) => Promise<boolean>;
+  onExcludeFromAccounting?: (invoiceId: string, excluded: boolean) => Promise<boolean>;
   onNavigate?: (direction: 'prev' | 'next') => void;
   canNavigatePrev?: boolean;
   canNavigateNext?: boolean;
@@ -54,6 +56,7 @@ export function InvoiceDetailDialog({
   getSignedUrl,
   onReExtract,
   onReject,
+  onExcludeFromAccounting,
   onNavigate,
   canNavigatePrev = false,
   canNavigateNext = false,
@@ -104,17 +107,8 @@ export function InvoiceDetailDialog({
   }, [invoice?.id]);
 
   // Detect if image_path is a placeholder (AT sync, CSV import, SAFT, etc.)
-  const isPlaceholderImage = invoice?.image_path
-    ? /^(at-sync|efatura-csv|imported|saft[-_])/.test(invoice.image_path)
-    : false;
-
-  const importSourceLabel = invoice?.image_path?.startsWith('at-sync/')
-    ? 'AT e-Fatura (sync automático)'
-    : invoice?.image_path?.startsWith('efatura-csv/')
-    ? 'CSV e-Fatura (importação manual)'
-    : invoice?.image_path?.startsWith('imported/')
-    ? 'Importação SAF-T'
-    : 'Importação externa';
+  const isPlaceholderImage = isElectronicImport(invoice?.image_path ?? null);
+  const importSourceLabel = getImportSourceLabel(invoice?.image_path ?? null);
 
   useEffect(() => {
     if (invoice?.image_path && open && !isPlaceholderImage) {
@@ -175,6 +169,9 @@ export function InvoiceDetailDialog({
 
   // Check if document date is in the future
   const isFutureDate = editDocumentDate && new Date(editDocumentDate) > new Date();
+  const effectiveClassification = invoice.final_classification ?? invoice.ai_classification;
+  const canToggleAccountingExclusion =
+    effectiveClassification === 'Não dedutível' || invoice.accounting_excluded;
 
   // Reclassify single invoice with AI
   const handleReclassify = async () => {
@@ -279,15 +276,15 @@ export function InvoiceDetailDialog({
 
   const handleValidate = async (classification: {
     final_classification: string;
-    final_dp_field: number;
+    final_dp_field: number | null;
     final_deductibility: number;
   }) => {
     setIsValidating(true);
 
     const oldValues = {
-      final_classification: invoice.final_classification || invoice.ai_classification,
-      final_dp_field: invoice.final_dp_field || invoice.ai_dp_field,
-      final_deductibility: invoice.final_deductibility || invoice.ai_deductibility,
+      final_classification: invoice.final_classification ?? invoice.ai_classification,
+      final_dp_field: invoice.final_dp_field ?? invoice.ai_dp_field,
+      final_deductibility: invoice.final_deductibility ?? invoice.ai_deductibility,
       status: invoice.status,
     };
 
@@ -484,7 +481,7 @@ export function InvoiceDetailDialog({
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           <div>
                             <p className="text-muted-foreground">Nome</p>
-                            <p className="font-medium">{invoice.supplier_name || 'N/A'}</p>
+                            <p className="font-medium">{invoice.supplier_name || invoice.supplier_nif || 'N/A'}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground">NIF/VAT</p>
@@ -644,6 +641,22 @@ export function InvoiceDetailDialog({
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold">Classificação</h3>
               <div className="flex items-center gap-2">
+                {onExcludeFromAccounting && canToggleAccountingExclusion && invoice.status !== 'rejected' && (
+                  <Button
+                    variant={invoice.accounting_excluded ? 'outline' : 'secondary'}
+                    size="sm"
+                    onClick={async () => {
+                      const ok = await onExcludeFromAccounting(invoice.id, !invoice.accounting_excluded);
+                      if (ok) {
+                        onDataUpdated?.();
+                      }
+                    }}
+                    className="gap-1.5"
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                    {invoice.accounting_excluded ? 'Voltar a contabilizar' : 'Não contabilizar'}
+                  </Button>
+                )}
                 {onReject && invoice.status !== 'rejected' && (
                   <Button
                     variant="destructive"

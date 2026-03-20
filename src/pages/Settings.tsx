@@ -39,6 +39,11 @@ const VAT_REGIMES = [
   { value: 'small', label: 'Pequenos Retalhistas' },
 ];
 
+const IVA_CADENCES = [
+  { value: 'quarterly', label: 'Trimestral' },
+  { value: 'monthly', label: 'Mensal' },
+];
+
 // SS_RATES imported from useSocialSecurity hook
 
 export default function Settings() {
@@ -70,6 +75,7 @@ export default function Settings() {
     cae: '',
     activityDescription: '',
     vatRegime: 'normal',
+    ivaCadence: 'quarterly',
   });
 
   // SS Settings
@@ -107,6 +113,7 @@ export default function Settings() {
         cae: profile.cae || '',
         activityDescription: profile.activity_description || '',
         vatRegime: profile.vat_regime || 'normal',
+        ivaCadence: profile.iva_cadence || 'quarterly',
       });
       setSsContributionRate(String(profile.ss_contribution_rate || 21.4));
       setIsFirstYear(profile.is_first_year || false);
@@ -257,7 +264,7 @@ export default function Settings() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="fullName" className="text-sm font-medium">Nome Completo *</Label>
                         <Input
@@ -354,6 +361,24 @@ export default function Settings() {
                             {VAT_REGIMES.map((regime) => (
                               <SelectItem key={regime.value} value={regime.value}>
                                 {regime.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="ivaCadence" className="text-sm font-medium">Periodicidade IVA</Label>
+                        <Select
+                          value={formData.ivaCadence}
+                          onValueChange={(value: 'monthly' | 'quarterly') => setFormData({ ...formData, ivaCadence: value })}
+                        >
+                          <SelectTrigger id="ivaCadence" className="bg-background/50 border-border/50 hover:border-primary/50 transition-colors">
+                            <SelectValue placeholder="Selecione a periodicidade" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {IVA_CADENCES.map((cadence) => (
+                              <SelectItem key={cadence.value} value={cadence.value}>
+                                {cadence.label}
                               </SelectItem>
                             ))}
                           </SelectContent>

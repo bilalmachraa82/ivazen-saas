@@ -13,6 +13,7 @@ export interface Profile {
   cae: string | null;
   activity_description: string | null;
   vat_regime: string | null;
+  iva_cadence: 'monthly' | 'quarterly' | null;
   accountant_id: string | null;
   created_at: string | null;
   ss_contribution_rate: number | null;
@@ -49,6 +50,7 @@ export interface ProfileFormData {
   cae: string;
   activityDescription: string;
   vatRegime: string;
+  ivaCadence: 'monthly' | 'quarterly';
 }
 
 export interface SSProfileData {
@@ -120,6 +122,7 @@ export function useProfile() {
           cae: formData.cae.trim() || null,
           activity_description: formData.activityDescription.trim() || null,
           vat_regime: formData.vatRegime || 'normal',
+          iva_cadence: formData.ivaCadence || 'quarterly',
         })
         .eq('id', user.id);
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useInvoices } from '@/hooks/useInvoices';
@@ -37,6 +37,8 @@ export default function Validation() {
   const { clients } = useClientManagement();
   const { selectedClientId, setSelectedClientId } = useSelectedClient();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchParamsKey = searchParams.toString();
   // Wait for role check; null prevents fetch during role check and for accountants without selection
   const effectiveClientId = isCheckingRole
     ? null
@@ -48,6 +50,7 @@ export default function Validation() {
     setFilters, 
     validateInvoice,
     rejectInvoice,
+    setAccountingExcluded,
     reExtractInvoice,
     getSignedUrl,
     getFiscalPeriods,
@@ -93,6 +96,22 @@ export default function Validation() {
   useEffect(() => {
     setSelectedIds(new Set());
   }, [filters]);
+
+  useEffect(() => {
+    const status = searchParams.get('status') || 'all';
+    const review = searchParams.get('review') || 'all';
+    setFilters((prev) => {
+      if (prev.status === status && (prev.reviewFilter || 'all') === review) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        status,
+        reviewFilter: review,
+      };
+    });
+  }, [searchParamsKey, setFilters]);
 
   if (authLoading || profileLoading) {
     return <ZenLoader fullScreen text="A carregar..." />;
@@ -206,7 +225,7 @@ export default function Validation() {
 
   const handleValidate = async (invoiceId: string, classification: {
     final_classification: string;
-    final_dp_field: number;
+    final_dp_field: number | null;
     final_deductibility: number;
   }) => {
     return await validateInvoice(invoiceId, classification);
@@ -224,8 +243,8 @@ export default function Validation() {
       'Valor Total': Number(inv.total_amount),
       'IVA Total': Number(inv.total_vat || 0),
       'Classificação': inv.final_classification || inv.ai_classification || '',
-      'Campo DP': inv.final_dp_field || inv.ai_dp_field || '',
-      'Dedutibilidade %': inv.final_deductibility || inv.ai_deductibility || '',
+      'Campo DP': inv.final_dp_field ?? inv.ai_dp_field ?? '',
+      'Dedutibilidade %': inv.final_deductibility ?? inv.ai_deductibility ?? '',
       'Confiança IA %': inv.ai_confidence || '',
       'Estado': inv.status,
     }));
@@ -326,6 +345,10 @@ export default function Validation() {
             label="Pendentes"
             variant="default"
             animationDelay="0ms"
+            onClick={() => {
+              setFilters((prev) => ({ ...prev, status: 'pending', reviewFilter: 'all' }));
+              setSearchParams({ status: 'pending' });
+            }}
           />
           <ZenStatsCard
             icon={AlertTriangle}
@@ -333,6 +356,10 @@ export default function Validation() {
             label="Requer revisão"
             variant="warning"
             animationDelay="50ms"
+            onClick={() => {
+              setFilters((prev) => ({ ...prev, status: 'all', reviewFilter: 'needs_review' }));
+              setSearchParams({ review: 'needs_review' });
+            }}
           />
           <ZenStatsCard
             icon={CheckCircle}
@@ -340,6 +367,10 @@ export default function Validation() {
             label="Auto-aprovadas"
             variant="success"
             animationDelay="100ms"
+            onClick={() => {
+              setFilters((prev) => ({ ...prev, status: 'all', reviewFilter: 'auto_approved' }));
+              setSearchParams({ review: 'auto_approved' });
+            }}
           />
           <ZenStatsCard
             icon={CheckCircle}
@@ -347,6 +378,10 @@ export default function Validation() {
             label="Validadas"
             variant="success"
             animationDelay="150ms"
+            onClick={() => {
+              setFilters((prev) => ({ ...prev, status: 'validated', reviewFilter: 'all' }));
+              setSearchParams({ status: 'validated' });
+            }}
           />
         </div>
 
@@ -500,6 +535,7 @@ export default function Validation() {
         onValidate={handleValidate}
         onReExtract={reExtractInvoice}
         onReject={rejectInvoice}
+        onExcludeFromAccounting={setAccountingExcluded}
         getSignedUrl={getSignedUrl}
         onNavigate={handleNavigate}
         canNavigatePrev={selectedIndex > 0}

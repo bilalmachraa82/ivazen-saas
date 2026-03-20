@@ -16,7 +16,7 @@ import type { Tables } from '@/integrations/supabase/types';
 
 type Invoice = Tables<'invoices'>;
 
-type SortField = 'date' | 'confidence' | 'amount';
+type SortField = 'date' | 'confidence' | 'amount' | 'supplier' | 'nif' | 'status';
 type SortOrder = 'asc' | 'desc';
 
 interface InvoiceTableProps {
@@ -81,6 +81,15 @@ export function InvoiceTable({ invoices, loading, onSelectInvoice, selectable, s
           break;
         case 'amount':
           comparison = Number(a.total_amount) - Number(b.total_amount);
+          break;
+        case 'supplier':
+          comparison = (a.supplier_name || a.supplier_nif || '').localeCompare(b.supplier_name || b.supplier_nif || '', 'pt');
+          break;
+        case 'nif':
+          comparison = (a.supplier_nif || '').localeCompare(b.supplier_nif || '', 'pt');
+          break;
+        case 'status':
+          comparison = (a.status || '').localeCompare(b.status || '', 'pt');
           break;
       }
 
@@ -204,6 +213,9 @@ export function InvoiceTable({ invoices, loading, onSelectInvoice, selectable, s
             <SelectItem value="confidence">Confiança</SelectItem>
             <SelectItem value="date">Data</SelectItem>
             <SelectItem value="amount">Valor</SelectItem>
+            <SelectItem value="supplier">Fornecedor</SelectItem>
+            <SelectItem value="nif">NIF</SelectItem>
+            <SelectItem value="status">Estado</SelectItem>
           </SelectContent>
         </Select>
         <Button 
@@ -246,8 +258,24 @@ export function InvoiceTable({ invoices, loading, onSelectInvoice, selectable, s
                   <SortIcon field="date" />
                 </div>
               </TableHead>
-              <TableHead>Fornecedor</TableHead>
-              <TableHead>NIF</TableHead>
+              <TableHead
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => toggleSort('supplier')}
+              >
+                <div className="flex items-center">
+                  Fornecedor
+                  <SortIcon field="supplier" />
+                </div>
+              </TableHead>
+              <TableHead
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => toggleSort('nif')}
+              >
+                <div className="flex items-center">
+                  NIF
+                  <SortIcon field="nif" />
+                </div>
+              </TableHead>
               <TableHead 
                 className="text-right cursor-pointer hover:bg-muted/50"
                 onClick={() => toggleSort('amount')}
@@ -267,7 +295,15 @@ export function InvoiceTable({ invoices, loading, onSelectInvoice, selectable, s
                   <SortIcon field="confidence" />
                 </div>
               </TableHead>
-              <TableHead>Estado</TableHead>
+              <TableHead
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => toggleSort('status')}
+              >
+                <div className="flex items-center">
+                  Estado
+                  <SortIcon field="status" />
+                </div>
+              </TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -291,7 +327,7 @@ export function InvoiceTable({ invoices, loading, onSelectInvoice, selectable, s
                   {invoice.document_date ? format(new Date(invoice.document_date), 'dd/MM/yyyy', { locale: pt }) : '—'}
                 </TableCell>
                 <TableCell className="font-medium">
-                  {invoice.supplier_name || 'N/A'}
+                  {invoice.supplier_name || invoice.supplier_nif || 'N/A'}
                 </TableCell>
                 <TableCell className="font-mono text-sm">
                   {invoice.supplier_nif}
@@ -336,10 +372,15 @@ export function InvoiceTable({ invoices, loading, onSelectInvoice, selectable, s
                   )}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={status.variant} className="gap-1">
-                    <StatusIcon className="h-3 w-3" />
-                    {status.label}
-                  </Badge>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant={status.variant} className="gap-1">
+                      <StatusIcon className="h-3 w-3" />
+                      {status.label}
+                    </Badge>
+                    {invoice.accounting_excluded && (
+                      <Badge variant="outline">Não contabilizada</Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="text-right">
                   <Button

@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import type { Tables, Database } from '@/integrations/supabase/types';
 import { detectMimeType } from '@/lib/mime';
 import { deriveFiscalPeriodFromDocumentDate, normalizeDocumentDate } from '@/lib/fiscalPeriod';
+import { fetchAllPages } from '@/lib/supabasePagination';
 import { isTemporarySupplierTaxId, normalizeSupplierTaxId, normalizeSupplierVatId } from '@/lib/taxId';
 
 type Invoice = Tables<'invoices'>;
@@ -19,7 +20,7 @@ interface InvoiceFilters {
 
 interface ClassificationUpdate {
   final_classification: string;
-  final_dp_field: number;
+  final_dp_field: number | null;
   final_deductibility: number;
 }
 
@@ -132,41 +133,42 @@ export function useInvoices(externalClientId?: string | null) {
 
     setLoading(true);
     try {
-      let query = supabase
+      const buildQuery = () => {
+        let query = supabase
         .from('invoices')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+          .select('*')
+          .order('created_at', { ascending: false });
 
-      if (filters.status !== 'all') {
-        query = query.eq('status', filters.status);
-      }
+        if (filters.status === 'accounting_excluded') {
+          query = query.eq('accounting_excluded', true);
+        } else if (filters.status !== 'all') {
+          query = query.eq('status', filters.status);
+        }
 
-      if (filters.fiscalPeriod !== 'all') {
-        query = query.eq('fiscal_period', filters.fiscalPeriod);
-      }
+        if (filters.fiscalPeriod !== 'all') {
+          query = query.eq('fiscal_period', filters.fiscalPeriod);
+        }
 
-      if (filters.search) {
-        query = query.or(`supplier_name.ilike.%${filters.search}%,supplier_nif.ilike.%${filters.search}%`);
-      }
+        if (filters.search) {
+          query = query.or(`supplier_name.ilike.%${filters.search}%,supplier_nif.ilike.%${filters.search}%`);
+        }
 
-      // Filter by effective client
-      if (effectiveClientId && effectiveClientId !== 'all') {
-        query = query.eq('client_id', effectiveClientId);
-      }
+        if (effectiveClientId && effectiveClientId !== 'all') {
+          query = query.eq('client_id', effectiveClientId);
+        }
 
-      // Filter by review status
-      if (filters.reviewFilter === 'needs_review') {
-        query = query.eq('requires_accountant_validation', true);
-      } else if (filters.reviewFilter === 'auto_approved') {
-        query = query.eq('requires_accountant_validation', false);
-      }
+        if (filters.reviewFilter === 'needs_review') {
+          query = query.eq('requires_accountant_validation', true);
+        } else if (filters.reviewFilter === 'auto_approved') {
+          query = query.eq('requires_accountant_validation', false);
+        }
 
-      const { data, error, count } = await query;
+        return query;
+      };
 
-      if (error) throw error;
-      setInvoices(data || []);
-      setTotalCount(count ?? 0);
+      const data = await fetchAllPages<Invoice>((from, to) => buildQuery().range(from, to));
+      setInvoices(data);
+      setTotalCount(data.length);
     } catch (error) {
       console.error('Error fetching invoices:', error);
       toast.error('Erro ao carregar facturas');
@@ -436,6 +438,28 @@ export function useInvoices(externalClientId?: string | null) {
     }
   };
 
+  const setAccountingExcluded = async (invoiceId: string, excluded: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('invoices')
+        .update({
+          accounting_excluded: excluded,
+          exclusion_reason: excluded ? 'Nao contabilizar' : null,
+        })
+        .eq('id', invoiceId);
+
+      if (error) throw error;
+
+      toast.success(excluded ? 'Factura marcada como não contabilizada' : 'Factura reintegrada na contabilidade');
+      await fetchInvoices();
+      return true;
+    } catch (error) {
+      console.error('Error updating accounting exclusion:', error);
+      toast.error('Erro ao actualizar exclusão contabilística');
+      return false;
+    }
+  };
+
   const getSignedUrl = async (imagePath: string) => {
     const { data, error } = await supabase.storage
       .from('invoices')
@@ -476,7 +500,7 @@ export function useInvoices(externalClientId?: string | null) {
   // Single fetch effect — includes search to avoid double-fetch
   useEffect(() => {
     fetchInvoices();
-  }, [user, filters.status, filters.fiscalPeriod, filters.search, filters.reviewFilter, effectiveClientId, page]);
+  }, [user, filters.status, filters.fiscalPeriod, filters.search, filters.reviewFilter, effectiveClientId]);
 
   // Reset page when any filter changes
   useEffect(() => {
@@ -490,6 +514,7 @@ export function useInvoices(externalClientId?: string | null) {
     setFilters: setFiltersAndResetPage,
     validateInvoice,
     rejectInvoice,
+    setAccountingExcluded,
     reExtractInvoice,
     getSignedUrl,
     getFiscalPeriods,

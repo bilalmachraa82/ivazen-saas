@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { fetchAllPages } from '@/lib/supabasePagination';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -45,43 +46,43 @@ export function useSalesInvoices(externalClientId?: string | null) {
 
     setLoading(true);
     try {
-      let query = supabase
-        .from('sales_invoices')
-        .select('*', { count: 'exact' })
-        .order('document_date', { ascending: false })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      const buildQuery = () => {
+        let query = supabase
+          .from('sales_invoices')
+          .select('*')
+          .order('document_date', { ascending: false });
 
-      if (filters.status !== 'all') {
-        query = query.eq('status', filters.status);
-      }
+        if (filters.status !== 'all') {
+          query = query.eq('status', filters.status);
+        }
 
-      if (filters.fiscalPeriod !== 'all') {
-        query = query.eq('fiscal_period', filters.fiscalPeriod);
-      }
+        if (filters.fiscalPeriod !== 'all') {
+          query = query.eq('fiscal_period', filters.fiscalPeriod);
+        }
 
-      if (filters.search) {
-        query = query.or(
-          `customer_name.ilike.%${filters.search}%,customer_nif.ilike.%${filters.search}%`
-        );
-      }
+        if (filters.search) {
+          query = query.or(
+            `customer_name.ilike.%${filters.search}%,customer_nif.ilike.%${filters.search}%`
+          );
+        }
 
-      // Filter by effective client
-      if (effectiveClientId && effectiveClientId !== 'all') {
-        query = query.eq('client_id', effectiveClientId);
-      }
+        if (effectiveClientId && effectiveClientId !== 'all') {
+          query = query.eq('client_id', effectiveClientId);
+        }
 
-      const { data, error, count } = await query;
+        return query;
+      };
 
-      if (error) throw error;
-      setInvoices(data || []);
-      setTotalCount(count ?? 0);
+      const data = await fetchAllPages<SalesInvoice>((from, to) => buildQuery().range(from, to));
+      setInvoices(data);
+      setTotalCount(data.length);
     } catch (error) {
       console.error('Error fetching sales invoices:', error);
       toast.error('Erro ao carregar facturas de vendas');
     } finally {
       setLoading(false);
     }
-  }, [user, filters.status, filters.fiscalPeriod, filters.search, effectiveClientId, externalClientId, page]);
+  }, [user, filters.status, filters.fiscalPeriod, filters.search, effectiveClientId, externalClientId]);
 
   const validateInvoice = async (invoiceId: string, category?: string, notes?: string) => {
     try {
@@ -151,7 +152,7 @@ export function useSalesInvoices(externalClientId?: string | null) {
   // Single fetch effect — includes search to avoid double-fetch
   useEffect(() => {
     fetchInvoices();
-  }, [user, filters.status, filters.fiscalPeriod, filters.search, effectiveClientId, page]);
+  }, [user, filters.status, filters.fiscalPeriod, filters.search, effectiveClientId]);
 
   // Reset page when any filter changes
   useEffect(() => {

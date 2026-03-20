@@ -66,6 +66,25 @@ function isEFaturaPortalFormat(headers: string[]): boolean {
 }
 
 /**
+ * Detect if the file looks like a sales/receipts export instead of acquired expenses.
+ * Those files belong in the dedicated import center flow, not in the e-Fatura purchases importer.
+ */
+function isLikelySalesExport(headers: string[]): boolean {
+  const normalized = headers.map((h) =>
+    h.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim(),
+  );
+  const hasAdquirente = normalized.some((h) =>
+    h.includes('adquirente') || h.includes('nif cliente') || h.includes('nome do cliente'),
+  );
+  const hasSalesDocumentRef = normalized.some((h) =>
+    h.includes('referencia') || h.includes('motivo emissao') || h.includes('data da transacao'),
+  );
+  const hasTotal = normalized.some((h) => h.includes('total'));
+
+  return hasAdquirente && (hasSalesDocumentRef || hasTotal);
+}
+
+/**
  * Extract NIF and name from "508332273 - M C D Garcia Lda" format
  */
 function extractNifFromEmitente(emitente: string): { nif: string; nome: string } {
@@ -301,6 +320,19 @@ export function parseEFaturaCSV(content: string): EFaturaParseResult {
   
   // Parse headers
   const headers = headerLine.split(delimiter).map(h => h.replace(/"/g, '').trim());
+
+  if (isLikelySalesExport(headers)) {
+    return {
+      success: false,
+      type: 'vendas',
+      records: [],
+      totals: { count: 0, valorTotal: 0, valorIva: 0, baseTributavel: 0 },
+      errors: [
+        'Este ficheiro parece ser uma exportação de vendas/recibos verdes. Use o Centro de Importação para receitas/recibos verdes.',
+      ],
+      warnings: [],
+    };
+  }
   
   // Check if it's the Portal format
   if (isEFaturaPortalFormat(headers)) {

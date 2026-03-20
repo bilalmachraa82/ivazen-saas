@@ -47,6 +47,7 @@ const editClientSchema = z.object({
   worker_type: z.string().optional(),
   accounting_regime: z.string().optional(),
   vat_regime: z.string().optional(),
+  iva_cadence: z.enum(['monthly', 'quarterly']).optional(),
   ss_contribution_rate: z.string().optional(),
   is_first_year: z.boolean().optional(),
 });
@@ -81,6 +82,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSuccess }: Edit
       worker_type: '',
       accounting_regime: '',
       vat_regime: '',
+      iva_cadence: 'quarterly',
       ss_contribution_rate: '',
       is_first_year: false,
     },
@@ -93,7 +95,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSuccess }: Edit
     if (client?.id) {
       supabase
         .from('profiles')
-        .select('taxpayer_kind, niss, cae, worker_type, accounting_regime, vat_regime, ss_contribution_rate, is_first_year')
+        .select('taxpayer_kind, niss, cae, worker_type, accounting_regime, vat_regime, iva_cadence, ss_contribution_rate, is_first_year')
         .eq('id', client.id)
         .single()
         .then(({ data }) => {
@@ -118,6 +120,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSuccess }: Edit
         worker_type: (fiscalData.worker_type as string) || '',
         accounting_regime: (fiscalData.accounting_regime as string) || '',
         vat_regime: (fiscalData.vat_regime as string) || '',
+        iva_cadence: (fiscalData.iva_cadence as 'monthly' | 'quarterly') || 'quarterly',
         ss_contribution_rate: fiscalData.ss_contribution_rate != null ? String(fiscalData.ss_contribution_rate) : '21.4',
         is_first_year: (fiscalData.is_first_year as boolean) || false,
       });
@@ -151,6 +154,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSuccess }: Edit
           worker_type: data.worker_type || null,
           accounting_regime: data.accounting_regime || null,
           vat_regime: data.vat_regime || null,
+          iva_cadence: data.iva_cadence || 'quarterly',
           ss_contribution_rate: data.ss_contribution_rate ? parseFloat(data.ss_contribution_rate) : null,
           is_first_year: data.is_first_year || false,
         })
@@ -180,6 +184,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSuccess }: Edit
 
       toast.success('Cliente actualizado com sucesso!');
       queryClient.invalidateQueries({ queryKey: ['accountant-clients'] });
+      queryClient.invalidateQueries({ queryKey: ['accountant-clients-unified'] });
       onSuccess?.();
       handleClose();
     } catch (error) {
@@ -392,7 +397,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSuccess }: Edit
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <FormField
                 control={form.control}
                 name="vat_regime"
@@ -409,6 +414,28 @@ export function EditClientDialog({ open, onOpenChange, client, onSuccess }: Edit
                         <SelectItem value="normal">Normal</SelectItem>
                         <SelectItem value="simplified">Simplificado</SelectItem>
                         <SelectItem value="exempt">Isento (Art. 53)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="iva_cadence"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Periodicidade IVA</FormLabel>
+                    <Select value={field.value || 'quarterly'} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecionar..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="quarterly">Trimestral</SelectItem>
+                        <SelectItem value="monthly">Mensal</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

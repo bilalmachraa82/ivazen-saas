@@ -27,9 +27,14 @@ interface Deadline {
 interface FiscalDeadlinesProps {
   ssDeclarationsPending: number;
   pendingValidation: number;
+  ivaCadence?: 'monthly' | 'quarterly' | 'both';
 }
 
-export function FiscalDeadlines({ ssDeclarationsPending, pendingValidation }: FiscalDeadlinesProps) {
+export function FiscalDeadlines({
+  ssDeclarationsPending,
+  pendingValidation,
+  ivaCadence = 'quarterly',
+}: FiscalDeadlinesProps) {
   const deadlines = useMemo((): Deadline[] => {
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -44,17 +49,19 @@ export function FiscalDeadlines({ ssDeclarationsPending, pendingValidation }: Fi
       ivaMonthlyDue.setMonth(ivaMonthlyDue.getMonth() + 1);
     }
 
-    const ivaMonthlyStatus = getDeadlineStatus(ivaMonthlyDue, pendingValidation > 5);
-    allDeadlines.push({
-      id: 'iva-monthly',
-      type: 'iva',
-      title: 'IVA Mensal',
-      dueDate: ivaMonthlyDue,
-      description: `Regime mensal (vol. negócios > 650.000€)${pendingValidation > 0 ? ` • ${pendingValidation} pendentes` : ''}`,
-      status: ivaMonthlyStatus,
-      link: 'https://www.acesso.gov.pt/v2/loginForm?partID=PFAP&path=/geral/dashboard',
-      priority: ivaMonthlyStatus === 'overdue' ? 1 : ivaMonthlyStatus === 'urgent' ? 2 : 3,
-    });
+    if (ivaCadence !== 'quarterly') {
+      const ivaMonthlyStatus = getDeadlineStatus(ivaMonthlyDue, pendingValidation > 5);
+      allDeadlines.push({
+        id: 'iva-monthly',
+        type: 'iva',
+        title: 'IVA Mensal',
+        dueDate: ivaMonthlyDue,
+        description: `Regime mensal${pendingValidation > 0 ? ` • ${pendingValidation} pendentes` : ''}`,
+        status: ivaMonthlyStatus,
+        link: 'https://www.acesso.gov.pt/v2/loginForm?partID=PFAP&path=/geral/dashboard',
+        priority: ivaMonthlyStatus === 'overdue' ? 1 : ivaMonthlyStatus === 'urgent' ? 2 : 3,
+      });
+    }
 
     // IVA Quarterly - Day 20 of 2nd month after quarter end (regime trimestral: vol. negócios <= 650.000€)
     // Q1 (Jan-Mar) → May 20, Q2 (Apr-Jun) → Aug 20, Q3 (Jul-Sep) → Nov 20, Q4 (Oct-Dec) → Feb 20 next year
@@ -83,17 +90,19 @@ export function FiscalDeadlines({ ssDeclarationsPending, pendingValidation }: Fi
     };
     const quarterLabel = quarterLabels[String(ivaQuarterlyDue.getMonth())] || '';
 
-    const ivaQuarterlyStatus = getDeadlineStatus(ivaQuarterlyDue, pendingValidation > 5);
-    allDeadlines.push({
-      id: 'iva-quarterly',
-      type: 'iva',
-      title: 'IVA Trimestral',
-      dueDate: ivaQuarterlyDue,
-      description: `Regime trimestral ${quarterLabel} (vol. negócios ≤ 650.000€)${pendingValidation > 0 ? ` • ${pendingValidation} pendentes` : ''}`,
-      status: ivaQuarterlyStatus,
-      link: 'https://www.acesso.gov.pt/v2/loginForm?partID=PFAP&path=/geral/dashboard',
-      priority: ivaQuarterlyStatus === 'overdue' ? 1 : ivaQuarterlyStatus === 'urgent' ? 2 : 3,
-    });
+    if (ivaCadence !== 'monthly') {
+      const ivaQuarterlyStatus = getDeadlineStatus(ivaQuarterlyDue, pendingValidation > 5);
+      allDeadlines.push({
+        id: 'iva-quarterly',
+        type: 'iva',
+        title: 'IVA Trimestral',
+        dueDate: ivaQuarterlyDue,
+        description: `Regime trimestral ${quarterLabel}${pendingValidation > 0 ? ` • ${pendingValidation} pendentes` : ''}`,
+        status: ivaQuarterlyStatus,
+        link: 'https://www.acesso.gov.pt/v2/loginForm?partID=PFAP&path=/geral/dashboard',
+        priority: ivaQuarterlyStatus === 'overdue' ? 1 : ivaQuarterlyStatus === 'urgent' ? 2 : 3,
+      });
+    }
     
     // SAF-T Communication - Day 5 of following month
     const saftDue = new Date(currentYear, currentMonth + 1, 5);
@@ -173,7 +182,7 @@ export function FiscalDeadlines({ ssDeclarationsPending, pendingValidation }: Fi
       if (a.priority !== b.priority) return a.priority - b.priority;
       return a.dueDate.getTime() - b.dueDate.getTime();
     });
-  }, [ssDeclarationsPending, pendingValidation]);
+  }, [ssDeclarationsPending, pendingValidation, ivaCadence]);
 
   // Count urgent items
   const urgentCount = deadlines.filter(d => d.status === 'overdue' || d.status === 'urgent').length;

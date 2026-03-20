@@ -377,6 +377,7 @@ export default function AccountantDashboard() {
           <FiscalDeadlines
             ssDeclarationsPending={filteredMetrics.ssDeclarationsPending}
             pendingValidation={filteredMetrics.pendingValidation}
+            ivaCadence="both"
           />
           <AggregatedFiscalSummary
             clients={filteredClients}

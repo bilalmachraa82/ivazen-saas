@@ -9,6 +9,7 @@ import { ImageZoom } from '@/components/validation/ImageZoom';
 import { ValidationHistory } from '@/components/validation/ValidationHistory';
 import { SalesClassificationEditor } from '@/components/sales/SalesClassificationEditor';
 import { useValidationHistory } from '@/hooks/useValidationHistory';
+import { getImportSourceLabel, isElectronicImport } from '@/lib/imagePathUtils';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { FileText, Image as ImageIcon, Calculator, User, ChevronLeft, ChevronRight, History, CloudDownload } from 'lucide-react';
@@ -55,17 +56,8 @@ export function SalesInvoiceDetailDialog({
   });
 
   // Detect if image_path is a placeholder (AT sync, CSV import, SAFT, etc.)
-  const isPlaceholderImage = invoice?.image_path
-    ? /^(at-sync|efatura-csv|imported|saft[-_])/.test(invoice.image_path)
-    : false;
-
-  const importSourceLabel = invoice?.image_path?.startsWith('at-sync/')
-    ? 'AT e-Fatura (sync automático)'
-    : invoice?.image_path?.startsWith('efatura-csv/')
-    ? 'CSV e-Fatura (importação manual)'
-    : invoice?.image_path?.startsWith('imported/')
-    ? 'Importação SAF-T'
-    : 'Importação externa';
+  const isPlaceholderImage = isElectronicImport(invoice?.image_path ?? null);
+  const importSourceLabel = getImportSourceLabel(invoice?.image_path ?? null);
 
   useEffect(() => {
     if (invoice?.image_path && open && !isPlaceholderImage) {

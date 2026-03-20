@@ -403,8 +403,8 @@ export function useAccountant() {
           client_id: invoice.client_id,
           ai_classification: invoice.ai_classification,
           final_classification: invoice.ai_classification || 'Desconhecido',
-          final_dp_field: invoice.ai_dp_field || 24,
-          final_deductibility: invoice.ai_deductibility || 100,
+          final_dp_field: invoice.ai_dp_field ?? 24,
+          final_deductibility: invoice.ai_deductibility ?? 100,
           wasCorrection: false, // Batch validation = confirming AI
         });
       }
@@ -456,8 +456,8 @@ export function useAccountant() {
         client_id: invoice.client_id,
         ai_classification: invoice.ai_classification,
         final_classification: invoice.ai_classification || 'Desconhecido',
-        final_dp_field: invoice.ai_dp_field || 24,
-        final_deductibility: invoice.ai_deductibility || 100,
+        final_dp_field: invoice.ai_dp_field ?? 24,
+        final_deductibility: invoice.ai_deductibility ?? 100,
         wasCorrection: false, // Single validation = confirming AI
       });
     },

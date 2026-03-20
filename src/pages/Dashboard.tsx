@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useAccountantRequest } from '@/hooks/useAccountantRequest';
 import { useAccountantClients } from '@/hooks/useAccountantClients';
@@ -34,6 +35,7 @@ import {
 
 export default function Dashboard() {
   const { user, loading, hasRole } = useAuth();
+  const { profile } = useProfile();
   const isAccountant = hasRole('accountant');
   const { selectedClientId } = useSelectedClient();
   const { getClientById } = useAccountantClients({ enabled: isAccountant });
@@ -45,6 +47,9 @@ export default function Dashboard() {
   const { myRequest } = useAccountantRequest();
   const { summary, totalClients } = useClientReadiness();
   const navigate = useNavigate();
+  const ivaCadence = isAccountant
+    ? (selectedClient?.iva_cadence ?? 'quarterly')
+    : (profile?.iva_cadence ?? 'quarterly');
 
   const hasPendingRequest = myRequest?.status === 'pending';
   const showAccountantPromo = !isAccountant && !hasPendingRequest;
@@ -195,6 +200,7 @@ export default function Dashboard() {
                 label="Total Facturas"
                 variant="primary"
                 animationDelay="0ms"
+                href="/validation"
               />
               <ZenStatsCard
                 icon={Clock}
@@ -202,6 +208,7 @@ export default function Dashboard() {
                 label="Pendentes"
                 variant="warning"
                 animationDelay="100ms"
+                href="/validation?status=pending"
               />
               <ZenStatsCard
                 icon={CheckCircle}
@@ -209,6 +216,7 @@ export default function Dashboard() {
                 label="Validadas"
                 variant="success"
                 animationDelay="200ms"
+                href="/validation?status=validated"
               />
               <ZenStatsCard
                 icon={AlertTriangle}
@@ -216,6 +224,7 @@ export default function Dashboard() {
                 label="Baixa Confiança"
                 variant="default"
                 animationDelay="300ms"
+                href="/validation?review=needs_review"
               />
             </div>
 
@@ -232,6 +241,7 @@ export default function Dashboard() {
               <FiscalDeadlines
                 ssDeclarationsPending={0}
                 pendingValidation={stats.pending}
+                ivaCadence={ivaCadence}
               />
             </div>
 

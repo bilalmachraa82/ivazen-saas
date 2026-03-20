@@ -18,6 +18,12 @@ interface Deadline {
   urgency: 'critical' | 'warning' | 'info';
 }
 
+interface NotificationPreference {
+  user_id: string;
+  reminder_days: number[] | null;
+  deadline_reminders: boolean | null;
+}
+
 function getUpcomingDeadlines(): Deadline[] {
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -204,7 +210,7 @@ Deno.serve(async (req) => {
     }
 
     // Combine accountant and client preferences
-    const combinedPrefs = [...(allPrefs || []), ...(clientPrefs || [])];
+    const combinedPrefs = [...(allPrefs || []), ...(clientPrefs || [])] as NotificationPreference[];
     // Remove duplicates
     const uniquePrefs = Array.from(new Map(combinedPrefs.map(p => [p.user_id, p])).values());
 
@@ -217,6 +223,22 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const accountantIdSet = new Set(accountantIds);
+
+    const { data: profileRows, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, iva_cadence')
+      .in('id', uniquePrefs.map((pref) => pref.user_id));
+
+    if (profileError) {
+      console.error('Error fetching profile cadence:', profileError);
+      throw profileError;
+    }
+
+    const ivaCadenceByUser = new Map(
+      (profileRows || []).map((profile) => [profile.id, profile.iva_cadence || 'quarterly']),
+    );
 
     // Get push subscriptions
     const { data: pushSubs, error: pushError } = await supabase
@@ -240,7 +262,18 @@ Deno.serve(async (req) => {
       const usersToNotify = uniquePrefs.filter(pref => {
         // Default reminder days if not set: [1, 3, 7]
         const reminderDays = pref.reminder_days?.length > 0 ? pref.reminder_days : [1, 3, 7];
-        return reminderDays.includes(deadline.daysUntil);
+        if (!reminderDays.includes(deadline.daysUntil)) return false;
+
+        if (deadline.type === 'iva_monthly') {
+          return accountantIdSet.has(pref.user_id) || ivaCadenceByUser.get(pref.user_id) === 'monthly';
+        }
+
+        if (deadline.type === 'iva_quarterly') {
+          const cadence = ivaCadenceByUser.get(pref.user_id) || 'quarterly';
+          return accountantIdSet.has(pref.user_id) || cadence !== 'monthly';
+        }
+
+        return true;
       });
 
       if (usersToNotify.length === 0) {

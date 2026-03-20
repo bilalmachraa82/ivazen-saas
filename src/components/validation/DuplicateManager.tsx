@@ -2,12 +2,12 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useClientManagement } from '@/hooks/useClientManagement';
+import { useSelectedClient } from '@/hooks/useSelectedClient';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ClientSearchSelector } from '@/components/ui/client-search-selector';
 import { ZenCard, ZenCardHeader } from '@/components/zen';
 import { CardContent } from '@/components/ui/card';
 import { Copy, Trash2, Shield, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
@@ -36,15 +36,15 @@ interface DuplicateManagerProps {
 
 export function DuplicateManager({ onCleanupComplete }: DuplicateManagerProps) {
   const { user } = useAuth();
-  const { isAccountant, clients } = useClientManagement();
+  const { isAccountant } = useClientManagement();
+  const { selectedClientId } = useSelectedClient();
 
-  const [localClientId, setLocalClientId] = useState<string | null>(null);
   const [groups, setGroups] = useState<DuplicateGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [selectedToDelete, setSelectedToDelete] = useState<Set<string>>(new Set());
 
-  const effectiveClientId = isAccountant ? localClientId : user?.id;
+  const effectiveClientId = isAccountant ? selectedClientId : user?.id;
 
   const fetchDuplicates = async () => {
     if (!effectiveClientId) return;
@@ -180,15 +180,6 @@ export function DuplicateManager({ onCleanupComplete }: DuplicateManagerProps) {
 
   return (
     <div className="space-y-4">
-      {/* Client selector for accountants */}
-      {isAccountant && (
-        <ClientSearchSelector
-          clients={clients}
-          selectedClientId={localClientId}
-          onSelect={setLocalClientId}
-        />
-      )}
-
       {loading && (
         <div className="flex items-center gap-2 py-4 text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -197,15 +188,15 @@ export function DuplicateManager({ onCleanupComplete }: DuplicateManagerProps) {
       )}
 
       {!loading && groups.length === 0 && (
-        <Alert className="border-primary/20 bg-primary/5">
-          <CheckCircle className="h-4 w-4 text-primary" />
-          <AlertTitle>Sem duplicados</AlertTitle>
-          <AlertDescription>
-            {effectiveClientId
-              ? 'Nenhum documento duplicado encontrado para este cliente.'
-              : 'Seleccione um cliente para verificar duplicados.'}
-          </AlertDescription>
-        </Alert>
+          <Alert className="border-primary/20 bg-primary/5">
+            <CheckCircle className="h-4 w-4 text-primary" />
+            <AlertTitle>Sem duplicados</AlertTitle>
+            <AlertDescription>
+              {effectiveClientId
+                ? 'Nenhum documento duplicado encontrado para este cliente.'
+                : 'Selecione um cliente para verificar duplicados.'}
+            </AlertDescription>
+          </Alert>
       )}
 
       {!loading && groups.length > 0 && (

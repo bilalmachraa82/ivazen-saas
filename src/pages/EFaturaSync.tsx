@@ -42,6 +42,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { isFiscallyEffectivePurchase, isPurchasePendingReview } from '@/lib/fiscalStatus';
 import { resolveScopedClientId } from '@/lib/clientScope';
+import { Link } from 'react-router-dom';
 
 type DataSource = 'csv' | 'api_test' | 'api_prod';
 
@@ -217,7 +218,7 @@ export default function EFaturaSync() {
               <Info className="h-4 w-4" />
               <AlertTitle>Import Manual via CSV</AlertTitle>
               <AlertDescription>
-                Exporte os dados do{' '}
+                Este fluxo importa apenas compras e despesas adquiridas. Exporte os dados de{' '}
                 <a
                   href="https://faturas.portaldasfinancas.gov.pt/consultarDespesasAdquirente.action"
                   target="_blank"
@@ -227,7 +228,10 @@ export default function EFaturaSync() {
                   Portal das Finanças
                   <ExternalLink className="h-3 w-3" />
                 </a>{' '}
-                e carregue aqui para classificação automática.
+                e carregue aqui para classificação automática. Para vendas, recibos verdes ou receitas, use o{' '}
+                <Link to="/centro-importacao" className="text-primary hover:underline">
+                  Centro de Importação
+                </Link>.
               </AlertDescription>
             </Alert>
 

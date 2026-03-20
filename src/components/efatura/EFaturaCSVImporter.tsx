@@ -194,8 +194,9 @@ export function EFaturaCSVImporter({ clientId, year, quarter }: EFaturaCSVImport
       return sum + r.valorIva * deductibility;
     }, 0);
 
-  // Import selected records — auto-detect vendas vs compras by comparing
-  // the emitter NIF in the CSV with the client's NIF.
+  // Import selected records.
+  // The current portal parser is purchase-oriented; only treat records as sales
+  // when the parser explicitly identifies a sales export.
   const handleImport = async () => {
     const selectedRecords = classifiedRecords.filter(r => r.selected);
     if (selectedRecords.length === 0) {
@@ -209,25 +210,20 @@ export function EFaturaCSVImporter({ clientId, year, quarter }: EFaturaCSVImport
       return;
     }
 
+    if (parseResult?.type === 'vendas') {
+      toast.error('Este fluxo CSV e-Fatura suporta apenas despesas adquiridas', {
+        description: 'Para vendas use o Centro de Importação e o fluxo dedicado de receitas/recibos verdes.',
+      });
+      return;
+    }
+
     setIsImporting(true);
     let importedCompras = 0;
-    let importedVendas = 0;
     let skipped = 0;
 
     try {
-      // Fetch client NIF to detect vendas vs compras
-      const { data: clientProfile } = await supabase
-        .from('profiles')
-        .select('nif')
-        .eq('id', effectiveClientId)
-        .maybeSingle();
-      const clientNif = clientProfile?.nif || '';
-
       for (const record of selectedRecords) {
         const fiscalPeriod = `${record.data.getFullYear()}${String(record.data.getMonth() + 1).padStart(2, '0')}`;
-
-        // Auto-detect: if the emitter NIF matches the client NIF, it's a sale (venda)
-        const isVenda = clientNif && record.nif === clientNif;
 
         // Determine VAT base fields from rate
         const vatRate = record.baseTributavel > 0
@@ -254,90 +250,49 @@ export function EFaturaCSVImporter({ clientId, year, quarter }: EFaturaCSVImport
           vatFields.base_exempt = record.baseTributavel;
         }
 
-        if (isVenda) {
-          // --- VENDA: insert into sales_invoices ---
-          // Check for duplicates in sales
-          if (record.numeroDocumento) {
-            const { data: existing } = await supabase
-              .from('sales_invoices')
-              .select('id')
-              .eq('client_id', effectiveClientId)
-              .eq('document_number', record.numeroDocumento)
-              .limit(1);
-            if (existing && existing.length > 0) { skipped++; continue; }
-          }
-
-          const { error } = await supabase
-            .from('sales_invoices')
-            .insert({
-              client_id: effectiveClientId,
-              supplier_nif: effectiveClientId,
-              customer_nif: '999999990', // CSV compras doesn't have buyer NIF
-              customer_name: null,
-              document_date: record.data.toISOString().split('T')[0],
-              document_number: record.numeroDocumento || null,
-              document_type: record.tipoDocumento || 'FR',
-              atcud: record.atcud || null,
-              total_amount: record.valorTotal,
-              total_vat: record.valorIva,
-              ...vatFields,
-              fiscal_period: fiscalPeriod,
-              fiscal_region: 'PT',
-              image_path: `efatura-csv/${effectiveClientId}/${record.numeroDocumento || Date.now()}`,
-              status: 'pending',
-              revenue_category: 'prestacao_servicos',
-              import_source: 'efatura_csv',
-            });
-          if (error) { console.error('Insert venda error:', error); }
-          else { importedVendas++; }
-        } else {
-          // --- COMPRA: insert into invoices ---
-          if (record.numeroDocumento) {
-            const { data: existing } = await supabase
-              .from('invoices')
-              .select('id')
-              .eq('client_id', effectiveClientId)
-              .eq('supplier_nif', record.nif)
-              .eq('document_number', record.numeroDocumento)
-              .limit(1);
-            if (existing && existing.length > 0) { skipped++; continue; }
-          }
-
-          const { error } = await supabase
+        // --- COMPRA: insert into invoices ---
+        if (record.numeroDocumento) {
+          const { data: existing } = await supabase
             .from('invoices')
-            .insert({
-              client_id: effectiveClientId,
-              supplier_nif: record.nif || 'CSV-IMPORT',
-              supplier_name: record.nome || null,
-              document_date: record.data.toISOString().split('T')[0],
-              document_number: record.numeroDocumento || null,
-              document_type: record.tipoDocumento || 'FT',
-              atcud: record.atcud || null,
-              total_amount: record.valorTotal,
-              total_vat: record.valorIva,
-              ...vatFields,
-              fiscal_period: fiscalPeriod,
-              fiscal_region: 'PT',
-              image_path: `efatura-csv/${effectiveClientId}/${record.numeroDocumento || Date.now()}`,
-              status: 'pending',
-              efatura_source: 'csv_portal',
-              ai_classification: record.classification?.classification || null,
-              ai_dp_field: record.classification?.dpField || null,
-              ai_deductibility: record.classification?.deductibility || null,
-              ai_confidence: record.classification?.confidence || null,
-              ai_reason: record.classification?.reason || null,
-            });
-          if (error) { console.error('Insert compra error:', error); }
-          else { importedCompras++; }
+            .select('id')
+            .eq('client_id', effectiveClientId)
+            .eq('supplier_nif', record.nif)
+            .eq('document_number', record.numeroDocumento)
+            .limit(1);
+          if (existing && existing.length > 0) { skipped++; continue; }
         }
+
+        const { error } = await supabase
+          .from('invoices')
+          .insert({
+            client_id: effectiveClientId,
+            supplier_nif: record.nif || 'CSV-IMPORT',
+            supplier_name: record.nome || null,
+            document_date: record.data.toISOString().split('T')[0],
+            document_number: record.numeroDocumento || null,
+            document_type: record.tipoDocumento || 'FT',
+            atcud: record.atcud || null,
+            total_amount: record.valorTotal,
+            total_vat: record.valorIva,
+            ...vatFields,
+            fiscal_period: fiscalPeriod,
+            fiscal_region: 'PT',
+            image_path: `efatura-csv/${effectiveClientId}/${record.numeroDocumento || Date.now()}`,
+            status: 'pending',
+            efatura_source: 'csv_portal',
+            ai_classification: record.classification?.classification || null,
+            ai_dp_field: record.classification?.dpField ?? null,
+            ai_deductibility: record.classification?.deductibility ?? null,
+            ai_confidence: record.classification?.confidence ?? null,
+            ai_reason: record.classification?.reason ?? null,
+          });
+        if (error) { console.error('Insert compra error:', error); }
+        else { importedCompras++; }
       }
 
-      const imported = importedCompras + importedVendas;
+      const imported = importedCompras;
       if (imported > 0) {
-        const parts = [];
-        if (importedCompras > 0) parts.push(`${importedCompras} compras`);
-        if (importedVendas > 0) parts.push(`${importedVendas} vendas`);
-        toast.success(`${imported} facturas importadas (${parts.join(' + ')})`, {
+        toast.success(`${imported} despesas importadas`, {
           description: skipped > 0 ? `${skipped} duplicados ignorados` : undefined,
         });
         handleReset();
@@ -381,8 +336,8 @@ export function EFaturaCSVImporter({ clientId, year, quarter }: EFaturaCSVImport
       vat_reduced: null,
       total_vat: r.valorIva,
       total_amount: r.valorTotal,
-      final_dp_field: r.classification?.dpField || 24,
-      final_deductibility: r.classification?.deductibility || 100,
+      final_dp_field: r.classification?.dpField ?? 24,
+      final_deductibility: r.classification?.deductibility ?? 100,
     }));
 
     const periodo = getQuarterPeriod(year, quarter);
@@ -410,7 +365,7 @@ export function EFaturaCSVImporter({ clientId, year, quarter }: EFaturaCSVImport
               Carregar Ficheiro CSV
             </CardTitle>
             <CardDescription>
-              Exporte os dados do Portal das Finanças e carregue aqui
+              Exporte despesas adquiridas do Portal das Finanças e carregue aqui
             </CardDescription>
           </CardHeader>
           <CardContent>

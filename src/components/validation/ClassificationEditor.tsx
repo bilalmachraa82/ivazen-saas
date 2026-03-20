@@ -7,6 +7,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { CheckCircle, AlertTriangle, Keyboard, HelpCircle, Pencil } from 'lucide-react';
 import { inferDpField } from '@/lib/classificationRules';
 
+const NO_DP_FIELD_VALUE = 'none';
+
 const CLASSIFICATIONS = [
   'Mercadorias',
   'Matérias-primas',
@@ -19,11 +21,12 @@ const CLASSIFICATIONS = [
 ];
 
 const DP_FIELDS = [
-  { value: 20, label: 'Campo 20 - Imobilizado' },
-  { value: 21, label: 'Campo 21 - Existências (taxa reduzida 6%)' },
-  { value: 22, label: 'Campo 22 - Existências (taxa normal 23%)' },
-  { value: 23, label: 'Campo 23 - Existências (taxa intermédia 13%)' },
-  { value: 24, label: 'Campo 24 - Outros bens e serviços' },
+  { value: NO_DP_FIELD_VALUE, label: 'Nenhum (não dedutível)' },
+  { value: '20', label: 'Campo 20 - Imobilizado' },
+  { value: '21', label: 'Campo 21 - Existências (taxa reduzida 6%)' },
+  { value: '22', label: 'Campo 22 - Existências (taxa normal 23%)' },
+  { value: '23', label: 'Campo 23 - Existências (taxa intermédia 13%)' },
+  { value: '24', label: 'Campo 24 - Outros bens e serviços' },
 ];
 
 interface ClassificationEditorProps {
@@ -43,7 +46,7 @@ interface ClassificationEditorProps {
   };
   onValidate: (classification: {
     final_classification: string;
-    final_dp_field: number;
+    final_dp_field: number | null;
     final_deductibility: number;
   }) => Promise<boolean>;
   isValidating: boolean;
@@ -52,13 +55,13 @@ interface ClassificationEditorProps {
 export function ClassificationEditor({ invoice, onValidate, isValidating }: ClassificationEditorProps) {
   const [isReopened, setIsReopened] = useState(false);
   const [classification, setClassification] = useState(
-    invoice.final_classification || invoice.ai_classification || ''
+    invoice.final_classification ?? invoice.ai_classification ?? ''
   );
-  const [dpField, setDpField] = useState(
-    invoice.final_dp_field || invoice.ai_dp_field || 22
+  const [dpField, setDpField] = useState<number | null>(
+    invoice.final_dp_field ?? invoice.ai_dp_field ?? 22
   );
   const [deductibility, setDeductibility] = useState(
-    invoice.final_deductibility || invoice.ai_deductibility || 100
+    invoice.final_deductibility ?? invoice.ai_deductibility ?? 100
   );
   const [dpReviewRequired, setDpReviewRequired] = useState(false);
 
@@ -66,9 +69,9 @@ export function ClassificationEditor({ invoice, onValidate, isValidating }: Clas
   const userOverrodeDp = useRef(false);
 
   useEffect(() => {
-    setClassification(invoice.final_classification || invoice.ai_classification || '');
-    setDpField(invoice.final_dp_field || invoice.ai_dp_field || 22);
-    setDeductibility(invoice.final_deductibility || invoice.ai_deductibility || 100);
+    setClassification(invoice.final_classification ?? invoice.ai_classification ?? '');
+    setDpField(invoice.final_dp_field ?? invoice.ai_dp_field ?? 22);
+    setDeductibility(invoice.final_deductibility ?? invoice.ai_deductibility ?? 100);
     setIsReopened(false);
     setDpReviewRequired(false);
     userOverrodeDp.current = false;
@@ -87,13 +90,25 @@ export function ClassificationEditor({ invoice, onValidate, isValidating }: Clas
 
     setDpReviewRequired(result.requiresReview);
 
-    if (result.confident && result.dpField !== null) {
+    if (result.confident && result.dpField === null) {
+      setDpField(null);
+      setDeductibility(0);
+    } else if (result.confident && result.dpField !== null) {
       setDpField(result.dpField);
     } else if (result.dpField !== null) {
       // Suggest but flag for review
       setDpField(result.dpField);
     }
   }, [classification, invoice.base_reduced, invoice.base_intermediate, invoice.base_standard]);
+
+  useEffect(() => {
+    if (classification === 'Não dedutível') {
+      setDeductibility(0);
+      if (!userOverrodeDp.current) {
+        setDpField(null);
+      }
+    }
+  }, [classification]);
 
   const handleValidate = useCallback(async () => {
     if (!classification || isValidating) return;
@@ -188,10 +203,10 @@ export function ClassificationEditor({ invoice, onValidate, isValidating }: Clas
             </TooltipProvider>
           </div>
           <Select
-            value={dpField.toString()}
+            value={dpField === null ? NO_DP_FIELD_VALUE : String(dpField)}
             onValueChange={(v) => {
               userOverrodeDp.current = true;
-              setDpField(Number(v));
+              setDpField(v === NO_DP_FIELD_VALUE ? null : Number(v));
               setDpReviewRequired(false);
             }}
             disabled={isValidated}
@@ -204,7 +219,7 @@ export function ClassificationEditor({ invoice, onValidate, isValidating }: Clas
             </SelectTrigger>
             <SelectContent>
               {DP_FIELDS.map((field) => (
-                <SelectItem key={field.value} value={field.value.toString()}>
+                <SelectItem key={field.value} value={field.value}>
                   {field.label}
                 </SelectItem>
               ))}

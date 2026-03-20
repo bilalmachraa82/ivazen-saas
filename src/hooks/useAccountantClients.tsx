@@ -20,6 +20,9 @@ export interface AccountantClient {
   company_name: string | null;
   nif: string | null;
   email: string | null;
+  phone: string | null;
+  address: string | null;
+  iva_cadence: 'monthly' | 'quarterly' | null;
   pending_invoices: number;
   validated_invoices: number;
   access_level: string;

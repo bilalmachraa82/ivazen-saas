@@ -134,8 +134,7 @@ describe('classifyExpense — fornecedores conhecidos', () => {
     const result = await classifyExpense(makeInput({ supplierNif: '500100144' }));
     expect(result.requiresReview).toBe(true);
     expect(result.deductibility).toBe(0);
-    // KNOWN_SUPPLIERS has dpField: null but classifyExpense coerces null → 24 via ?? 24
-    expect(result.dpField).toBe(24);
+    expect(result.dpField).toBeNull();
     expect(result.reason).toContain('Continente');
   });
 
@@ -172,8 +171,7 @@ describe('classifyExpense — fornecedores conhecidos', () => {
     const result = await classifyExpense(makeInput({ supplierNif: '999999990' }));
     expect(result.classification).toBe('PESSOAL');
     expect(result.deductibility).toBe(0);
-    // KNOWN_SUPPLIERS has dpField: null but classifyExpense coerces null → 24 via ?? 24
-    expect(result.dpField).toBe(24);
+    expect(result.dpField).toBeNull();
   });
 
   it('resultado de fornecedor conhecido tem sempre confidence >= 90', async () => {

@@ -1,4 +1,5 @@
 import { LucideIcon } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
@@ -9,6 +10,8 @@ interface ZenStatsCardProps {
   variant?: 'default' | 'success' | 'warning' | 'primary';
   animationDelay?: string;
   className?: string;
+  onClick?: () => void;
+  href?: string;
 }
 
 const variantStyles = {
@@ -45,17 +48,30 @@ export function ZenStatsCard({
   variant = 'default',
   animationDelay,
   className,
+  onClick,
+  href,
 }: ZenStatsCardProps) {
   const styles = variantStyles[variant];
+  const isInteractive = Boolean(onClick || href);
 
-  return (
+  const card = (
     <Card
       className={cn(
         'relative overflow-hidden glass-stats spring-card-hover group',
         styles.hoverGlow,
         'hover:border-primary/30',
+        isInteractive && 'cursor-pointer',
         className
       )}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick();
+        }
+      } : undefined}
       style={animationDelay ? { animationDelay } : undefined}
     >
       {/* Glass shimmer overlay */}
@@ -83,4 +99,14 @@ export function ZenStatsCard({
       </CardContent>
     </Card>
   );
+
+  if (href) {
+    return (
+      <Link to={href} className="block">
+        {card}
+      </Link>
+    );
+  }
+
+  return card;
 }

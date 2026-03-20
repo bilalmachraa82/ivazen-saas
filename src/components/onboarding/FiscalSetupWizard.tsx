@@ -188,6 +188,7 @@ export function FiscalSetupWizard({ onComplete, compact = false }: FiscalSetupWi
         cae: cae,
         activityDescription: profile?.activity_description || '',
         vatRegime: profile?.vat_regime || 'normal',
+        ivaCadence: profile?.iva_cadence || 'quarterly',
       }, {
         onSuccess: () => {
           // Then update SS profile

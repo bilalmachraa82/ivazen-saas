@@ -15,6 +15,7 @@ export interface AvailableClient {
 }
 
 export interface AccountantClient extends AvailableClient {
+  iva_cadence?: 'monthly' | 'quarterly' | null;
   pending_invoices: number;
   validated_invoices: number;
   access_level?: string;

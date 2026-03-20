@@ -63,6 +63,25 @@ describe('parseEFaturaCSV — ficheiro vazio / sem dados', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Deteção de exportações de vendas / recibos verdes
+// ---------------------------------------------------------------------------
+describe('parseEFaturaCSV — deteção de ficheiro de vendas', () => {
+  it('bloqueia ficheiros que parecem exportações de vendas/recibos verdes', () => {
+    const salesCsv = [
+      'Referência;Tipo Documento;ATCUD;Situação;Data da Transação;Motivo Emissão;Data de Emissão;País do Adquirente;NIF Adquirente;Nome do Adquirente;Valor Tributável (em euros);Valor do IVA (em euros);Total do Documento (em euros)',
+      'A-1;FR;ATCUD-1;Emitido;01/02/2025;Normal;01/02/2025;PT;123456789;Cliente Exemplo;100,00;23,00;123,00',
+    ].join('\n');
+
+    const result = parseEFaturaCSV(salesCsv);
+
+    expect(result.success).toBe(false);
+    expect(result.type).toBe('vendas');
+    expect(result.records).toHaveLength(0);
+    expect(result.errors[0]).toContain('Centro de Importação');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Formato Portal das Finanças — caso feliz
 // ---------------------------------------------------------------------------
 describe('parseEFaturaCSV — formato Portal das Finanças', () => {

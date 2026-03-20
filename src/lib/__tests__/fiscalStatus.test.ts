@@ -13,6 +13,15 @@ describe('fiscalStatus', () => {
       expect(isFiscallyEffectivePurchase({ status: 'validated' })).toBe(true);
     });
 
+    it('rejects purchases excluded from accounting even when validated', () => {
+      expect(
+        isFiscallyEffectivePurchase({
+          status: 'validated',
+          accounting_excluded: true,
+        }),
+      ).toBe(false);
+    });
+
     it('accepts classified purchases that do not require accountant validation', () => {
       expect(
         isFiscallyEffectivePurchase({
@@ -68,19 +77,29 @@ describe('fiscalStatus', () => {
         }),
       ).toBe(false);
       expect(isPurchasePendingReview({ status: 'validated' })).toBe(false);
+      expect(
+        isPurchasePendingReview({
+          status: 'pending',
+          accounting_excluded: true,
+        }),
+      ).toBe(false);
     });
   });
 
   describe('purchase filter helpers', () => {
     it('exports the expected PostgREST filter', () => {
       expect(getFiscallyEffectivePurchaseFilter()).toBe(
-        'status.eq.validated,and(status.eq.classified,requires_accountant_validation.eq.false)',
+        'and(accounting_excluded.eq.false,or(status.eq.validated,and(status.eq.classified,requires_accountant_validation.eq.false)))',
       );
     });
 
-    it('applies the centralized query filter via .or()', () => {
+    it('applies the centralized query filter via .eq() + .or()', () => {
       const calls: string[] = [];
       const query = {
+        eq(column: string, value: unknown) {
+          calls.push(`eq:${column}:${String(value)}`);
+          return this;
+        },
         or(filters: string) {
           calls.push(filters);
           return this;
@@ -88,7 +107,10 @@ describe('fiscalStatus', () => {
       };
 
       expect(applyFiscallyEffectivePurchaseFilter(query)).toBe(query);
-      expect(calls).toEqual([getFiscallyEffectivePurchaseFilter()]);
+      expect(calls).toEqual([
+        'eq:accounting_excluded:false',
+        'status.eq.validated,and(status.eq.classified,requires_accountant_validation.eq.false)',
+      ]);
     });
   });
 });

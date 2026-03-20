@@ -255,7 +255,7 @@ export async function classifyExpense(input: ClassificationInput): Promise<Class
     const rule = KNOWN_SUPPLIERS[supplierNif];
     return {
       classification: rule.classification || 'ACTIVIDADE',
-      dpField: rule.dpField ?? 24,
+      dpField: rule.dpField === undefined ? 24 : rule.dpField,
       deductibility: rule.deductibility ?? 100,
       confidence: 95,
       source: 'global_rule',

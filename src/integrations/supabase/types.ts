@@ -1234,6 +1234,7 @@ export type Database = {
       }
       invoices: {
         Row: {
+          accounting_excluded: boolean
           ai_classification: string | null
           ai_confidence: number | null
           ai_deductibility: number | null
@@ -1277,6 +1278,7 @@ export type Database = {
           vat_standard: number | null
         }
         Insert: {
+          accounting_excluded?: boolean
           ai_classification?: string | null
           ai_confidence?: number | null
           ai_deductibility?: number | null
@@ -1320,6 +1322,7 @@ export type Database = {
           vat_standard?: number | null
         }
         Update: {
+          accounting_excluded?: boolean
           ai_classification?: string | null
           ai_confidence?: number | null
           ai_deductibility?: number | null
@@ -1477,6 +1480,7 @@ export type Database = {
           has_accountant_ss: boolean | null
           has_other_employment: boolean | null
           id: string
+          iva_cadence: string
           is_first_year: boolean | null
           last_ss_declaration: string | null
           nif: string | null
@@ -1503,6 +1507,7 @@ export type Database = {
           has_accountant_ss?: boolean | null
           has_other_employment?: boolean | null
           id: string
+          iva_cadence?: string
           is_first_year?: boolean | null
           last_ss_declaration?: string | null
           nif?: string | null
@@ -1529,6 +1534,7 @@ export type Database = {
           has_accountant_ss?: boolean | null
           has_other_employment?: boolean | null
           id?: string
+          iva_cadence?: string
           is_first_year?: boolean | null
           last_ss_declaration?: string | null
           nif?: string | null
@@ -2234,6 +2240,7 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          iva_cadence: string
           is_primary: boolean
           nif: string
           pending_invoices: number

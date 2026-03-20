@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useSalesInvoices } from '@/hooks/useSalesInvoices';
@@ -28,6 +28,8 @@ export default function SalesValidation() {
   const { selectedClientId, setSelectedClientId } = useSelectedClient();
   const [selectedInvoice, setSelectedInvoice] = useState<SalesInvoice | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchParamsKey = searchParams.toString();
 
   // Match purchase validation semantics: never fetch the global portfolio for accountants.
   const effectiveClientId = isCheckingRole
@@ -60,6 +62,11 @@ export default function SalesValidation() {
   const canNavigateNext = selectedInvoice
     ? invoices.findIndex((inv) => inv.id === selectedInvoice.id) < invoices.length - 1
     : false;
+
+  useEffect(() => {
+    const status = searchParams.get('status') || 'all';
+    setFilters((prev) => (prev.status === status ? prev : { ...prev, status }));
+  }, [searchParamsKey, setFilters]);
 
   if (authLoading || profileLoading || isCheckingRole || isLoadingClients) {
     return <ZenLoader fullScreen text="A carregar..." />;
@@ -159,18 +166,30 @@ export default function SalesValidation() {
           value={pendingCount}
           icon={Clock}
           variant={pendingCount > 0 ? 'warning' : 'default'}
+          onClick={() => {
+            setFilters((prev) => ({ ...prev, status: 'pending' }));
+            setSearchParams({ status: 'pending' });
+          }}
         />
         <ZenStatsCard
           label="Validadas"
           value={validatedCount}
           icon={CheckCircle}
           variant="success"
+          onClick={() => {
+            setFilters((prev) => ({ ...prev, status: 'validated' }));
+            setSearchParams({ status: 'validated' });
+          }}
         />
         <ZenStatsCard
           label="Total Receitas"
           value={`€${totalAmount.toFixed(2)}`}
           icon={TrendingUp}
           variant="default"
+          onClick={() => {
+            setFilters((prev) => ({ ...prev, status: 'all' }));
+            setSearchParams({});
+          }}
         />
       </div>
 

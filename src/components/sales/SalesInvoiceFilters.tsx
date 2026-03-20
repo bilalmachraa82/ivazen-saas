@@ -1,5 +1,6 @@
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { formatFiscalPeriod } from '@/lib/formatFiscalPeriod';
 import { Search } from 'lucide-react';
 
 interface SalesInvoiceFiltersProps {
@@ -55,7 +56,7 @@ export function SalesInvoiceFilters({
           <SelectItem value="all">Todos os períodos</SelectItem>
           {fiscalPeriods.map((period) => (
             <SelectItem key={period} value={period}>
-              {period}
+              {formatFiscalPeriod(period)}
             </SelectItem>
           ))}
         </SelectContent>
