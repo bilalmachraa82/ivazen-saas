@@ -21,6 +21,7 @@ import { getImportSourceLabel, isElectronicImport } from '@/lib/imagePathUtils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RefreshCw, AlertTriangle as AlertTriangleIcon } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
+import { getSupplierDisplayName } from '@/lib/supplierNameResolver';
 
 type Invoice = Tables<'invoices'>;
 
@@ -109,6 +110,7 @@ export function InvoiceDetailDialog({
   // Detect if image_path is a placeholder (AT sync, CSV import, SAFT, etc.)
   const isPlaceholderImage = isElectronicImport(invoice?.image_path ?? null);
   const importSourceLabel = getImportSourceLabel(invoice?.image_path ?? null);
+  const supplierDisplayName = getSupplierDisplayName(invoice?.supplier_name, invoice?.supplier_nif);
 
   useEffect(() => {
     if (invoice?.image_path && open && !isPlaceholderImage) {
@@ -169,10 +171,6 @@ export function InvoiceDetailDialog({
 
   // Check if document date is in the future
   const isFutureDate = editDocumentDate && new Date(editDocumentDate) > new Date();
-  const effectiveClassification = invoice.final_classification ?? invoice.ai_classification;
-  const canToggleAccountingExclusion =
-    effectiveClassification === 'Não dedutível' || invoice.accounting_excluded;
-
   // Reclassify single invoice with AI
   const handleReclassify = async () => {
     setIsReclassifying(true);
@@ -246,7 +244,7 @@ export function InvoiceDetailDialog({
       // For NIF: keep as-is (supports foreign VAT IDs)
       const nifValue = editSupplierNif.trim() || invoice.supplier_nif;
 
-      const updates: Record<string, any> = {
+      const updates: Partial<Invoice> = {
         supplier_nif: nifValue,
         supplier_name: editSupplierName || invoice.supplier_name,
         document_date: editDocumentDate || invoice.document_date,
@@ -262,6 +260,27 @@ export function InvoiceDetailDialog({
         .eq('id', invoice.id);
 
       if (error) throw error;
+
+      const normalizedSupplierName = editSupplierName.trim();
+      const normalizedSupplierNif = String(nifValue || '').trim();
+
+      if (normalizedSupplierName && /^\d{9}$/.test(normalizedSupplierNif) && normalizedSupplierNif !== '999999990') {
+        await Promise.allSettled([
+          supabase
+            .from('supplier_directory')
+            .upsert({
+              nif: normalizedSupplierNif,
+              name: normalizedSupplierName,
+              source: 'manual',
+              confidence: 100,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'nif' }),
+          supabase
+            .from('ai_metrics')
+            .update({ supplier_name: normalizedSupplierName })
+            .eq('supplier_nif', normalizedSupplierNif),
+        ]);
+      }
 
       toast.success('Dados da factura actualizados');
       setIsEditing(false);
@@ -396,12 +415,12 @@ export function InvoiceDetailDialog({
                 ) : isPlaceholderImage ? (
                   <div className="aspect-[3/4] bg-muted/50 rounded-lg flex flex-col items-center justify-center text-muted-foreground p-6 text-center">
                     <CloudDownload className="h-12 w-12 mb-3 text-primary/40" />
-                    <p className="text-sm font-medium mb-1">Documento importado electronicamente</p>
+                    <p className="text-sm font-medium mb-1">Documento importado sem ficheiro associado</p>
                     <p className="text-xs text-muted-foreground">
                       Origem: {importSourceLabel}
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">
-                      Os dados foram extraídos directamente da AT — não existe imagem associada.
+                      Este registo foi criado por sincronização ou importação tabular, por isso não existe preview do original.
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
                       Consulte os <strong>Detalhes</strong> para ver toda a informação do documento.
@@ -481,7 +500,7 @@ export function InvoiceDetailDialog({
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           <div>
                             <p className="text-muted-foreground">Nome</p>
-                            <p className="font-medium">{invoice.supplier_name || invoice.supplier_nif || 'N/A'}</p>
+                            <p className="font-medium">{supplierDisplayName}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground">NIF/VAT</p>
@@ -641,7 +660,7 @@ export function InvoiceDetailDialog({
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold">Classificação</h3>
               <div className="flex items-center gap-2">
-                {onExcludeFromAccounting && canToggleAccountingExclusion && invoice.status !== 'rejected' && (
+                {onExcludeFromAccounting && invoice.status !== 'rejected' && (
                   <Button
                     variant={invoice.accounting_excluded ? 'outline' : 'secondary'}
                     size="sm"

@@ -13,6 +13,8 @@ import { Eye, CheckCircle, Clock, FileText, AlertCircle, ArrowUpDown, ArrowUp, A
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import type { Tables } from '@/integrations/supabase/types';
+import { getSupplierDisplayName } from '@/lib/supplierNameResolver';
+import { matchesRecentImportWindow } from '@/lib/recentImports';
 
 type Invoice = Tables<'invoices'>;
 
@@ -71,20 +73,23 @@ export function InvoiceTable({ invoices, loading, onSelectInvoice, selectable, s
       let comparison = 0;
 
       switch (sortField) {
-        case 'confidence':
+        case 'confidence': {
           const confA = a.ai_confidence ?? 100;
           const confB = b.ai_confidence ?? 100;
           comparison = confA - confB;
           break;
+        }
         case 'date':
           comparison = new Date(a.document_date).getTime() - new Date(b.document_date).getTime();
           break;
         case 'amount':
           comparison = Number(a.total_amount) - Number(b.total_amount);
           break;
-        case 'supplier':
-          comparison = (a.supplier_name || a.supplier_nif || '').localeCompare(b.supplier_name || b.supplier_nif || '', 'pt');
+        case 'supplier': {
+          comparison = getSupplierDisplayName(a.supplier_name, a.supplier_nif)
+            .localeCompare(getSupplierDisplayName(b.supplier_name, b.supplier_nif), 'pt');
           break;
+        }
         case 'nif':
           comparison = (a.supplier_nif || '').localeCompare(b.supplier_nif || '', 'pt');
           break;
@@ -324,10 +329,19 @@ export function InvoiceTable({ invoices, loading, onSelectInvoice, selectable, s
                   </TableCell>
                 )}
                 <TableCell>
-                  {invoice.document_date ? format(new Date(invoice.document_date), 'dd/MM/yyyy', { locale: pt }) : '—'}
+                  <div className="flex flex-col gap-1">
+                    <span>
+                      {invoice.document_date ? format(new Date(invoice.document_date), 'dd/MM/yyyy', { locale: pt }) : '—'}
+                    </span>
+                    {matchesRecentImportWindow(invoice.created_at, '24h') && (
+                      <Badge variant="outline" className="w-fit text-[10px] uppercase tracking-wide">
+                        Nova importação
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="font-medium">
-                  {invoice.supplier_name || invoice.supplier_nif || 'N/A'}
+                  {getSupplierDisplayName(invoice.supplier_name, invoice.supplier_nif)}
                 </TableCell>
                 <TableCell className="font-mono text-sm">
                   {invoice.supplier_nif}

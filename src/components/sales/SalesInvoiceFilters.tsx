@@ -9,8 +9,9 @@ interface SalesInvoiceFiltersProps {
     fiscalPeriod: string;
     search: string;
     clientId: string;
+    recentWindow?: string;
   };
-  onFiltersChange: (filters: { status: string; fiscalPeriod: string; search: string; clientId: string }) => void;
+  onFiltersChange: (filters: { status: string; fiscalPeriod: string; search: string; clientId: string; recentWindow?: string }) => void;
   fiscalPeriods: string[];
 }
 
@@ -59,6 +60,20 @@ export function SalesInvoiceFilters({
               {formatFiscalPeriod(period)}
             </SelectItem>
           ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={filters.recentWindow || 'all'}
+        onValueChange={(value) => onFiltersChange({ ...filters, recentWindow: value })}
+      >
+        <SelectTrigger className="w-full sm:w-[180px]">
+          <SelectValue placeholder="Importação" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todas as importações</SelectItem>
+          <SelectItem value="24h">Últimas 24 horas</SelectItem>
+          <SelectItem value="7d">Últimos 7 dias</SelectItem>
         </SelectContent>
       </Select>
     </div>

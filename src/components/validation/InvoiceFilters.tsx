@@ -11,8 +11,9 @@ interface InvoiceFiltersProps {
     search: string;
     clientId: string;
     reviewFilter?: string;
+    recentWindow?: string;
   };
-  onFiltersChange: (filters: { status: string; fiscalPeriod: string; year: string; search: string; clientId: string; reviewFilter?: string }) => void;
+  onFiltersChange: (filters: { status: string; fiscalPeriod: string; year: string; search: string; clientId: string; reviewFilter?: string; recentWindow?: string }) => void;
   fiscalPeriods: string[];
 }
 
@@ -99,6 +100,20 @@ export function InvoiceFilters({
           <SelectItem value="all">Todas</SelectItem>
           <SelectItem value="needs_review">Pendentes revisão</SelectItem>
           <SelectItem value="auto_approved">Auto-aprovadas</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={filters.recentWindow || 'all'}
+        onValueChange={(value) => onFiltersChange({ ...filters, recentWindow: value })}
+      >
+        <SelectTrigger className="w-full sm:w-[200px]">
+          <SelectValue placeholder="Importação" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todas as importações</SelectItem>
+          <SelectItem value="24h">Últimas 24 horas</SelectItem>
+          <SelectItem value="7d">Últimos 7 dias</SelectItem>
         </SelectContent>
       </Select>
     </div>

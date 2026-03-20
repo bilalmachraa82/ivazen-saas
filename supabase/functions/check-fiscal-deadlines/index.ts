@@ -228,7 +228,7 @@ Deno.serve(async (req) => {
 
     const { data: profileRows, error: profileError } = await supabase
       .from('profiles')
-      .select('id, iva_cadence')
+      .select('id, iva_cadence, vat_regime')
       .in('id', uniquePrefs.map((pref) => pref.user_id));
 
     if (profileError) {
@@ -238,6 +238,9 @@ Deno.serve(async (req) => {
 
     const ivaCadenceByUser = new Map(
       (profileRows || []).map((profile) => [profile.id, profile.iva_cadence || 'quarterly']),
+    );
+    const vatRegimeByUser = new Map(
+      (profileRows || []).map((profile) => [profile.id, profile.vat_regime || null]),
     );
 
     // Get push subscriptions
@@ -264,13 +267,19 @@ Deno.serve(async (req) => {
         const reminderDays = pref.reminder_days?.length > 0 ? pref.reminder_days : [1, 3, 7];
         if (!reminderDays.includes(deadline.daysUntil)) return false;
 
+        const isAccountantUser = accountantIdSet.has(pref.user_id);
+        const vatRegime = vatRegimeByUser.get(pref.user_id);
+        if (!isAccountantUser && vatRegime === 'exempt' && (deadline.type === 'iva_monthly' || deadline.type === 'iva_quarterly')) {
+          return false;
+        }
+
         if (deadline.type === 'iva_monthly') {
-          return accountantIdSet.has(pref.user_id) || ivaCadenceByUser.get(pref.user_id) === 'monthly';
+          return isAccountantUser || ivaCadenceByUser.get(pref.user_id) === 'monthly';
         }
 
         if (deadline.type === 'iva_quarterly') {
           const cadence = ivaCadenceByUser.get(pref.user_id) || 'quarterly';
-          return accountantIdSet.has(pref.user_id) || cadence !== 'monthly';
+          return isAccountantUser || cadence !== 'monthly';
         }
 
         return true;

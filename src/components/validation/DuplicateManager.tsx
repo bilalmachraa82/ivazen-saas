@@ -14,6 +14,7 @@ import { Copy, Trash2, Shield, CheckCircle, AlertTriangle, Loader2 } from 'lucid
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { enrichSupplierNames, getSupplierDisplayName } from '@/lib/supplierNameResolver';
 
 interface DuplicateGroup {
   atcud: string;
@@ -60,10 +61,12 @@ export function DuplicateManager({ onCleanupComplete }: DuplicateManagerProps) {
       if (error) throw error;
       if (!data) return;
 
-      // Group by ATCUD or (NIF + doc_number + date)
-      const groupMap = new Map<string, typeof data>();
+      const enrichedData = await enrichSupplierNames(data);
 
-      data.forEach((inv) => {
+      // Group by ATCUD or (NIF + doc_number + date)
+      const groupMap = new Map<string, typeof enrichedData>();
+
+      enrichedData.forEach((inv) => {
         const key = inv.atcud
           ? `atcud:${inv.atcud}`
           : inv.document_number
@@ -215,7 +218,7 @@ export function DuplicateManager({ onCleanupComplete }: DuplicateManagerProps) {
           {groups.map((group, gi) => (
             <ZenCard key={gi} withLine animationDelay={`${gi * 50}ms`}>
               <ZenCardHeader
-                title={`${group.supplier_name || group.supplier_nif} — ${group.invoices.length} cópias`}
+                title={`${getSupplierDisplayName(group.supplier_name, group.supplier_nif)} — ${group.invoices.length} cópias`}
                 icon={Copy}
               />
               <CardContent>

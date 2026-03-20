@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -17,6 +18,7 @@ import { TaxFlowWidget } from '@/components/dashboard/TaxFlowWidget';
 import { AttentionItems } from '@/components/dashboard/AttentionItems';
 import { FiscalDeadlines } from '@/components/accountant/FiscalDeadlines';
 import { useClientReadiness, readinessConfig, readinessOrder } from '@/hooks/useClientReadiness';
+import { supabase } from '@/integrations/supabase/client';
 import {
   FileText,
   Clock,
@@ -43,6 +45,22 @@ export default function Dashboard() {
   const { selectedClientId } = useSelectedClient();
   const { getClientById } = useAccountantClients({ enabled: isAccountant });
   const selectedClient = isAccountant ? getClientById(selectedClientId) : null;
+  const { data: selectedClientTaxProfile, isLoading: selectedClientTaxProfileLoading } = useQuery({
+    queryKey: ['dashboard-selected-client-tax-profile', selectedClientId],
+    queryFn: async () => {
+      if (!selectedClientId) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('vat_regime')
+        .eq('id', selectedClientId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: isAccountant && !!selectedClientId,
+    staleTime: 30000,
+  });
   const hasSelectedClient = !isAccountant || !!selectedClientId;
   const selectedDashboardYear = isAccountant && dashboardYearFilter !== 'all'
     ? Number(dashboardYearFilter)
@@ -61,6 +79,9 @@ export default function Dashboard() {
   const ivaCadence = isAccountant
     ? (selectedClient?.iva_cadence ?? 'quarterly')
     : (profile?.iva_cadence ?? 'quarterly');
+  const vatRegime = isAccountant
+    ? (selectedClientTaxProfile?.vat_regime ?? null)
+    : (profile?.vat_regime ?? null);
 
   const hasPendingRequest = myRequest?.status === 'pending';
   const showAccountantPromo = !isAccountant && !hasPendingRequest;
@@ -84,6 +105,14 @@ export default function Dashboard() {
   const openValidationQuery = selectedDashboardYear ? `?status=open&year=${selectedDashboardYear}` : '?status=open';
   const validatedValidationQuery = selectedDashboardYear ? `?status=validated&year=${selectedDashboardYear}` : '?status=validated';
   const lowConfidenceValidationQuery = selectedDashboardYear ? `?review=needs_review&year=${selectedDashboardYear}` : '?review=needs_review';
+  const buildInvoiceValidationRoute = (invoiceId: string) => {
+    const params = new URLSearchParams();
+    params.set('invoice', invoiceId);
+    if (selectedDashboardYear) {
+      params.set('year', String(selectedDashboardYear));
+    }
+    return `/validation?${params.toString()}`;
+  };
 
   useEffect(() => {
     if (!loading && !user) {
@@ -91,7 +120,7 @@ export default function Dashboard() {
     }
   }, [user, loading, navigate]);
 
-  if (loading || statsLoading) {
+  if (loading || statsLoading || selectedClientTaxProfileLoading) {
     return <ZenLoader fullScreen text="A carregar..." />;
   }
 
@@ -313,6 +342,7 @@ export default function Dashboard() {
                 ssDeclarationsPending={0}
                 pendingValidation={stats.pending}
                 ivaCadence={ivaCadence}
+                vatRegime={vatRegime}
               />
             </div>
 
@@ -350,8 +380,9 @@ export default function Dashboard() {
                     {recentInvoices.map((invoice, index) => (
                       <div
                         key={invoice.id}
-                        className="flex items-center justify-between p-4 rounded-xl border border-border/50 hover:border-primary/30 hover:bg-muted/30 transition-all duration-300 group animate-fade-in"
+                        className="flex cursor-pointer items-center justify-between p-4 rounded-xl border border-border/50 hover:border-primary/30 hover:bg-muted/30 transition-all duration-300 group animate-fade-in"
                         style={{ animationDelay: `${500 + index * 100}ms` }}
+                        onClick={() => navigate(buildInvoiceValidationRoute(invoice.id))}
                       >
                         <div className="flex items-center gap-4">
                           <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
@@ -385,6 +416,18 @@ export default function Dashboard() {
                           >
                             {invoice.status === 'validated' ? 'Validada' : 'Pendente'}
                           </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              navigate(buildInvoiceValidationRoute(invoice.id));
+                            }}
+                          >
+                            Abrir
+                            <ArrowRight className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
                     ))}

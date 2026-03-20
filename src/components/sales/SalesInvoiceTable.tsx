@@ -9,6 +9,7 @@ import { Eye, CheckCircle, Clock, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, U
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import type { Tables } from '@/integrations/supabase/types';
+import { matchesRecentImportWindow } from '@/lib/recentImports';
 
 type SalesInvoice = Tables<'sales_invoices'>;
 
@@ -191,7 +192,16 @@ export function SalesInvoiceTable({ invoices, loading, onSelectInvoice }: SalesI
               return (
                 <TableRow key={invoice.id} className="cursor-pointer hover:bg-muted/50">
                   <TableCell>
-                    {invoice.document_date ? format(new Date(invoice.document_date), 'dd/MM/yyyy', { locale: pt }) : '—'}
+                    <div className="flex flex-col gap-1">
+                      <span>
+                        {invoice.document_date ? format(new Date(invoice.document_date), 'dd/MM/yyyy', { locale: pt }) : '—'}
+                      </span>
+                      {matchesRecentImportWindow(invoice.created_at, '24h') && (
+                        <Badge variant="outline" className="w-fit text-[10px] uppercase tracking-wide">
+                          Nova importação
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="font-medium">
                     {invoice.customer_name || 'N/A'}

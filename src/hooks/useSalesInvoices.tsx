@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { fetchAllPages } from '@/lib/supabasePagination';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
+import { getRecentImportCutoff, type RecentImportWindow } from '@/lib/recentImports';
 
 type SalesInvoice = Tables<'sales_invoices'>;
 
@@ -12,6 +13,7 @@ export interface SalesInvoiceFilters {
   fiscalPeriod: string;
   search: string;
   clientId: string; // For accountants to filter by client
+  recentWindow?: RecentImportWindow;
 }
 
 const PAGE_SIZE = 50;
@@ -27,6 +29,7 @@ export function useSalesInvoices(externalClientId?: string | null) {
     fiscalPeriod: 'all',
     search: '',
     clientId: 'all',
+    recentWindow: 'all',
   });
 
   const effectiveClientId = externalClientId !== undefined ? externalClientId : filters.clientId;
@@ -66,6 +69,11 @@ export function useSalesInvoices(externalClientId?: string | null) {
           );
         }
 
+        const recentCutoff = getRecentImportCutoff(filters.recentWindow || 'all');
+        if (recentCutoff) {
+          query = query.gte('created_at', recentCutoff);
+        }
+
         if (effectiveClientId && effectiveClientId !== 'all') {
           query = query.eq('client_id', effectiveClientId);
         }
@@ -82,7 +90,7 @@ export function useSalesInvoices(externalClientId?: string | null) {
     } finally {
       setLoading(false);
     }
-  }, [user, filters.status, filters.fiscalPeriod, filters.search, effectiveClientId, externalClientId]);
+  }, [user, filters.status, filters.fiscalPeriod, filters.search, filters.recentWindow, effectiveClientId, externalClientId]);
 
   const validateInvoice = async (invoiceId: string, category?: string, notes?: string) => {
     try {
@@ -152,12 +160,12 @@ export function useSalesInvoices(externalClientId?: string | null) {
   // Single fetch effect — includes search to avoid double-fetch
   useEffect(() => {
     fetchInvoices();
-  }, [user, filters.status, filters.fiscalPeriod, filters.search, effectiveClientId]);
+  }, [user, filters.status, filters.fiscalPeriod, filters.search, filters.recentWindow, effectiveClientId]);
 
   // Reset page when any filter changes
   useEffect(() => {
     setPage(0);
-  }, [filters.status, filters.fiscalPeriod, filters.search, effectiveClientId]);
+  }, [filters.status, filters.fiscalPeriod, filters.search, filters.recentWindow, effectiveClientId]);
 
   return {
     invoices,

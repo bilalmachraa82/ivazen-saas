@@ -25,6 +25,7 @@ import { Clock, CheckCircle, FileText, AlertCircle, Copy, AlertTriangle, Refresh
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { matchesRecentImportWindow } from '@/lib/recentImports';
 import { StepNavigator } from '@/components/dashboard/StepNavigator';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -51,6 +52,7 @@ export default function Validation() {
     validateInvoice,
     rejectInvoice,
     setAccountingExcluded,
+    setAccountingExcludedBulk,
     reExtractInvoice,
     getSignedUrl,
     getFiscalPeriods,
@@ -64,6 +66,7 @@ export default function Validation() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isUpdatingAccountingBulk, setIsUpdatingAccountingBulk] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -101,11 +104,13 @@ export default function Validation() {
     const status = searchParams.get('status') || 'all';
     const review = searchParams.get('review') || 'all';
     const year = searchParams.get('year') || 'all';
+    const recent = searchParams.get('recent') || 'all';
     setFilters((prev) => {
       if (
         prev.status === status &&
         (prev.reviewFilter || 'all') === review &&
-        prev.year === year
+        prev.year === year &&
+        (prev.recentWindow || 'all') === recent
       ) {
         return prev;
       }
@@ -115,9 +120,95 @@ export default function Validation() {
         status,
         reviewFilter: review,
         year,
+        recentWindow: recent as 'all' | '24h' | '7d',
       };
     });
   }, [searchParams, searchParamsKey, setFilters]);
+
+  useEffect(() => {
+    const clientFromQuery = searchParams.get('client');
+    if (!isAccountant || !clientFromQuery) return;
+    if (selectedClientId === clientFromQuery) return;
+    setSelectedClientId(clientFromQuery);
+  }, [isAccountant, searchParams, selectedClientId, setSelectedClientId]);
+
+  const handleSelectInvoiceById = useCallback(async (invoiceId: string) => {
+    const existingInvoice = invoices.find((invoice) => invoice.id === invoiceId);
+    if (existingInvoice) {
+      setSelectedInvoice(existingInvoice);
+      setDialogOpen(true);
+      return;
+    }
+
+    let query = supabase
+      .from('invoices')
+      .select('*')
+      .eq('id', invoiceId);
+
+    if (effectiveClientId) {
+      query = query.eq('client_id', effectiveClientId);
+    }
+
+    const { data, error } = await query.maybeSingle();
+
+    if (error) {
+      console.error('Error opening invoice from reconciliation:', error);
+      toast.error('Não foi possível abrir a factura seleccionada');
+      return;
+    }
+
+    if (!data) {
+      toast.error('A factura seleccionada não está disponível para este cliente');
+      return;
+    }
+
+    setSelectedInvoice(data as Invoice);
+    setDialogOpen(true);
+  }, [effectiveClientId, invoices]);
+
+  useEffect(() => {
+    const invoiceFromQuery = searchParams.get('invoice');
+    if (!invoiceFromQuery || dialogOpen) return;
+    if (authLoading || profileLoading || isCheckingRole || loading) return;
+    if (isAccountant && !selectedClientId) return;
+
+    void handleSelectInvoiceById(invoiceFromQuery);
+  }, [
+    authLoading,
+    dialogOpen,
+    handleSelectInvoiceById,
+    isAccountant,
+    isCheckingRole,
+    loading,
+    profileLoading,
+    searchParams,
+    selectedClientId,
+  ]);
+
+  const syncFilterParams = useCallback((updates: Partial<{
+    status: string;
+    review: string;
+    year: string;
+    recent: string;
+  }>) => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('status');
+    next.delete('review');
+    next.delete('year');
+    next.delete('recent');
+
+    const status = updates.status ?? filters.status;
+    const review = updates.review ?? (filters.reviewFilter || 'all');
+    const year = updates.year ?? filters.year;
+    const recent = updates.recent ?? (filters.recentWindow || 'all');
+
+    if (status !== 'all') next.set('status', status);
+    if (review !== 'all') next.set('review', review);
+    if (year !== 'all') next.set('year', year);
+    if (recent !== 'all') next.set('recent', recent);
+
+    setSearchParams(next);
+  }, [filters.reviewFilter, filters.recentWindow, filters.status, filters.year, searchParams, setSearchParams]);
 
   if (authLoading || profileLoading) {
     return <ZenLoader fullScreen text="A carregar..." />;
@@ -229,6 +320,16 @@ export default function Validation() {
     setDialogOpen(true);
   };
 
+  const handleDialogOpenChange = (open: boolean) => {
+    setDialogOpen(open);
+
+    if (!open && searchParams.has('invoice')) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('invoice');
+      setSearchParams(nextParams, { replace: true });
+    }
+  };
+
   const handleValidate = async (invoiceId: string, classification: {
     final_classification: string;
     final_dp_field: number | null;
@@ -283,12 +384,43 @@ export default function Validation() {
     setIsDeleting(false);
   };
 
+  const handleBulkAccountingToggle = async () => {
+    if (selectedIds.size === 0) return;
+
+    const selectedInvoices = invoices.filter((inv) => selectedIds.has(inv.id));
+    if (selectedInvoices.length === 0) return;
+
+    const shouldExclude = !selectedInvoices.every((inv) => inv.accounting_excluded);
+    setIsUpdatingAccountingBulk(true);
+
+    const ok = await setAccountingExcludedBulk(
+      selectedInvoices.map((invoice) => invoice.id),
+      shouldExclude,
+    );
+
+    if (ok) {
+      setSelectedIds(new Set());
+      setSelectionMode(false);
+    }
+
+    setIsUpdatingAccountingBulk(false);
+  };
+
   const toggleSelectionMode = () => {
     if (selectionMode) {
       setSelectedIds(new Set());
     }
     setSelectionMode(!selectionMode);
   };
+
+  const filteredInvoiceIds = invoices.map((invoice) => invoice.id);
+  const allFilteredSelected = invoices.length > 0 && filteredInvoiceIds.every((id) => selectedIds.has(id));
+  const selectedInvoices = invoices.filter((invoice) => selectedIds.has(invoice.id));
+  const allSelectedAccountingExcluded = selectedInvoices.length > 0
+    && selectedInvoices.every((invoice) => invoice.accounting_excluded);
+  const recentImportsCount = invoices.filter((invoice) =>
+    matchesRecentImportWindow(invoice.created_at, '24h'),
+  ).length;
 
   return (
     <DashboardLayout>
@@ -344,7 +476,7 @@ export default function Validation() {
 
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <ZenStatsCard
             icon={Clock}
             value={pendingCount}
@@ -353,7 +485,7 @@ export default function Validation() {
             animationDelay="0ms"
             onClick={() => {
               setFilters((prev) => ({ ...prev, status: 'pending', reviewFilter: 'all' }));
-              setSearchParams({ status: 'pending' });
+              syncFilterParams({ status: 'pending', review: 'all' });
             }}
           />
           <ZenStatsCard
@@ -364,7 +496,7 @@ export default function Validation() {
             animationDelay="50ms"
             onClick={() => {
               setFilters((prev) => ({ ...prev, status: 'all', reviewFilter: 'needs_review' }));
-              setSearchParams({ review: 'needs_review' });
+              syncFilterParams({ status: 'all', review: 'needs_review' });
             }}
           />
           <ZenStatsCard
@@ -375,7 +507,7 @@ export default function Validation() {
             animationDelay="100ms"
             onClick={() => {
               setFilters((prev) => ({ ...prev, status: 'all', reviewFilter: 'auto_approved' }));
-              setSearchParams({ review: 'auto_approved' });
+              syncFilterParams({ status: 'all', review: 'auto_approved' });
             }}
           />
           <ZenStatsCard
@@ -386,7 +518,18 @@ export default function Validation() {
             animationDelay="150ms"
             onClick={() => {
               setFilters((prev) => ({ ...prev, status: 'validated', reviewFilter: 'all' }));
-              setSearchParams({ status: 'validated' });
+              syncFilterParams({ status: 'validated', review: 'all' });
+            }}
+          />
+          <ZenStatsCard
+            icon={UploadIcon}
+            value={recentImportsCount}
+            label="Importadas 24h"
+            variant="default"
+            animationDelay="200ms"
+            onClick={() => {
+              setFilters((prev) => ({ ...prev, status: 'all', reviewFilter: 'all', recentWindow: '24h' }));
+              syncFilterParams({ status: 'all', review: 'all', recent: '24h' });
             }}
           />
         </div>
@@ -446,16 +589,49 @@ export default function Validation() {
               </div>
 
               {/* Bulk Action Bar */}
-              {selectionMode && selectedIds.size > 0 && (
+              {selectionMode && (
                 <div className="mx-6 mt-3 flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
                   <span className="text-sm font-medium">
                     {selectedIds.size} factura{selectedIds.size !== 1 ? 's' : ''} selecionada{selectedIds.size !== 1 ? 's' : ''}
                   </span>
                   <div className="ml-auto flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedIds(new Set(filteredInvoiceIds))}
+                      disabled={allFilteredSelected || invoices.length === 0}
+                      className="gap-1.5"
+                    >
+                      <CheckSquare className="h-3.5 w-3.5" />
+                      Selecionar filtradas ({invoices.length})
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedIds(new Set())}
+                      disabled={selectedIds.size === 0}
+                    >
+                      Limpar
+                    </Button>
+                    {selectedIds.size > 0 && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleBulkAccountingToggle}
+                        disabled={isUpdatingAccountingBulk}
+                        className="gap-1.5"
+                      >
+                        <AlertCircle className="h-3.5 w-3.5" />
+                        {allSelectedAccountingExcluded ? 'Voltar a contabilizar' : `Não contabilizar (${selectedIds.size})`}
+                      </Button>
+                    )}
+                    {selectedIds.size > 0 && (
                     <Button variant="outline" size="sm" onClick={handleExportSelected} className="gap-1.5">
                       <Download className="h-3.5 w-3.5" />
                       Exportar Excel
                     </Button>
+                    )}
+                    {selectedIds.size > 0 && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="sm" disabled={isDeleting} className="gap-1.5">
@@ -481,6 +657,7 @@ export default function Validation() {
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
+                    )}
                   </div>
                 </div>
               )}
@@ -520,6 +697,7 @@ export default function Validation() {
                   <ReconciliationTab
                     clientId={(effectiveClientId || user?.id)!}
                     onCleanupComplete={() => refetch()}
+                    onOpenInvoice={handleSelectInvoiceById}
                   />
                 ) : (
                   <p className="text-sm text-muted-foreground py-4">
@@ -537,7 +715,7 @@ export default function Validation() {
       <InvoiceDetailDialog
         invoice={selectedInvoice}
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={handleDialogOpenChange}
         onValidate={handleValidate}
         onReExtract={reExtractInvoice}
         onReject={rejectInvoice}

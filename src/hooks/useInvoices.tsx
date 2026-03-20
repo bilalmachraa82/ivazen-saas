@@ -7,6 +7,8 @@ import { detectMimeType } from '@/lib/mime';
 import { deriveFiscalPeriodFromDocumentDate, normalizeDocumentDate } from '@/lib/fiscalPeriod';
 import { fetchAllPages } from '@/lib/supabasePagination';
 import { isTemporarySupplierTaxId, normalizeSupplierTaxId, normalizeSupplierVatId } from '@/lib/taxId';
+import { enrichSupplierNames } from '@/lib/supplierNameResolver';
+import { getRecentImportCutoff, type RecentImportWindow } from '@/lib/recentImports';
 
 type Invoice = Tables<'invoices'>;
 
@@ -17,6 +19,7 @@ interface InvoiceFilters {
   search: string;
   clientId: string; // For accountants to filter by client
   reviewFilter?: string; // 'all' | 'needs_review' | 'auto_approved'
+  recentWindow?: RecentImportWindow;
 }
 
 interface ClassificationUpdate {
@@ -115,6 +118,7 @@ export function useInvoices(externalClientId?: string | null) {
     year: 'all',
     search: '',
     clientId: 'all',
+    recentWindow: 'all',
   });
 
   // When externalClientId is provided, it takes precedence over filters.clientId
@@ -159,10 +163,6 @@ export function useInvoices(externalClientId?: string | null) {
             .lte('document_date', `${filters.year}-12-31`);
         }
 
-        if (filters.search) {
-          query = query.or(`supplier_name.ilike.%${filters.search}%,supplier_nif.ilike.%${filters.search}%`);
-        }
-
         if (effectiveClientId && effectiveClientId !== 'all') {
           query = query.eq('client_id', effectiveClientId);
         }
@@ -173,12 +173,33 @@ export function useInvoices(externalClientId?: string | null) {
           query = query.eq('requires_accountant_validation', false);
         }
 
+        const recentCutoff = getRecentImportCutoff(filters.recentWindow || 'all');
+        if (recentCutoff) {
+          query = query.gte('created_at', recentCutoff);
+        }
+
         return query;
       };
 
       const data = await fetchAllPages<Invoice>((from, to) => buildQuery().range(from, to));
-      setInvoices(data);
-      setTotalCount(data.length);
+      const enrichedData = await enrichSupplierNames(data);
+      const searchTerm = filters.search.trim().toLowerCase();
+      const filteredData = searchTerm
+        ? enrichedData.filter((invoice) => {
+            const supplierName = invoice.supplier_name?.toLowerCase() || '';
+            const supplierNif = invoice.supplier_nif?.toLowerCase() || '';
+            const documentNumber = invoice.document_number?.toLowerCase() || '';
+
+            return (
+              supplierName.includes(searchTerm)
+              || supplierNif.includes(searchTerm)
+              || documentNumber.includes(searchTerm)
+            );
+          })
+        : enrichedData;
+
+      setInvoices(filteredData);
+      setTotalCount(filteredData.length);
     } catch (error) {
       console.error('Error fetching invoices:', error);
       toast.error('Erro ao carregar facturas');
@@ -194,6 +215,7 @@ export function useInvoices(externalClientId?: string | null) {
     filters.year,
     filters.search,
     filters.reviewFilter,
+    filters.recentWindow,
   ]);
 
   const validateInvoice = async (invoiceId: string, classification: ClassificationUpdate) => {
@@ -479,6 +501,34 @@ export function useInvoices(externalClientId?: string | null) {
     }
   };
 
+  const setAccountingExcludedBulk = async (invoiceIds: string[], excluded: boolean) => {
+    if (invoiceIds.length === 0) return true;
+
+    try {
+      const { error } = await supabase
+        .from('invoices')
+        .update({
+          accounting_excluded: excluded,
+          exclusion_reason: excluded ? 'Nao contabilizar' : null,
+        })
+        .in('id', invoiceIds);
+
+      if (error) throw error;
+
+      toast.success(
+        excluded
+          ? `${invoiceIds.length} factura(s) marcada(s) como não contabilizada(s)`
+          : `${invoiceIds.length} factura(s) reintegrada(s) na contabilidade`,
+      );
+      await fetchInvoices();
+      return true;
+    } catch (error) {
+      console.error('Error updating bulk accounting exclusion:', error);
+      toast.error('Erro ao actualizar exclusão contabilística em massa');
+      return false;
+    }
+  };
+
   const getSignedUrl = async (imagePath: string) => {
     const { data, error } = await supabase.storage
       .from('invoices')
@@ -525,7 +575,7 @@ export function useInvoices(externalClientId?: string | null) {
   // Reset page when any filter changes
   useEffect(() => {
     setPage(0);
-  }, [filters.status, filters.fiscalPeriod, filters.year, filters.search, filters.reviewFilter, effectiveClientId]);
+  }, [filters.status, filters.fiscalPeriod, filters.year, filters.search, filters.reviewFilter, filters.recentWindow, effectiveClientId]);
 
   return {
     invoices,
@@ -535,6 +585,7 @@ export function useInvoices(externalClientId?: string | null) {
     validateInvoice,
     rejectInvoice,
     setAccountingExcluded,
+    setAccountingExcludedBulk,
     reExtractInvoice,
     getSignedUrl,
     getFiscalPeriods,

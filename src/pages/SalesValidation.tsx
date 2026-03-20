@@ -15,6 +15,7 @@ import { SalesInvoiceDetailDialog } from '@/components/sales/SalesInvoiceDetailD
 import { ClientSearchSelector } from '@/components/ui/client-search-selector';
 import { CardContent } from '@/components/ui/card';
 import { Clock, CheckCircle, TrendingUp, Users } from 'lucide-react';
+import { matchesRecentImportWindow } from '@/lib/recentImports';
 import { StepNavigator } from '@/components/dashboard/StepNavigator';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -65,7 +66,12 @@ export default function SalesValidation() {
 
   useEffect(() => {
     const status = searchParams.get('status') || 'all';
-    setFilters((prev) => (prev.status === status ? prev : { ...prev, status }));
+    const recent = searchParams.get('recent') || 'all';
+    setFilters((prev) => (
+      prev.status === status && (prev.recentWindow || 'all') === recent
+        ? prev
+        : { ...prev, status, recentWindow: recent as 'all' | '24h' | '7d' }
+    ));
   }, [searchParamsKey, setFilters]);
 
   if (authLoading || profileLoading || isCheckingRole || isLoadingClients) {
@@ -147,6 +153,9 @@ export default function SalesValidation() {
   const pendingCount = invoices.filter((inv) => inv.status === 'pending').length;
   const validatedCount = invoices.filter((inv) => inv.status === 'validated').length;
   const totalAmount = invoices.reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+  const recentImportsCount = invoices.filter((invoice) =>
+    matchesRecentImportWindow(invoice.created_at, '24h'),
+  ).length;
 
   return (
     <DashboardLayout>
@@ -160,7 +169,7 @@ export default function SalesValidation() {
 
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
         <ZenStatsCard
           label="Pendentes"
           value={pendingCount}
@@ -168,7 +177,7 @@ export default function SalesValidation() {
           variant={pendingCount > 0 ? 'warning' : 'default'}
           onClick={() => {
             setFilters((prev) => ({ ...prev, status: 'pending' }));
-            setSearchParams({ status: 'pending' });
+            setSearchParams({ status: 'pending', ...(filters.recentWindow && filters.recentWindow !== 'all' ? { recent: filters.recentWindow } : {}) });
           }}
         />
         <ZenStatsCard
@@ -178,7 +187,7 @@ export default function SalesValidation() {
           variant="success"
           onClick={() => {
             setFilters((prev) => ({ ...prev, status: 'validated' }));
-            setSearchParams({ status: 'validated' });
+            setSearchParams({ status: 'validated', ...(filters.recentWindow && filters.recentWindow !== 'all' ? { recent: filters.recentWindow } : {}) });
           }}
         />
         <ZenStatsCard
@@ -188,7 +197,17 @@ export default function SalesValidation() {
           variant="default"
           onClick={() => {
             setFilters((prev) => ({ ...prev, status: 'all' }));
-            setSearchParams({});
+            setSearchParams(filters.recentWindow && filters.recentWindow !== 'all' ? { recent: filters.recentWindow } : {});
+          }}
+        />
+        <ZenStatsCard
+          label="Importadas 24h"
+          value={recentImportsCount}
+          icon={TrendingUp}
+          variant="default"
+          onClick={() => {
+            setFilters((prev) => ({ ...prev, status: 'all', recentWindow: '24h' }));
+            setSearchParams({ recent: '24h' });
           }}
         />
       </div>

@@ -28,18 +28,21 @@ interface FiscalDeadlinesProps {
   ssDeclarationsPending: number;
   pendingValidation: number;
   ivaCadence?: 'monthly' | 'quarterly' | 'both';
+  vatRegime?: string | null;
 }
 
 export function FiscalDeadlines({
   ssDeclarationsPending,
   pendingValidation,
   ivaCadence = 'quarterly',
+  vatRegime = null,
 }: FiscalDeadlinesProps) {
   const deadlines = useMemo((): Deadline[] => {
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
     const currentQuarter = Math.ceil((currentMonth + 1) / 3);
+    const skipIvaDeadlines = vatRegime === 'exempt';
     
     const allDeadlines: Deadline[] = [];
     
@@ -49,7 +52,7 @@ export function FiscalDeadlines({
       ivaMonthlyDue.setMonth(ivaMonthlyDue.getMonth() + 1);
     }
 
-    if (ivaCadence !== 'quarterly') {
+    if (!skipIvaDeadlines && ivaCadence !== 'quarterly') {
       const ivaMonthlyStatus = getDeadlineStatus(ivaMonthlyDue, pendingValidation > 5);
       allDeadlines.push({
         id: 'iva-monthly',
@@ -90,7 +93,7 @@ export function FiscalDeadlines({
     };
     const quarterLabel = quarterLabels[String(ivaQuarterlyDue.getMonth())] || '';
 
-    if (ivaCadence !== 'monthly') {
+    if (!skipIvaDeadlines && ivaCadence !== 'monthly') {
       const ivaQuarterlyStatus = getDeadlineStatus(ivaQuarterlyDue, pendingValidation > 5);
       allDeadlines.push({
         id: 'iva-quarterly',
@@ -182,7 +185,7 @@ export function FiscalDeadlines({
       if (a.priority !== b.priority) return a.priority - b.priority;
       return a.dueDate.getTime() - b.dueDate.getTime();
     });
-  }, [ssDeclarationsPending, pendingValidation, ivaCadence]);
+  }, [ssDeclarationsPending, pendingValidation, ivaCadence, vatRegime]);
 
   // Count urgent items
   const urgentCount = deadlines.filter(d => d.status === 'overdue' || d.status === 'urgent').length;
