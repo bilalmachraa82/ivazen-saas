@@ -699,6 +699,7 @@ async function insertSalesInvoicesFromAT(
         image_path: `at-webservice-sales/${clientId}/${
           documentNumber || Date.now()
         }`,
+        import_source: "api",
         // AT connector data is authoritative for issued invoices.
         status: "validated",
         validated_at: new Date().toISOString(),

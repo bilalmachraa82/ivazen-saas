@@ -7,11 +7,12 @@ interface InvoiceFiltersProps {
   filters: {
     status: string;
     fiscalPeriod: string;
+    year: string;
     search: string;
     clientId: string;
     reviewFilter?: string;
   };
-  onFiltersChange: (filters: { status: string; fiscalPeriod: string; search: string; clientId: string; reviewFilter?: string }) => void;
+  onFiltersChange: (filters: { status: string; fiscalPeriod: string; year: string; search: string; clientId: string; reviewFilter?: string }) => void;
   fiscalPeriods: string[];
 }
 
@@ -20,6 +21,9 @@ export function InvoiceFilters({
   onFiltersChange, 
   fiscalPeriods, 
 }: InvoiceFiltersProps) {
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 4 }, (_, index) => String(currentYear - index));
+
   return (
     <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
       <div className="relative flex-1 min-w-[200px]">
@@ -41,6 +45,7 @@ export function InvoiceFilters({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">Todos os estados</SelectItem>
+          <SelectItem value="open">Por rever</SelectItem>
           <SelectItem value="pending">Pendente</SelectItem>
           <SelectItem value="classified">Classificada</SelectItem>
           <SelectItem value="validated">Validada</SelectItem>
@@ -61,6 +66,23 @@ export function InvoiceFilters({
           {fiscalPeriods.map((period) => (
             <SelectItem key={period} value={period}>
               {formatFiscalPeriod(period)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={filters.year}
+        onValueChange={(value) => onFiltersChange({ ...filters, year: value })}
+      >
+        <SelectTrigger className="w-full sm:w-[160px]">
+          <SelectValue placeholder="Ano" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos os anos</SelectItem>
+          {yearOptions.map((year) => (
+            <SelectItem key={year} value={year}>
+              Ano {year}
             </SelectItem>
           ))}
         </SelectContent>

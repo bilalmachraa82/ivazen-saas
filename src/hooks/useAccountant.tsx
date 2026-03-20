@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { fetchAllPages } from '@/lib/supabasePagination';
 import {
   isFiscallyEffectivePurchase,
   isPurchasePendingReview,
@@ -69,6 +70,20 @@ interface AccountantMetrics {
   ssTotalContributions: number;
 }
 
+const CLIENT_ID_BATCH_SIZE = 20;
+const DASHBOARD_INVOICE_LIMIT = 200;
+const SS_DECLARATION_LIMIT = 50;
+
+function chunkArray<T>(items: T[], chunkSize: number): T[][] {
+  const chunks: T[][] = [];
+
+  for (let index = 0; index < items.length; index += chunkSize) {
+    chunks.push(items.slice(index, index + chunkSize));
+  }
+
+  return chunks;
+}
+
 export function useAccountant() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -133,16 +148,29 @@ export function useAccountant() {
       if (!user?.id || !clients?.length) return [];
 
       const clientIds = clients.map(c => c.id);
-      
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('*')
-        .in('client_id', clientIds)
-        .order('document_date', { ascending: false })
-        .limit(200);
+      const clientIdBatches = chunkArray(clientIds, CLIENT_ID_BATCH_SIZE);
 
-      if (error) throw error;
-      return data as ClientInvoice[];
+      const invoiceBatches = await Promise.all(
+        clientIdBatches.map(async (clientIdBatch) => {
+          const rows = await fetchAllPages<ClientInvoice>(
+            (from, to) =>
+              supabase
+                .from('invoices')
+                .select('*')
+                .in('client_id', clientIdBatch)
+                .order('document_date', { ascending: false })
+                .range(from, to),
+            { pageSize: 500 },
+          );
+
+          return rows;
+        }),
+      );
+
+      return invoiceBatches
+        .flat()
+        .sort((left, right) => right.document_date.localeCompare(left.document_date))
+        .slice(0, DASHBOARD_INVOICE_LIMIT);
     },
     enabled: !!user?.id && !!clients?.length,
   });
@@ -154,15 +182,28 @@ export function useAccountant() {
       if (!user?.id || !clients?.length) return [];
 
       const clientIds = clients.map(c => c.id);
-      
-      const { data, error } = await supabase
-        .from('sales_invoices')
-        .select('id, client_id, document_date, total_amount, total_vat')
-        .in('client_id', clientIds)
-        .order('document_date', { ascending: false });
+      const clientIdBatches = chunkArray(clientIds, CLIENT_ID_BATCH_SIZE);
 
-      if (error) throw error;
-      return data;
+      const salesBatches = await Promise.all(
+        clientIdBatches.map(async (clientIdBatch) => {
+          const rows = await fetchAllPages(
+            (from, to) =>
+              supabase
+                .from('sales_invoices')
+                .select('id, client_id, document_date, total_amount, total_vat')
+                .in('client_id', clientIdBatch)
+                .order('document_date', { ascending: false })
+                .range(from, to),
+            { pageSize: 500 },
+          );
+
+          return rows;
+        }),
+      );
+
+      return salesBatches
+        .flat()
+        .sort((left, right) => right.document_date.localeCompare(left.document_date));
     },
     enabled: !!user?.id && !!clients?.length,
   });
@@ -174,16 +215,26 @@ export function useAccountant() {
       if (!user?.id || !clients?.length) return [];
 
       const clientIds = clients.map(c => c.id);
-      
-      const { data, error } = await supabase
-        .from('ss_declarations')
-        .select('*')
-        .in('client_id', clientIds)
-        .order('period_quarter', { ascending: false })
-        .limit(50);
+      const clientIdBatches = chunkArray(clientIds, CLIENT_ID_BATCH_SIZE);
 
-      if (error) throw error;
-      return data as SSDeclaration[];
+      const declarationBatches = await Promise.all(
+        clientIdBatches.map(async (clientIdBatch) => {
+          const { data, error } = await supabase
+            .from('ss_declarations')
+            .select('*')
+            .in('client_id', clientIdBatch)
+            .order('period_quarter', { ascending: false })
+            .limit(SS_DECLARATION_LIMIT);
+
+          if (error) throw error;
+          return data as SSDeclaration[];
+        }),
+      );
+
+      return declarationBatches
+        .flat()
+        .sort((left, right) => right.period_quarter.localeCompare(left.period_quarter))
+        .slice(0, SS_DECLARATION_LIMIT);
     },
     enabled: !!user?.id && !!clients?.length,
   });

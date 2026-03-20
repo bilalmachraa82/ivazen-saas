@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -13,6 +13,7 @@ type Invoice = Tables<'invoices'>;
 interface InvoiceFilters {
   status: string;
   fiscalPeriod: string;
+  year: string;
   search: string;
   clientId: string; // For accountants to filter by client
   reviewFilter?: string; // 'all' | 'needs_review' | 'auto_approved'
@@ -111,6 +112,7 @@ export function useInvoices(externalClientId?: string | null) {
   const [filters, setFilters] = useState<InvoiceFilters>({
     status: 'all',
     fiscalPeriod: 'all',
+    year: 'all',
     search: '',
     clientId: 'all',
   });
@@ -120,7 +122,7 @@ export function useInvoices(externalClientId?: string | null) {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  const fetchInvoices = async () => {
+  const fetchInvoices = useCallback(async () => {
     if (!user) return;
 
     // If externalClientId is explicitly null, don't fetch (accountant without client selected)
@@ -141,12 +143,20 @@ export function useInvoices(externalClientId?: string | null) {
 
         if (filters.status === 'accounting_excluded') {
           query = query.eq('accounting_excluded', true);
+        } else if (filters.status === 'open') {
+          query = query.in('status', ['pending', 'classified']);
         } else if (filters.status !== 'all') {
           query = query.eq('status', filters.status);
         }
 
         if (filters.fiscalPeriod !== 'all') {
           query = query.eq('fiscal_period', filters.fiscalPeriod);
+        }
+
+        if (filters.year !== 'all') {
+          query = query
+            .gte('document_date', `${filters.year}-01-01`)
+            .lte('document_date', `${filters.year}-12-31`);
         }
 
         if (filters.search) {
@@ -175,7 +185,16 @@ export function useInvoices(externalClientId?: string | null) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    user,
+    externalClientId,
+    effectiveClientId,
+    filters.status,
+    filters.fiscalPeriod,
+    filters.year,
+    filters.search,
+    filters.reviewFilter,
+  ]);
 
   const validateInvoice = async (invoiceId: string, classification: ClassificationUpdate) => {
     try {
@@ -470,7 +489,8 @@ export function useInvoices(externalClientId?: string | null) {
       return null;
     }
 
-    const rawSignedUrl = (data as any)?.signedUrl ?? (data as any)?.signedURL;
+    const signedUrlData = data as { signedUrl?: string; signedURL?: string } | null;
+    const rawSignedUrl = signedUrlData?.signedUrl ?? signedUrlData?.signedURL;
     if (!rawSignedUrl) return null;
 
     // Storage API may return a relative path (e.g. /object/sign/...). Make it absolute.
@@ -478,7 +498,7 @@ export function useInvoices(externalClientId?: string | null) {
       return rawSignedUrl;
     }
 
-    const base = (import.meta as any).env?.VITE_SUPABASE_URL as string | undefined;
+    const base = import.meta.env.VITE_SUPABASE_URL;
     if (!base) return rawSignedUrl ?? null;
 
     return `${base.replace(/\/$/, '')}/storage/v1${String(rawSignedUrl).startsWith('/') ? '' : '/'}${rawSignedUrl}`;
@@ -499,13 +519,13 @@ export function useInvoices(externalClientId?: string | null) {
 
   // Single fetch effect — includes search to avoid double-fetch
   useEffect(() => {
-    fetchInvoices();
-  }, [user, filters.status, filters.fiscalPeriod, filters.search, filters.reviewFilter, effectiveClientId]);
+    void fetchInvoices();
+  }, [fetchInvoices]);
 
   // Reset page when any filter changes
   useEffect(() => {
     setPage(0);
-  }, [filters.status, filters.fiscalPeriod, filters.search, filters.reviewFilter, effectiveClientId]);
+  }, [filters.status, filters.fiscalPeriod, filters.year, filters.search, filters.reviewFilter, effectiveClientId]);
 
   return {
     invoices,

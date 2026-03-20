@@ -6,6 +6,8 @@ import {
   Briefcase,
   CheckCircle2,
   Cloud,
+  Copy,
+  ExternalLink,
   FileCode,
   FileSpreadsheet,
   FileText,
@@ -33,6 +35,7 @@ import { isObligationPrimary, taxpayerKindLabel, taxpayerKindBadge } from '@/lib
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { pt } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 // ─── Channel metadata ────────────────────────────────────────────────
 
@@ -278,6 +281,19 @@ function computeNextActions(
 
   // 4. If company/mixed and no withholdings → suggest Modelo 10
   if (
+    (taxpayerKind === 'independent' || taxpayerKind === 'mixed') &&
+    data.salesImported === 0
+  ) {
+    actions.push({
+      title: 'Importar recibos verdes / vendas',
+      description: 'Ainda não existem vendas no sistema. Abra o portal AT emitente ou importe o Excel oficial de recibos verdes.',
+      route: '/seguranca-social',
+      label: 'Importar vendas',
+    });
+  }
+
+  // 5. If company/mixed and no withholdings → suggest Modelo 10
+  if (
     (taxpayerKind === 'company' || taxpayerKind === 'mixed') &&
     data.channels.modelo10.recordsImported === 0
   ) {
@@ -313,6 +329,31 @@ export default function ImportCenter() {
     () => computeNextActions(data, taxpayerKind),
     [data, taxpayerKind],
   );
+  const shouldHighlightSalesImports = taxpayerKind === 'independent' || taxpayerKind === 'mixed';
+
+  const copySelectedClientNif = async () => {
+    if (!selectedClient?.nif) {
+      toast.error('O cliente selecionado não tem NIF configurado');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(selectedClient.nif);
+      toast.success('NIF copiado', {
+        description: 'Cole no login do Portal das Finanças.',
+      });
+    } catch {
+      toast.error('Não foi possível copiar o NIF');
+    }
+  };
+
+  const openPortalWithNif = async (url: string) => {
+    if (selectedClient?.nif) {
+      await copySelectedClientNif();
+    }
+
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
 
   // ── Auth guard ──
   if (authLoading) return <ZenLoader fullScreen text="A carregar..." />;
@@ -476,6 +517,65 @@ export default function ImportCenter() {
           </ZenCard>
         )}
 
+        {shouldHighlightSalesImports && (
+          <ZenCard withLine>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <FileSpreadsheet className="h-4 w-4 text-primary" />
+                Vendas / Recibos Verdes
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                As vendas deste cliente entram por recibos verdes ou pelo painel de emitente da AT. Se faltar um ano
+                ou um trimestre, o próximo passo é abrir o portal certo, importar o Excel oficial e validar em
+                <Link to="/sales" className="ml-1 text-primary hover:underline">
+                  Vendas
+                </Link>.
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => openPortalWithNif('https://faturas.portaldasfinancas.gov.pt')}
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Abrir Portal AT
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() =>
+                    openPortalWithNif(
+                      'https://www.acesso.gov.pt/jsp/loginRedirectForm.jsp?path=painelEmitente.action&partID=EFPF',
+                    )
+                  }
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Painel Emitente
+                </Button>
+                {selectedClient?.nif && (
+                  <Button variant="outline" size="sm" className="gap-2" onClick={() => void copySelectedClientNif()}>
+                    <Copy className="h-3.5 w-3.5" />
+                    Copiar NIF
+                  </Button>
+                )}
+                <QuickLink label="Importar Recibos" route="/seguranca-social" icon={FileSpreadsheet} />
+                <QuickLink label="Validar Vendas" route="/sales" icon={Receipt} />
+                <QuickLink label="Guia" route="/guide" icon={FileText} />
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                A password AT fica guardada cifrada no sistema e não é mostrada nem copiada de volta para a interface.
+                Se estiver desatualizada, atualiza-se em <Link to="/bulk-sync" className="text-primary hover:underline">Bulk Sync</Link> ou em Gestão de credenciais.
+              </p>
+            </CardContent>
+          </ZenCard>
+        )}
+
         {/* ── Channel cards grid ── */}
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-foreground">Canais de importação</h2>
@@ -511,7 +611,10 @@ export default function ImportCenter() {
               <QuickLink label="Carregar em bulk" route="/upload?mode=bulk" icon={Upload} />
               <QuickLink label="Importar SAF-T" route="/upload?mode=saft" icon={FileCode} />
               <QuickLink label="e-Fatura CSV" route="/efatura" icon={FileSpreadsheet} />
+              <QuickLink label="Recibos Verdes" route="/seguranca-social" icon={FileSpreadsheet} />
+              <QuickLink label="Validar Vendas" route="/sales" icon={Receipt} />
               <QuickLink label="Modelo 10 Import" route="/modelo-10" icon={Receipt} />
+              <QuickLink label="Guia" route="/guide" icon={FileText} />
               <QuickLink label="Centro Fiscal" route="/centro-fiscal" icon={Briefcase} />
             </div>
           </CardContent>

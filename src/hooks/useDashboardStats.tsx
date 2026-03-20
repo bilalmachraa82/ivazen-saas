@@ -9,6 +9,10 @@ interface DashboardStats {
   lowConfidence: number;
 }
 
+interface DashboardStatsFilters {
+  year?: number | null;
+}
+
 interface RecentInvoice {
   id: string;
   supplier: string;
@@ -25,40 +29,55 @@ const EMPTY_STATS: DashboardStats = {
   lowConfidence: 0,
 };
 
-export function useDashboardStats(forClientId?: string | null) {
+export function useDashboardStats(forClientId?: string | null, filters?: DashboardStatsFilters) {
   const { user, hasRole } = useAuth();
   const isAccountant = hasRole('accountant');
+  const year = filters?.year ?? null;
+  const startOfYear = year ? `${year}-01-01` : null;
+  const endOfYear = year ? `${year}-12-31` : null;
 
   // For accountants: use selected client, or aggregate all clients
   // For regular users: always use own ID
   const effectiveClientId = isAccountant ? forClientId : user?.id;
 
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
-    queryKey: ['dashboard-stats', user?.id, effectiveClientId, isAccountant],
+    queryKey: ['dashboard-stats', user?.id, effectiveClientId, isAccountant, year],
     queryFn: async (): Promise<DashboardStats> => {
       if (!effectiveClientId) return EMPTY_STATS;
 
+      let totalQuery = supabase
+        .from('invoices')
+        .select('*', { count: 'exact', head: true })
+        .eq('client_id', effectiveClientId);
+      let pendingQuery = supabase
+        .from('invoices')
+        .select('*', { count: 'exact', head: true })
+        .eq('client_id', effectiveClientId)
+        .in('status', ['pending', 'classified']);
+      let validatedQuery = supabase
+        .from('invoices')
+        .select('*', { count: 'exact', head: true })
+        .eq('client_id', effectiveClientId)
+        .eq('status', 'validated');
+      let lowConfidenceQuery = supabase
+        .from('invoices')
+        .select('*', { count: 'exact', head: true })
+        .eq('client_id', effectiveClientId)
+        .lt('ai_confidence', 80)
+        .neq('status', 'validated');
+
+      if (year) {
+        totalQuery = totalQuery.gte('document_date', startOfYear).lte('document_date', endOfYear);
+        pendingQuery = pendingQuery.gte('document_date', startOfYear).lte('document_date', endOfYear);
+        validatedQuery = validatedQuery.gte('document_date', startOfYear).lte('document_date', endOfYear);
+        lowConfidenceQuery = lowConfidenceQuery.gte('document_date', startOfYear).lte('document_date', endOfYear);
+      }
+
       const [totalRes, pendingRes, validatedRes, lowConfRes] = await Promise.all([
-        supabase
-          .from('invoices')
-          .select('*', { count: 'exact', head: true })
-          .eq('client_id', effectiveClientId),
-        supabase
-          .from('invoices')
-          .select('*', { count: 'exact', head: true })
-          .eq('client_id', effectiveClientId)
-          .in('status', ['pending', 'classified']),
-        supabase
-          .from('invoices')
-          .select('*', { count: 'exact', head: true })
-          .eq('client_id', effectiveClientId)
-          .eq('status', 'validated'),
-        supabase
-          .from('invoices')
-          .select('*', { count: 'exact', head: true })
-          .eq('client_id', effectiveClientId)
-          .lt('ai_confidence', 80)
-          .neq('status', 'validated'),
+        totalQuery,
+        pendingQuery,
+        validatedQuery,
+        lowConfidenceQuery,
       ]);
 
       if (totalRes.error) {
@@ -77,7 +96,7 @@ export function useDashboardStats(forClientId?: string | null) {
   });
 
   const { data: recentInvoices, isLoading: invoicesLoading, refetch: refetchInvoices } = useQuery({
-    queryKey: ['recent-invoices', user?.id, effectiveClientId, isAccountant],
+    queryKey: ['recent-invoices', user?.id, effectiveClientId, isAccountant, year],
     queryFn: async (): Promise<RecentInvoice[]> => {
       if (!effectiveClientId) return [];
 
@@ -89,7 +108,12 @@ export function useDashboardStats(forClientId?: string | null) {
         query = query.eq('client_id', effectiveClientId);
       }
 
+      if (year) {
+        query = query.gte('document_date', startOfYear).lte('document_date', endOfYear);
+      }
+
       const { data, error } = await query
+        .order('document_date', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(5);
 

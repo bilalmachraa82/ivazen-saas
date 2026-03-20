@@ -3,6 +3,19 @@ import * as Sentry from "@sentry/react";
 import App from "./App.tsx";
 import "./index.css";
 
+const SENTRY_URL_PREVIEW_LENGTH = 240;
+
+function truncateUrl(value: string): string {
+  if (value.length <= SENTRY_URL_PREVIEW_LENGTH) return value;
+
+  try {
+    const parsed = new URL(value);
+    return `${parsed.origin}${parsed.pathname}?…`;
+  } catch {
+    return `${value.slice(0, SENTRY_URL_PREVIEW_LENGTH)}…`;
+  }
+}
+
 // Sentry error monitoring — only active when DSN is configured
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
 if (sentryDsn) {
@@ -14,7 +27,30 @@ if (sentryDsn) {
       Sentry.browserTracingIntegration(),
     ],
     tracesSampleRate: 0.1,
+    maxBreadcrumbs: 50,
     replaysOnErrorSampleRate: 0,
+    beforeBreadcrumb(breadcrumb) {
+      const url = breadcrumb.data?.url;
+
+      if (typeof url === "string" && url.length > SENTRY_URL_PREVIEW_LENGTH) {
+        return {
+          ...breadcrumb,
+          data: {
+            ...breadcrumb.data,
+            url: truncateUrl(url),
+          },
+        };
+      }
+
+      return breadcrumb;
+    },
+    beforeSend(event) {
+      if (event.request?.url) {
+        event.request.url = truncateUrl(event.request.url);
+      }
+
+      return event;
+    },
   });
 }
 

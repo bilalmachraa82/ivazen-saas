@@ -20,6 +20,9 @@ export interface ImportChannelHealthData {
   channels: Record<ChannelId, ChannelHealth>;
   /** Total records across all tables (invoices + sales + withholdings). */
   totalImported: number;
+  purchaseImported: number;
+  salesImported: number;
+  withholdingsImported: number;
   hasATCredentials: boolean;
   atEnvironment: string | null;
 }
@@ -139,6 +142,9 @@ export function useImportChannelHealth(options: UseImportChannelHealthOptions = 
           },
         },
         totalImported: purchaseCount + salesCount + withholdingsCount,
+        purchaseImported: purchaseCount,
+        salesImported: salesCount,
+        withholdingsImported: withholdingsCount,
         hasATCredentials,
         atEnvironment,
       };

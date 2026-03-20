@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -10,6 +10,7 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ZenCard, ZenHeader, ZenDecorations, ZenStatsCard, ZenEmptyState, ZenLoader } from '@/components/zen';
 import { UnifiedOnboarding } from '@/components/onboarding/UnifiedOnboarding';
 import { TaxFlowWidget } from '@/components/dashboard/TaxFlowWidget';
@@ -37,12 +38,22 @@ export default function Dashboard() {
   const { user, loading, hasRole } = useAuth();
   const { profile } = useProfile();
   const isAccountant = hasRole('accountant');
+  const currentYear = new Date().getFullYear();
+  const [dashboardYearFilter, setDashboardYearFilter] = useState<string>(String(currentYear));
   const { selectedClientId } = useSelectedClient();
   const { getClientById } = useAccountantClients({ enabled: isAccountant });
   const selectedClient = isAccountant ? getClientById(selectedClientId) : null;
   const hasSelectedClient = !isAccountant || !!selectedClientId;
+  const selectedDashboardYear = isAccountant && dashboardYearFilter !== 'all'
+    ? Number(dashboardYearFilter)
+    : null;
+  const yearOptions = useMemo(
+    () => Array.from({ length: 4 }, (_, index) => currentYear - index),
+    [currentYear],
+  );
   const { stats, recentInvoices, isLoading: statsLoading } = useDashboardStats(
     isAccountant ? (selectedClientId ?? null) : undefined,
+    { year: selectedDashboardYear },
   );
   const { myRequest } = useAccountantRequest();
   const { summary, totalClients } = useClientReadiness();
@@ -53,6 +64,26 @@ export default function Dashboard() {
 
   const hasPendingRequest = myRequest?.status === 'pending';
   const showAccountantPromo = !isAccountant && !hasPendingRequest;
+  const selectedClientName = selectedClient?.company_name || selectedClient?.full_name || selectedClient?.nif || 'selecionado';
+  const accountantPeriodLabel = selectedDashboardYear ? `Ano ${selectedDashboardYear}` : 'Todos os anos';
+  const accountantPeriodDescription = selectedDashboardYear
+    ? `Resumo de compras de ${selectedDashboardYear}.`
+    : 'Resumo de compras de todos os anos.';
+  const recentSectionTitle = isAccountant ? 'Compras Recentes' : 'Facturas Recentes';
+  const recentEmptyTitle = isAccountant
+    ? selectedDashboardYear
+      ? `Sem compras em ${selectedDashboardYear}`
+      : 'Sem compras para este cliente'
+    : 'Nenhuma factura ainda';
+  const recentEmptyDescription = isAccountant
+    ? selectedDashboardYear
+      ? `Não existem compras registadas em ${selectedDashboardYear} para este cliente. Pode mudar o período para ver anos anteriores ou importar novas compras.`
+      : 'Importe compras do AT, SIRE ou carregue documentos manualmente na página de Importação.'
+    : 'Comece por carregar a sua primeira factura para organizar as suas despesas';
+  const validationQuery = selectedDashboardYear ? `?year=${selectedDashboardYear}` : '';
+  const openValidationQuery = selectedDashboardYear ? `?status=open&year=${selectedDashboardYear}` : '?status=open';
+  const validatedValidationQuery = selectedDashboardYear ? `?status=validated&year=${selectedDashboardYear}` : '?status=validated';
+  const lowConfidenceValidationQuery = selectedDashboardYear ? `?review=needs_review&year=${selectedDashboardYear}` : '?review=needs_review';
 
   useEffect(() => {
     if (!loading && !user) {
@@ -80,7 +111,7 @@ export default function Dashboard() {
             title={isAccountant ? "Carteira" : "Dashboard"}
             description={isAccountant
               ? hasSelectedClient
-                ? `Visão geral do cliente ${selectedClient?.company_name || selectedClient?.full_name || selectedClient?.nif || 'selecionado'}.`
+                ? `Visão geral do cliente ${selectedClientName}. ${accountantPeriodDescription}`
                 : "Visão geral da sua carteira. Selecione um cliente no menu para ver os dados reais do Centro Fiscal."
               : "Bem-vindo de volta! Aqui está o resumo das suas facturas."
             }
@@ -192,39 +223,77 @@ export default function Dashboard() {
           </>
         ) : (
           <>
+            {isAccountant && (
+              <ZenCard withLine animationDelay="250ms" className="shadow-lg">
+                <CardContent className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="secondary">Carteira de Compras</Badge>
+                      <Badge variant="outline">{accountantPeriodLabel}</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Estas métricas resumem compras do cliente selecionado. Para vendas e recibos verdes use o módulo de Vendas ou o Centro Fiscal.
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <div className="w-full sm:w-[180px]">
+                      <Select value={dashboardYearFilter} onValueChange={setDashboardYearFilter}>
+                        <SelectTrigger aria-label="Período do dashboard">
+                          <SelectValue placeholder="Período" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos os anos</SelectItem>
+                          {yearOptions.map((year) => (
+                            <SelectItem key={year} value={String(year)}>
+                              Ano {year}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Link to="/sales">
+                      <Button variant="outline" className="w-full sm:w-auto">
+                        Ver Vendas
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </ZenCard>
+            )}
+
             {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" data-tour="stats-grid">
               <ZenStatsCard
                 icon={FileText}
                 value={stats.total}
-                label="Total Facturas"
+                label={isAccountant ? 'Total Compras' : 'Total Facturas'}
                 variant="primary"
                 animationDelay="0ms"
-                href="/validation"
+                href={`/validation${validationQuery}`}
               />
               <ZenStatsCard
                 icon={Clock}
                 value={stats.pending}
-                label="Pendentes"
+                label={isAccountant ? 'Compras por Rever' : 'Por Rever'}
                 variant="warning"
                 animationDelay="100ms"
-                href="/validation?status=pending"
+                href={`/validation${openValidationQuery}`}
               />
               <ZenStatsCard
                 icon={CheckCircle}
                 value={stats.validated}
-                label="Validadas"
+                label={isAccountant ? 'Compras Validadas' : 'Validadas'}
                 variant="success"
                 animationDelay="200ms"
-                href="/validation?status=validated"
+                href={`/validation${validatedValidationQuery}`}
               />
               <ZenStatsCard
                 icon={AlertTriangle}
                 value={stats.lowConfidence}
-                label="Baixa Confiança"
+                label={isAccountant ? 'Compras com Baixa Confiança' : 'Baixa Confiança'}
                 variant="default"
                 animationDelay="300ms"
-                href="/validation?review=needs_review"
+                href={`/validation${lowConfidenceValidationQuery}`}
               />
             </div>
 
@@ -234,6 +303,8 @@ export default function Dashboard() {
             <AttentionItems
               pendingValidation={stats.pending}
               lowConfidence={stats.lowConfidence}
+              documentLabel={isAccountant ? 'compras' : 'facturas'}
+              querySuffix={validationQuery}
             />
 
             {/* Fiscal Deadlines */}
@@ -245,16 +316,16 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* Recent Invoices */}
+            {/* Recent Purchases / Invoices */}
             <ZenCard withLine animationDelay="400ms" className="shadow-xl">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-xl font-semibold flex items-center gap-3">
                   <div className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10">
                     <FileText className="h-5 w-5 text-primary" />
                   </div>
-                  Facturas Recentes
+                  {recentSectionTitle}
                 </CardTitle>
-                <Link to="/validation">
+                <Link to={`/validation${validationQuery}`}>
                   <Button variant="ghost" size="sm" className="gap-1 group">
                     Ver todas
                     <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
@@ -265,11 +336,8 @@ export default function Dashboard() {
                 {recentInvoices.length === 0 ? (
                   <ZenEmptyState
                     icon={FileText}
-                    title={isAccountant ? "Sem facturas para este cliente" : "Nenhuma factura ainda"}
-                    description={isAccountant
-                      ? "Importe facturas do AT ou carregue manualmente na página de Importação."
-                      : "Comece por carregar a sua primeira factura para organizar as suas despesas"
-                    }
+                    title={recentEmptyTitle}
+                    description={recentEmptyDescription}
                     variant="primary"
                     action={{
                       label: isAccountant ? 'Ir para Importação' : 'Carregar Factura',
@@ -372,8 +440,12 @@ export default function Dashboard() {
                   <Upload className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-foreground">Carregar Factura</h3>
-                  <p className="text-sm text-muted-foreground">Scan QR code ou upload</p>
+                  <h3 className="font-semibold text-foreground">
+                    {isAccountant ? 'Importar Compras' : 'Carregar Factura'}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {isAccountant ? 'AT, SIRE CSV ou upload manual' : 'Scan QR code ou upload'}
+                  </p>
                 </div>
                 <ArrowRight className="h-5 w-5 text-muted-foreground ml-auto opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300" />
               </CardContent>
@@ -388,8 +460,12 @@ export default function Dashboard() {
                   <CheckCircle className="h-6 w-6 text-green-500" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-foreground">Validar Facturas</h3>
-                  <p className="text-sm text-muted-foreground">Rever classificações IA</p>
+                  <h3 className="font-semibold text-foreground">
+                    {isAccountant ? 'Validar Compras' : 'Validar Facturas'}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {isAccountant ? 'Rever compras e classificações IA' : 'Rever classificações IA'}
+                  </p>
                 </div>
                 <ArrowRight className="h-5 w-5 text-muted-foreground ml-auto opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300" />
               </CardContent>

@@ -17,6 +17,8 @@ interface AttentionItemsProps {
   lowConfidence: number;
   /** Optional overdue deadline count */
   overdueDeadlines?: number;
+  documentLabel?: 'facturas' | 'compras';
+  querySuffix?: string;
 }
 
 interface AttentionItem {
@@ -29,8 +31,21 @@ interface AttentionItem {
   actionLabel: string;
 }
 
-export function AttentionItems({ pendingValidation, lowConfidence, overdueDeadlines = 0 }: AttentionItemsProps) {
+export function AttentionItems({
+  pendingValidation,
+  lowConfidence,
+  overdueDeadlines = 0,
+  documentLabel = 'facturas',
+  querySuffix = '',
+}: AttentionItemsProps) {
   const navigate = useNavigate();
+  const isPurchaseMode = documentLabel === 'compras';
+  const buildRoute = (basePath: string, params?: Record<string, string>) => {
+    const search = new URLSearchParams(querySuffix.startsWith('?') ? querySuffix.slice(1) : querySuffix);
+    Object.entries(params ?? {}).forEach(([key, value]) => search.set(key, value));
+    const query = search.toString();
+    return query ? `${basePath}?${query}` : basePath;
+  };
 
   const items: AttentionItem[] = [];
 
@@ -38,11 +53,11 @@ export function AttentionItems({ pendingValidation, lowConfidence, overdueDeadli
     items.push({
       id: 'pending',
       icon: Clock,
-      label: 'Facturas por validar',
+      label: isPurchaseMode ? 'Compras por rever' : 'Facturas por rever',
       count: pendingValidation,
       severity: pendingValidation > 10 ? 'destructive' : 'warning',
-      route: '/validation',
-      actionLabel: 'Validar',
+      route: buildRoute('/validation', { status: 'open' }),
+      actionLabel: 'Rever',
     });
   }
 
@@ -50,10 +65,10 @@ export function AttentionItems({ pendingValidation, lowConfidence, overdueDeadli
     items.push({
       id: 'low-confidence',
       icon: AlertTriangle,
-      label: 'Classificações com baixa confiança',
+      label: isPurchaseMode ? 'Compras com baixa confiança' : 'Classificações com baixa confiança',
       count: lowConfidence,
       severity: 'warning',
-      route: '/validation',
+      route: buildRoute('/validation', { review: 'needs_review' }),
       actionLabel: 'Rever',
     });
   }
@@ -96,7 +111,7 @@ export function AttentionItems({ pendingValidation, lowConfidence, overdueDeadli
           <div className="flex items-center gap-3 p-4 rounded-xl bg-success/5 border border-success/20">
             <CheckCircle className="h-5 w-5 text-success shrink-0" />
             <p className="text-sm text-muted-foreground">
-              Sem itens pendentes. Todas as facturas estão validadas e os prazos em dia.
+              Sem itens pendentes. Todas as {documentLabel} estão validadas e os prazos em dia.
             </p>
           </div>
         ) : (

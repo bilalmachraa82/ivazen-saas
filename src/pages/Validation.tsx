@@ -100,8 +100,13 @@ export default function Validation() {
   useEffect(() => {
     const status = searchParams.get('status') || 'all';
     const review = searchParams.get('review') || 'all';
+    const year = searchParams.get('year') || 'all';
     setFilters((prev) => {
-      if (prev.status === status && (prev.reviewFilter || 'all') === review) {
+      if (
+        prev.status === status &&
+        (prev.reviewFilter || 'all') === review &&
+        prev.year === year
+      ) {
         return prev;
       }
 
@@ -109,9 +114,10 @@ export default function Validation() {
         ...prev,
         status,
         reviewFilter: review,
+        year,
       };
     });
-  }, [searchParamsKey, setFilters]);
+  }, [searchParams, searchParamsKey, setFilters]);
 
   if (authLoading || profileLoading) {
     return <ZenLoader fullScreen text="A carregar..." />;
