@@ -15,6 +15,7 @@ import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { enrichSupplierNames, getSupplierDisplayName } from '@/lib/supplierNameResolver';
+import { pickDuplicateKeepIndex } from '@/lib/duplicateResolution';
 
 interface DuplicateGroup {
   atcud: string;
@@ -26,6 +27,8 @@ interface DuplicateGroup {
   invoices: {
     id: string;
     created_at: string;
+    image_path?: string | null;
+    import_source?: string | null;
     status: string;
     isKeep: boolean;
   }[];
@@ -54,7 +57,7 @@ export function DuplicateManager({ onCleanupComplete }: DuplicateManagerProps) {
     try {
       const { data, error } = await supabase
         .from('invoices')
-        .select('id, atcud, document_number, supplier_nif, supplier_name, total_amount, document_date, created_at, status')
+        .select('id, atcud, document_number, supplier_nif, supplier_name, total_amount, document_date, created_at, status, image_path, import_source')
         .eq('client_id', effectiveClientId)
         .order('created_at', { ascending: true });
 
@@ -84,9 +87,8 @@ export function DuplicateManager({ onCleanupComplete }: DuplicateManagerProps) {
       groupMap.forEach((invoices) => {
         if (invoices.length <= 1) return;
 
-        // Prefer keeping the validated one, else the oldest
-        const validatedIdx = invoices.findIndex((i) => i.status === 'validated');
-        const keepIdx = validatedIdx >= 0 ? validatedIdx : 0;
+        // Keep the richest copy first: real uploaded file, then validated/classified, then oldest.
+        const keepIdx = pickDuplicateKeepIndex(invoices);
 
         duplicateGroups.push({
           atcud: invoices[0].atcud || '',
@@ -98,6 +100,8 @@ export function DuplicateManager({ onCleanupComplete }: DuplicateManagerProps) {
           invoices: invoices.map((inv, idx) => ({
             id: inv.id,
             created_at: inv.created_at || '',
+            image_path: inv.image_path,
+            import_source: inv.import_source,
             status: inv.status || 'pending',
             isKeep: idx === keepIdx,
           })),
@@ -210,7 +214,8 @@ export function DuplicateManager({ onCleanupComplete }: DuplicateManagerProps) {
               {totalDuplicates} duplicado(s) detectado(s) em {groups.length} grupo(s)
             </AlertTitle>
             <AlertDescription>
-              Os registos marcados com <Shield className="h-3 w-3 inline" /> serão mantidos (validados ou mais antigos).
+              Os registos marcados com <Shield className="h-3 w-3 inline" /> serão mantidos quando tiverem ficheiro real,
+              depois estado validado/classificado e, em empate, o mais antigo.
               Os restantes estão pré-seleccionados para eliminação.
             </AlertDescription>
           </Alert>
