@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { enrichSupplierNames, getSupplierDisplayName } from '@/lib/supplierNameResolver';
 
 interface DashboardStats {
   total: number;
@@ -102,7 +103,7 @@ export function useDashboardStats(forClientId?: string | null, filters?: Dashboa
 
       let query = supabase
         .from('invoices')
-        .select('id, supplier_name, total_amount, status, ai_confidence, document_date');
+        .select('id, supplier_name, supplier_nif, total_amount, status, ai_confidence, document_date');
 
       if (effectiveClientId) {
         query = query.eq('client_id', effectiveClientId);
@@ -126,9 +127,11 @@ export function useDashboardStats(forClientId?: string | null, filters?: Dashboa
         return [];
       }
 
-      return data.map(inv => ({
+      const enrichedData = await enrichSupplierNames(data);
+
+      return enrichedData.map(inv => ({
         id: inv.id,
-        supplier: inv.supplier_name || 'Fornecedor desconhecido',
+        supplier: getSupplierDisplayName(inv.supplier_name, inv.supplier_nif),
         amount: Number(inv.total_amount),
         status: inv.status as 'pending' | 'validated' | 'classified',
         confidence: inv.ai_confidence || 0,

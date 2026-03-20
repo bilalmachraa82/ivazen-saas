@@ -8,6 +8,7 @@ import {
   isFiscallyEffectivePurchase,
   isPurchasePendingReview,
 } from '@/lib/fiscalStatus';
+import { enrichSupplierNames } from '@/lib/supplierNameResolver';
 
 interface ClientProfile {
   id: string;
@@ -71,7 +72,6 @@ interface AccountantMetrics {
 }
 
 const CLIENT_ID_BATCH_SIZE = 20;
-const DASHBOARD_INVOICE_LIMIT = 200;
 const SS_DECLARATION_LIMIT = 50;
 
 function chunkArray<T>(items: T[], chunkSize: number): T[][] {
@@ -167,10 +167,11 @@ export function useAccountant() {
         }),
       );
 
-      return invoiceBatches
+      const recentInvoices = invoiceBatches
         .flat()
-        .sort((left, right) => right.document_date.localeCompare(left.document_date))
-        .slice(0, DASHBOARD_INVOICE_LIMIT);
+        .sort((left, right) => right.document_date.localeCompare(left.document_date));
+
+      return enrichSupplierNames(recentInvoices);
     },
     enabled: !!user?.id && !!clients?.length,
   });

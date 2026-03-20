@@ -22,6 +22,7 @@ import {
   isFiscallyEffectivePurchase,
   isPurchasePendingReview,
 } from '@/lib/fiscalStatus';
+import { getSupplierDisplayName } from '@/lib/supplierNameResolver';
 import { 
   Users, 
   FileText, 
@@ -482,7 +483,7 @@ export default function AccountantDashboard() {
                             </TableCell>
                             <TableCell>
                               <div>
-                                <p className="font-medium">{invoice.supplier_name || invoice.supplier_nif}</p>
+                                <p className="font-medium">{getSupplierDisplayName(invoice.supplier_name, invoice.supplier_nif)}</p>
                                 <p className="text-xs text-muted-foreground">{invoice.supplier_nif}</p>
                               </div>
                             </TableCell>
@@ -674,7 +675,7 @@ export default function AccountantDashboard() {
                                         {new Date(inv.document_date).toLocaleDateString('pt-PT')}
                                       </span>
                                       <span className="text-sm text-muted-foreground">
-                                        {inv.supplier_name || inv.supplier_nif}
+                                        {getSupplierDisplayName(inv.supplier_name, inv.supplier_nif)}
                                       </span>
                                     </div>
                                     <span className="font-medium">

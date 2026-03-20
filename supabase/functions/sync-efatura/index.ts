@@ -592,6 +592,32 @@ async function insertPurchaseInvoicesFromAT(
           supplierCae = dirEntry.cae;
         }
       }
+
+      if (!supplierName) {
+        const { data: previousInvoice } = await supabase
+          .from("invoices")
+          .select("supplier_name")
+          .eq("supplier_nif", supplierNif)
+          .not("supplier_name", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (previousInvoice?.supplier_name && previousInvoice.supplier_name !== supplierNif) {
+          supplierName = previousInvoice.supplier_name;
+
+          await supabase
+            .from("supplier_directory")
+            .upsert({
+              nif: supplierNif,
+              name: supplierName,
+              cae: supplierCae,
+              source: "historical_invoice",
+              confidence: 60,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: "nif", ignoreDuplicates: true });
+        }
+      }
     }
 
     const documentNumber = inv.documentNumber || null;

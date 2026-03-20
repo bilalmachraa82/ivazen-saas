@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { ReconciliationSummary } from '@/hooks/useReconciliationData';
+import { enrichSupplierNames, getSupplierDisplayName } from '@/lib/supplierNameResolver';
 
 // Pending purchase filter — same as useClientFiscalCenter
 const PENDING_PURCHASE_FILTER =
@@ -118,7 +119,7 @@ export function useReviewInbox(options: UseReviewInboxOptions) {
         // 1. Pending purchases preview
         supabase
           .from('invoices')
-          .select('id, supplier_name, total_amount, document_date, status, ai_confidence')
+          .select('id, supplier_nif, supplier_name, total_amount, document_date, status, ai_confidence')
           .eq('client_id', clientId)
           .gte('document_date', rangeStart)
           .lte('document_date', rangeEnd)
@@ -129,7 +130,7 @@ export function useReviewInbox(options: UseReviewInboxOptions) {
         // 2. Low confidence preview (Finding 1: same universe as count)
         supabase
           .from('invoices')
-          .select('id, supplier_name, total_amount, ai_confidence, ai_classification')
+          .select('id, supplier_nif, supplier_name, total_amount, ai_confidence, ai_classification')
           .eq('client_id', clientId)
           .gte('document_date', rangeStart)
           .lte('document_date', rangeEnd)
@@ -164,7 +165,7 @@ export function useReviewInbox(options: UseReviewInboxOptions) {
 
       // --- 1. Pending purchases ---
       const pendingCount = pendingPurchasesCountRes.count ?? 0;
-      const pendingPurchases = pendingPurchasesRes.data || [];
+      const pendingPurchases = await enrichSupplierNames(pendingPurchasesRes.data || []);
       if (pendingCount > 0) {
         categories.push({
           type: 'pending_purchases',
@@ -172,9 +173,9 @@ export function useReviewInbox(options: UseReviewInboxOptions) {
           count: pendingCount,
           items: pendingPurchases.map(inv => ({
             id: inv.id,
-            label: inv.supplier_name || 'Sem fornecedor',
+            label: getSupplierDisplayName(inv.supplier_name, inv.supplier_nif),
             sublabel: `${formatCurrency(inv.total_amount)} · ${formatDate(inv.document_date)}${inv.ai_confidence != null ? ` · ${inv.ai_confidence}%` : ''}`,
-            route: '/validation',
+            route: `/validation?invoice=${inv.id}`,
           })),
           bulkRoute: '/validation',
         });
@@ -183,7 +184,7 @@ export function useReviewInbox(options: UseReviewInboxOptions) {
       // --- 2. Low confidence classifications ---
       // Finding 1: same definition as summary card — not-validated + ai_confidence < 80
       const lowConfCount = lowConfidenceCountRes.count ?? 0;
-      const lowConf = lowConfidenceRes.data || [];
+      const lowConf = await enrichSupplierNames(lowConfidenceRes.data || []);
       if (lowConfCount > 0) {
         categories.push({
           type: 'low_confidence',
@@ -191,9 +192,9 @@ export function useReviewInbox(options: UseReviewInboxOptions) {
           count: lowConfCount,
           items: lowConf.map(inv => ({
             id: inv.id,
-            label: inv.supplier_name || 'Sem fornecedor',
+            label: getSupplierDisplayName(inv.supplier_name, inv.supplier_nif),
             sublabel: `${inv.ai_confidence ?? 0}% confiança · ${inv.ai_classification || 'sem classe'}`,
-            route: '/validation',
+            route: `/validation?invoice=${inv.id}`,
           })),
           bulkRoute: '/validation',
         });

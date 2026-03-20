@@ -133,9 +133,15 @@ export function DocumentsTable({ documents, loading }: DocumentsTableProps) {
 
   const navigateToDocument = (doc: UnifiedDocument) => {
     switch (doc.type) {
-      case 'purchase':
-        navigate('/validation');
+      case 'purchase': {
+        const params = new URLSearchParams({ invoice: doc.id });
+        const original = doc.originalData;
+        if ('client_id' in original && original.client_id) {
+          params.set('client', original.client_id);
+        }
+        navigate(`/validation?${params.toString()}`);
         break;
+      }
       case 'sale':
         navigate('/sales');
         break;

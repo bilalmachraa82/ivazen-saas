@@ -23,6 +23,7 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react';
+import { getSupplierDisplayName } from '@/lib/supplierNameResolver';
 
 export default function AIMetrics() {
   const navigate = useNavigate();
@@ -189,7 +190,7 @@ export default function AIMetrics() {
                     return (
                       <TableRow key={metric.id}>
                         <TableCell className="font-medium">
-                          {metric.supplier_name || 'Desconhecido'}
+                          {getSupplierDisplayName(metric.supplier_name, metric.supplier_nif, 'Fornecedor por identificar')}
                         </TableCell>
                         <TableCell className="font-mono text-sm">
                           {metric.supplier_nif}

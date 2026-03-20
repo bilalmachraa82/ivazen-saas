@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
+import { enrichSupplierNames } from '@/lib/supplierNameResolver';
 
 type Invoice = Tables<'invoices'>;
 type SalesInvoice = Tables<'sales_invoices'>;
@@ -99,7 +100,9 @@ export function useAllDocuments() {
         console.error('Error fetching withholdings:', withholdingsResult.error);
       }
 
-      setInvoices(invoicesResult.data || []);
+      const enrichedInvoices = await enrichSupplierNames(invoicesResult.data || []);
+
+      setInvoices(enrichedInvoices);
       setSalesInvoices(salesResult.data || []);
       setWithholdings(withholdingsResult.data || []);
     } catch (error) {

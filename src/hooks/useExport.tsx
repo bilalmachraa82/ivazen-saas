@@ -16,6 +16,7 @@ import {
   applyFiscallyEffectivePurchaseFilter,
   isFiscallyEffectivePurchase,
 } from '@/lib/fiscalStatus';
+import { enrichSupplierNames } from '@/lib/supplierNameResolver';
 
 type InvoiceRow = Database['public']['Tables']['invoices']['Row'];
 type SalesInvoiceRow = Database['public']['Tables']['sales_invoices']['Row'];
@@ -81,7 +82,7 @@ export function useExport(clientId?: string) {
     queryFn: async () => {
       if (fiscalPeriods.length === 0 || !clientId) return [];
 
-      return fetchAllPages<InvoiceRow>((from, to) =>
+      const invoices = await fetchAllPages<InvoiceRow>((from, to) =>
         applyFiscallyEffectivePurchaseFilter(
           supabase
             .from('invoices')
@@ -93,6 +94,8 @@ export function useExport(clientId?: string) {
             .range(from, to),
         ).then(r => r)
       );
+
+      return enrichSupplierNames(invoices);
     },
     enabled: fiscalPeriods.length > 0 && !!clientId,
   });

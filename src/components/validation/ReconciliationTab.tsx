@@ -5,16 +5,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ZenEmptyState, ZenSkeleton } from '@/components/zen';
-import { AlertTriangle, CheckCircle, ArrowLeftRight, Trash2, Upload, Globe } from 'lucide-react';
+import { AlertTriangle, CheckCircle, ArrowLeftRight, Trash2, Upload, Globe, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
+import { enrichSupplierNames, getSupplierDisplayName } from '@/lib/supplierNameResolver';
 
 interface ReconciliationTabProps {
   clientId: string;
   rangeStart?: string;
   rangeEnd?: string;
   onCleanupComplete?: () => void;
+  onOpenInvoice?: (invoiceId: string) => void;
 }
 
 interface InvoiceMatch {
@@ -33,7 +35,13 @@ type ReconciliationCategory = 'duplicates' | 'at_only' | 'upload_only' | 'diverg
 
 const fmt = (n: number) => `€${Number(n).toFixed(2)}`;
 
-export function ReconciliationTab({ clientId, rangeStart, rangeEnd, onCleanupComplete }: ReconciliationTabProps) {
+export function ReconciliationTab({
+  clientId,
+  rangeStart,
+  rangeEnd,
+  onCleanupComplete,
+  onOpenInvoice,
+}: ReconciliationTabProps) {
   const [activeCategory, setActiveCategory] = useState<ReconciliationCategory>('duplicates');
   const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
 
@@ -51,7 +59,7 @@ export function ReconciliationTab({ clientId, rangeStart, rangeEnd, onCleanupCom
       query = query.order('document_date', { ascending: false });
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as InvoiceMatch[];
+      return enrichSupplierNames((data || []) as InvoiceMatch[]);
     },
     enabled: !!clientId,
   });
@@ -184,6 +192,10 @@ export function ReconciliationTab({ clientId, rangeStart, rangeEnd, onCleanupCom
   }
 
   const totalIssues = duplicates.length + uploadOnly.length + divergent.length;
+  const getSupplierLabel = (supplierName: string | null, supplierNif: string | null) =>
+    getSupplierDisplayName(supplierName, supplierNif);
+  const canOpenInvoice = typeof onOpenInvoice === 'function';
+  const openInvoice = (invoiceId: string) => onOpenInvoice?.(invoiceId);
 
   if (totalIssues === 0 && atOnly.length === 0) {
     return (
@@ -233,16 +245,16 @@ export function ReconciliationTab({ clientId, rangeStart, rangeEnd, onCleanupCom
                   <TableHead>NIF</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                   <TableHead>Fonte</TableHead>
-                  <TableHead className="text-right">Acção</TableHead>
+                  <TableHead className="text-right">Acções</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {duplicates.map(({ original, duplicate }) => (
+                {duplicates.map(({ duplicate }) => (
                   <TableRow key={duplicate.id}>
                     <TableCell>
                       {duplicate.document_date ? format(new Date(duplicate.document_date), 'dd/MM/yyyy', { locale: pt }) : '—'}
                     </TableCell>
-                    <TableCell>{duplicate.supplier_name || 'N/A'}</TableCell>
+                    <TableCell>{getSupplierLabel(duplicate.supplier_name, duplicate.supplier_nif)}</TableCell>
                     <TableCell className="font-mono text-sm">{duplicate.supplier_nif}</TableCell>
                     <TableCell className="text-right">{fmt(duplicate.total_amount)}</TableCell>
                     <TableCell>
@@ -251,15 +263,21 @@ export function ReconciliationTab({ clientId, rangeStart, rangeEnd, onCleanupCom
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleRemoveDuplicate(duplicate.id)}
-                        disabled={removingIds.has(duplicate.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 mr-1" />
-                        Remover
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => openInvoice(duplicate.id)} disabled={!canOpenInvoice}>
+                          <Eye className="h-3.5 w-3.5 mr-1" />
+                          Abrir
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleRemoveDuplicate(duplicate.id)}
+                          disabled={removingIds.has(duplicate.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 mr-1" />
+                          Remover
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -288,6 +306,7 @@ export function ReconciliationTab({ clientId, rangeStart, rangeEnd, onCleanupCom
                     <TableHead>NIF</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
                     <TableHead>Estado</TableHead>
+                    <TableHead className="text-right">Acção</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -296,10 +315,16 @@ export function ReconciliationTab({ clientId, rangeStart, rangeEnd, onCleanupCom
                       <TableCell>
                         {inv.document_date ? format(new Date(inv.document_date), 'dd/MM/yyyy', { locale: pt }) : '—'}
                       </TableCell>
-                      <TableCell>{inv.supplier_name || 'N/A'}</TableCell>
+                      <TableCell>{getSupplierLabel(inv.supplier_name, inv.supplier_nif)}</TableCell>
                       <TableCell className="font-mono text-sm">{inv.supplier_nif}</TableCell>
                       <TableCell className="text-right">{fmt(inv.total_amount)}</TableCell>
                       <TableCell><Badge variant="outline">{inv.status}</Badge></TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="outline" size="sm" onClick={() => openInvoice(inv.id)} disabled={!canOpenInvoice}>
+                          <Eye className="h-3.5 w-3.5 mr-1" />
+                          Abrir
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -328,6 +353,7 @@ export function ReconciliationTab({ clientId, rangeStart, rangeEnd, onCleanupCom
                     <TableHead>NIF</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
                     <TableHead>Estado</TableHead>
+                    <TableHead className="text-right">Acção</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -336,10 +362,16 @@ export function ReconciliationTab({ clientId, rangeStart, rangeEnd, onCleanupCom
                       <TableCell>
                         {inv.document_date ? format(new Date(inv.document_date), 'dd/MM/yyyy', { locale: pt }) : '—'}
                       </TableCell>
-                      <TableCell>{inv.supplier_name || 'N/A'}</TableCell>
+                      <TableCell>{getSupplierLabel(inv.supplier_name, inv.supplier_nif)}</TableCell>
                       <TableCell className="font-mono text-sm">{inv.supplier_nif}</TableCell>
                       <TableCell className="text-right">{fmt(inv.total_amount)}</TableCell>
                       <TableCell><Badge variant="outline">{inv.status}</Badge></TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="outline" size="sm" onClick={() => openInvoice(inv.id)} disabled={!canOpenInvoice}>
+                          <Eye className="h-3.5 w-3.5 mr-1" />
+                          Abrir
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -369,6 +401,7 @@ export function ReconciliationTab({ clientId, rangeStart, rangeEnd, onCleanupCom
                     <TableHead className="text-right">Valor Upload</TableHead>
                     <TableHead className="text-right">Valor AT</TableHead>
                     <TableHead className="text-right">Diferença</TableHead>
+                    <TableHead className="text-right">Acções</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -377,12 +410,24 @@ export function ReconciliationTab({ clientId, rangeStart, rangeEnd, onCleanupCom
                       <TableCell>
                         {upload.document_date ? format(new Date(upload.document_date), 'dd/MM/yyyy', { locale: pt }) : '—'}
                       </TableCell>
-                      <TableCell>{upload.supplier_name || at.supplier_name || 'N/A'}</TableCell>
+                      <TableCell>{getSupplierLabel(upload.supplier_name || at.supplier_name, upload.supplier_nif)}</TableCell>
                       <TableCell className="font-mono text-sm">{upload.supplier_nif}</TableCell>
                       <TableCell className="text-right">{fmt(upload.total_amount)}</TableCell>
                       <TableCell className="text-right">{fmt(at.total_amount)}</TableCell>
                       <TableCell className="text-right font-medium text-amber-600">
                         {fmt(diff)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={() => openInvoice(upload.id)} disabled={!canOpenInvoice}>
+                            <Eye className="h-3.5 w-3.5 mr-1" />
+                            Upload
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => openInvoice(at.id)} disabled={!canOpenInvoice}>
+                            <Eye className="h-3.5 w-3.5 mr-1" />
+                            AT
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

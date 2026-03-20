@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { enrichSupplierNames } from '@/lib/supplierNameResolver';
 
 interface AIMetric {
   id: string;
@@ -27,8 +28,8 @@ export function useAIMetrics() {
         .order('total_corrections', { ascending: false });
 
       if (error) throw error;
-      
-      return (data || []) as AIMetric[];
+
+      return enrichSupplierNames((data || []) as AIMetric[]);
     },
     enabled: !!user?.id,
   });
@@ -62,13 +63,18 @@ export function useAIMetrics() {
         .maybeSingle();
 
       if (existing) {
+        const updates: Partial<AIMetric> = {
+          total_classifications: existing.total_classifications + 1,
+          last_classification_at: new Date().toISOString(),
+        };
+
+        if (data.supplierName?.trim()) {
+          updates.supplier_name = data.supplierName.trim();
+        }
+
         const { error } = await supabase
           .from('ai_metrics')
-          .update({
-            total_classifications: existing.total_classifications + 1,
-            last_classification_at: new Date().toISOString(),
-            supplier_name: data.supplierName || null,
-          })
+          .update(updates)
           .eq('id', existing.id);
 
         if (error) throw error;
@@ -100,12 +106,18 @@ export function useAIMetrics() {
         .maybeSingle();
 
       if (existing) {
+        const updates: Partial<AIMetric> = {
+          total_corrections: existing.total_corrections + 1,
+          last_correction_at: new Date().toISOString(),
+        };
+
+        if (data.supplierName?.trim()) {
+          updates.supplier_name = data.supplierName.trim();
+        }
+
         const { error } = await supabase
           .from('ai_metrics')
-          .update({
-            total_corrections: existing.total_corrections + 1,
-            last_correction_at: new Date().toISOString(),
-          })
+          .update(updates)
           .eq('id', existing.id);
 
         if (error) throw error;

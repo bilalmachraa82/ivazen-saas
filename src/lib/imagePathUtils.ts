@@ -4,7 +4,7 @@ export const ELECTRONIC_IMPORT_PREFIXES = [
   'at-webservice-sales/',
   'at-portal-recibos/',
   'efatura-csv/',
-  'imported/',
+  'imported',
   'saft-',
   'saft_',
 ] as const;
@@ -28,11 +28,10 @@ export function getImportSourceLabel(imagePath: string | null | undefined): stri
   if (imagePath.startsWith('efatura-csv/')) {
     return 'CSV e-Fatura (importação manual)';
   }
-  if (
-    imagePath.startsWith('imported/')
-    || imagePath.startsWith('saft-')
-    || imagePath.startsWith('saft_')
-  ) {
+  if (imagePath === 'imported' || imagePath.startsWith('imported/')) {
+    return 'Importação tabular / manual';
+  }
+  if (imagePath.startsWith('saft-') || imagePath.startsWith('saft_')) {
     return 'Importação SAF-T';
   }
   return 'Importação externa';

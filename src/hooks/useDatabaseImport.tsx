@@ -431,7 +431,7 @@ export function useDatabaseImport() {
             document_date: data.document_date,
             total_amount: data.total_amount || 0,
             total_vat: data.total_vat || 0,
-            image_path: 'imported',
+            image_path: 'imported/manual',
             status: 'pending',
           });
           if (error) return { success: false, error: error.message };
@@ -451,7 +451,7 @@ export function useDatabaseImport() {
             document_date: data.document_date,
             total_amount: data.total_amount || 0,
             total_vat: data.total_vat || 0,
-            image_path: 'imported',
+            image_path: 'imported/manual',
             status: 'pending',
             import_source: 'csv',
           });
