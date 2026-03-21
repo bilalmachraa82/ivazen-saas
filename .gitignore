@@ -51,3 +51,13 @@ deno.lock
 # Lovable artifacts
 .lovable/
 .gstack/
+
+# Migration scripts (local tooling, not part of the app)
+scripts/migration/*.mjs
+
+# Test artifacts
+e2e/screenshots/
+
+# Dev tooling (local only)
+.storybook/
+.playwright-cli/

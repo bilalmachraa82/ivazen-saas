@@ -5,6 +5,7 @@ import { fetchAllPages } from '@/lib/supabasePagination';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 import { getRecentImportCutoff, type RecentImportWindow } from '@/lib/recentImports';
+import { enrichSupplierNames } from '@/lib/supplierNameResolver';
 
 type SalesInvoice = Tables<'sales_invoices'>;
 
@@ -24,6 +25,7 @@ export function useSalesInvoices(externalClientId?: string | null) {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  const [allFiscalPeriods, setAllFiscalPeriods] = useState<string[]>([]);
   const [filters, setFilters] = useState<SalesInvoiceFilters>({
     status: 'all',
     fiscalPeriod: 'all',
@@ -82,8 +84,10 @@ export function useSalesInvoices(externalClientId?: string | null) {
       };
 
       const data = await fetchAllPages<SalesInvoice>((from, to) => buildQuery().range(from, to));
-      setInvoices(data);
-      setTotalCount(data.length);
+      // Enrich customer names (reuse supplier resolver for NIF→name lookups)
+      const enrichedData = await enrichSupplierNames(data as any) as unknown as SalesInvoice[];
+      setInvoices(enrichedData);
+      setTotalCount(enrichedData.length);
     } catch (error) {
       console.error('Error fetching sales invoices:', error);
       toast.error('Erro ao carregar facturas de vendas');
@@ -139,15 +143,40 @@ export function useSalesInvoices(externalClientId?: string | null) {
     }
   };
 
-  const getFiscalPeriods = (): string[] => {
-    const periods = new Set<string>();
-    invoices.forEach((inv) => {
-      if (inv.fiscal_period) {
-        periods.add(inv.fiscal_period);
+  // Fetch ALL fiscal periods for this client from DB (not just from the current page slice)
+  const fetchFiscalPeriods = useCallback(async () => {
+    if (!user) return;
+    if (externalClientId === null) {
+      setAllFiscalPeriods([]);
+      return;
+    }
+    try {
+      let query = supabase
+        .from('sales_invoices')
+        .select('fiscal_period')
+        .not('fiscal_period', 'is', null);
+
+      if (effectiveClientId && effectiveClientId !== 'all') {
+        query = query.eq('client_id', effectiveClientId);
       }
-    });
-    return Array.from(periods).sort().reverse();
-  };
+
+      const { data, error } = await query;
+      if (error) {
+        console.error('Error fetching sales fiscal periods:', error);
+        return;
+      }
+      const periods = new Set((data || []).map(r => r.fiscal_period).filter(Boolean) as string[]);
+      setAllFiscalPeriods(Array.from(periods).sort().reverse());
+    } catch (err) {
+      console.error('Error fetching sales fiscal periods:', err);
+    }
+  }, [user, externalClientId, effectiveClientId]);
+
+  useEffect(() => {
+    void fetchFiscalPeriods();
+  }, [fetchFiscalPeriods]);
+
+  const getFiscalPeriods = (): string[] => allFiscalPeriods;
 
   // Reset page to 0 when filters change (not when page itself changes)
   const setFiltersAndResetPage = (

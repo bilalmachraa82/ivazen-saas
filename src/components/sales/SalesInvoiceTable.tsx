@@ -13,7 +13,7 @@ import { matchesRecentImportWindow } from '@/lib/recentImports';
 
 type SalesInvoice = Tables<'sales_invoices'>;
 
-type SortField = 'date' | 'amount';
+type SortField = 'date' | 'amount' | 'customer' | 'nif' | 'status' | 'category';
 type SortOrder = 'asc' | 'desc';
 
 interface SalesInvoiceTableProps {
@@ -55,6 +55,18 @@ export function SalesInvoiceTable({ invoices, loading, onSelectInvoice }: SalesI
           break;
         case 'amount':
           comparison = Number(a.total_amount) - Number(b.total_amount);
+          break;
+        case 'customer':
+          comparison = (a.customer_name || '').localeCompare(b.customer_name || '');
+          break;
+        case 'nif':
+          comparison = (a.customer_nif || '').localeCompare(b.customer_nif || '');
+          break;
+        case 'status':
+          comparison = (a.status || '').localeCompare(b.status || '');
+          break;
+        case 'category':
+          comparison = ((a as any).revenue_category || '').localeCompare((b as any).revenue_category || '');
           break;
       }
       
@@ -141,6 +153,10 @@ export function SalesInvoiceTable({ invoices, loading, onSelectInvoice }: SalesI
           <SelectContent>
             <SelectItem value="date">Data</SelectItem>
             <SelectItem value="amount">Valor</SelectItem>
+            <SelectItem value="customer">Cliente</SelectItem>
+            <SelectItem value="nif">NIF</SelectItem>
+            <SelectItem value="status">Estado</SelectItem>
+            <SelectItem value="category">Categoria</SelectItem>
           </SelectContent>
         </Select>
         <Button 

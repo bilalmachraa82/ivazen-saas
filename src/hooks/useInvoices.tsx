@@ -112,6 +112,7 @@ export function useInvoices(externalClientId?: string | null) {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  const [allFiscalPeriods, setAllFiscalPeriods] = useState<string[]>([]);
   const [filters, setFilters] = useState<InvoiceFilters>({
     status: 'all',
     fiscalPeriod: 'all',
@@ -554,10 +555,40 @@ export function useInvoices(externalClientId?: string | null) {
     return `${base.replace(/\/$/, '')}/storage/v1${String(rawSignedUrl).startsWith('/') ? '' : '/'}${rawSignedUrl}`;
   };
 
-  const getFiscalPeriods = () => {
-    const periods = new Set(invoices.map(inv => inv.fiscal_period).filter(Boolean));
-    return Array.from(periods).sort().reverse();
-  };
+  // Fetch ALL fiscal periods for this client from DB (not just from the current page slice)
+  const fetchFiscalPeriods = useCallback(async () => {
+    if (!user) return;
+    if (externalClientId === null) {
+      setAllFiscalPeriods([]);
+      return;
+    }
+    try {
+      let query = supabase
+        .from('invoices')
+        .select('fiscal_period')
+        .not('fiscal_period', 'is', null);
+
+      if (effectiveClientId && effectiveClientId !== 'all') {
+        query = query.eq('client_id', effectiveClientId);
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        console.error('Error fetching fiscal periods:', error);
+        return;
+      }
+      const periods = new Set((data || []).map(r => r.fiscal_period).filter(Boolean) as string[]);
+      setAllFiscalPeriods(Array.from(periods).sort().reverse());
+    } catch (err) {
+      console.error('Error fetching fiscal periods:', err);
+    }
+  }, [user, externalClientId, effectiveClientId]);
+
+  useEffect(() => {
+    void fetchFiscalPeriods();
+  }, [fetchFiscalPeriods]);
+
+  const getFiscalPeriods = () => allFiscalPeriods;
 
   // Reset page to 0 when filters change (not when page itself changes)
   const setFiltersAndResetPage = (
@@ -577,6 +608,8 @@ export function useInvoices(externalClientId?: string | null) {
     setPage(0);
   }, [filters.status, filters.fiscalPeriod, filters.year, filters.search, filters.reviewFilter, filters.recentWindow, effectiveClientId]);
 
+  const excludedCount = invoices.filter(inv => inv.accounting_excluded).length;
+
   return {
     invoices,
     loading,
@@ -589,6 +622,7 @@ export function useInvoices(externalClientId?: string | null) {
     reExtractInvoice,
     getSignedUrl,
     getFiscalPeriods,
+    excludedCount,
     refetch: fetchInvoices,
     // Pagination
     page,

@@ -56,6 +56,7 @@ export default function Validation() {
     reExtractInvoice,
     getSignedUrl,
     getFiscalPeriods,
+    excludedCount,
     refetch,
   } = useInvoices(effectiveClientId);
   
@@ -476,7 +477,7 @@ export default function Validation() {
 
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
           <ZenStatsCard
             icon={Clock}
             value={pendingCount}
@@ -519,6 +520,17 @@ export default function Validation() {
             onClick={() => {
               setFilters((prev) => ({ ...prev, status: 'validated', reviewFilter: 'all' }));
               syncFilterParams({ status: 'validated', review: 'all' });
+            }}
+          />
+          <ZenStatsCard
+            icon={AlertCircle}
+            value={excludedCount}
+            label="Não contabilizar"
+            variant="default"
+            animationDelay="175ms"
+            onClick={() => {
+              setFilters((prev) => ({ ...prev, status: 'accounting_excluded', reviewFilter: 'all' }));
+              syncFilterParams({ status: 'accounting_excluded', review: 'all' });
             }}
           />
           <ZenStatsCard
