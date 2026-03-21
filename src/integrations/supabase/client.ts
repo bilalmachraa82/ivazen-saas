@@ -4,6 +4,8 @@ import type { Database } from './types';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const TEST_SUPABASE_URL = 'https://example.supabase.co';
+const TEST_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_test_key';
 
 const isTestEnv = import.meta.env.MODE === 'test' || Boolean((import.meta.env as any).VITEST);
 
@@ -20,7 +22,26 @@ const memoryStorage = (() => {
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+export function resolveSupabaseRuntimeConfig(params: {
+  url?: string;
+  publishableKey?: string;
+  isTestEnv: boolean;
+}) {
+  return {
+    url: params.isTestEnv ? (params.url || TEST_SUPABASE_URL) : params.url,
+    publishableKey: params.isTestEnv
+      ? (params.publishableKey || TEST_SUPABASE_PUBLISHABLE_KEY)
+      : params.publishableKey,
+  };
+}
+
+const supabaseConfig = resolveSupabaseRuntimeConfig({
+  url: SUPABASE_URL,
+  publishableKey: SUPABASE_PUBLISHABLE_KEY,
+  isTestEnv,
+});
+
+export const supabase = createClient<Database>(supabaseConfig.url, supabaseConfig.publishableKey, {
   auth: {
     storage: (!isTestEnv && typeof localStorage !== 'undefined') ? localStorage : memoryStorage,
     persistSession: !isTestEnv,

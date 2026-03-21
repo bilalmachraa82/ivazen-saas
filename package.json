@@ -8,6 +8,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "verify:release": "npm run build && npm test && npm run lint",
     "check:edge-auth": "node scripts/check-edge-auth-guards.mjs",
     "test": "npm run check:edge-auth && vitest run",
     "test:watch": "vitest",
