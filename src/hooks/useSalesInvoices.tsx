@@ -143,7 +143,7 @@ export function useSalesInvoices(externalClientId?: string | null) {
     }
   };
 
-  // Fetch ALL fiscal periods for this client from DB (not just from the current page slice)
+  // Fetch distinct fiscal periods via RPC (efficient: returns ~20 rows instead of all)
   const fetchFiscalPeriods = useCallback(async () => {
     if (!user) return;
     if (externalClientId === null) {
@@ -151,22 +151,16 @@ export function useSalesInvoices(externalClientId?: string | null) {
       return;
     }
     try {
-      let query = supabase
-        .from('sales_invoices')
-        .select('fiscal_period')
-        .not('fiscal_period', 'is', null);
-
-      if (effectiveClientId && effectiveClientId !== 'all') {
-        query = query.eq('client_id', effectiveClientId);
-      }
-
-      const { data, error } = await query;
+      const clientId = (effectiveClientId && effectiveClientId !== 'all') ? effectiveClientId : null;
+      const { data, error } = await supabase.rpc('get_distinct_fiscal_periods', {
+        p_client_id: clientId,
+        p_table_name: 'sales_invoices',
+      });
       if (error) {
         console.error('Error fetching sales fiscal periods:', error);
         return;
       }
-      const periods = new Set((data || []).map(r => r.fiscal_period).filter(Boolean) as string[]);
-      setAllFiscalPeriods(Array.from(periods).sort().reverse());
+      setAllFiscalPeriods(((data as string[]) || []).filter(Boolean));
     } catch (err) {
       console.error('Error fetching sales fiscal periods:', err);
     }
@@ -186,10 +180,10 @@ export function useSalesInvoices(externalClientId?: string | null) {
     setFilters(value);
   };
 
-  // Single fetch effect — includes search to avoid double-fetch
+  // Single fetch effect — use memoized callback as dep to capture all changes
   useEffect(() => {
-    fetchInvoices();
-  }, [user, filters.status, filters.fiscalPeriod, filters.search, filters.recentWindow, effectiveClientId]);
+    void fetchInvoices();
+  }, [fetchInvoices]);
 
   // Reset page when any filter changes
   useEffect(() => {

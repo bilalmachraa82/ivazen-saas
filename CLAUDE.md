@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## gstack
+Use /browse from gstack for all web browsing. Never use mcp__claude-in-chrome__* tools.
+Available skills: /office-hours, /plan-ceo-review, /plan-eng-review, /plan-design-review,
+/design-consultation, /review, /ship, /browse, /qa, /qa-only, /design-review,
+/setup-browser-cookies, /retro, /debug, /document-release.
+
 ## Project Overview
 
 **IVAzen** — SaaS tax management for Portuguese businesses and accountants. Invoice classification, VAT (IVA) calculations, tax withholding management (Modelo 10), and fiscal reporting.

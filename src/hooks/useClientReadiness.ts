@@ -100,7 +100,7 @@ export function useClientReadiness() {
 
   // ── Sales counts (vendas) ──
   const { data: salesCounts, isLoading: isLoadingSales } = useQuery({
-    queryKey: ['client-readiness-sales', user?.id, clientIds.length],
+    queryKey: ['client-readiness-sales', user?.id, clientIds],
     queryFn: () => countByClientId('sales_invoices', clientIds),
     enabled: isAccountant && clientIds.length > 0,
     staleTime: 60000,
@@ -108,7 +108,7 @@ export function useClientReadiness() {
 
   // ── Withholding counts (retenções) ──
   const { data: withholdingCounts, isLoading: isLoadingWithholdings } = useQuery({
-    queryKey: ['client-readiness-withholdings', user?.id, clientIds.length],
+    queryKey: ['client-readiness-withholdings', user?.id, clientIds],
     queryFn: () => countByClientId('tax_withholdings', clientIds),
     enabled: isAccountant && clientIds.length > 0,
     staleTime: 60000,
@@ -163,6 +163,7 @@ export function useClientReadiness() {
   }, [readinessMap]);
 
   return {
+    clients,
     readinessMap,
     summary,
     isLoading: isLoadingClients || isLoadingCreds || isLoadingSales || isLoadingWithholdings,

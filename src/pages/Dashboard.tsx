@@ -17,7 +17,8 @@ import { UnifiedOnboarding } from '@/components/onboarding/UnifiedOnboarding';
 import { TaxFlowWidget } from '@/components/dashboard/TaxFlowWidget';
 import { AttentionItems } from '@/components/dashboard/AttentionItems';
 import { FiscalDeadlines } from '@/components/accountant/FiscalDeadlines';
-import { useClientReadiness, readinessConfig, readinessOrder } from '@/hooks/useClientReadiness';
+import { useClientReadiness } from '@/hooks/useClientReadiness';
+import { PortfolioReadinessCard } from '@/components/dashboard/PortfolioReadinessCard';
 import { supabase } from '@/integrations/supabase/client';
 import {
   FileText,
@@ -74,7 +75,7 @@ export default function Dashboard() {
     { year: selectedDashboardYear },
   );
   const { myRequest } = useAccountantRequest();
-  const { summary, totalClients } = useClientReadiness();
+  const { clients: accountantClients, summary, totalClients, readinessMap, isLoading: readinessLoading } = useClientReadiness();
   const navigate = useNavigate();
   const ivaCadence = isAccountant
     ? (selectedClient?.iva_cadence ?? 'quarterly')
@@ -155,42 +156,23 @@ export default function Dashboard() {
 
         {isAccountant && !hasSelectedClient ? (
           <>
-            {/* Portfolio readiness summary */}
-            {totalClients > 0 && (
-              <ZenCard withLine animationDelay="75ms" className="shadow-lg">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                    <Users className="h-5 w-5 text-primary" />
-                    Estado da Carteira
-                    <Badge variant="secondary" className="ml-auto text-xs">{totalClients} clientes</Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                    {readinessOrder.map((status) => {
-                      const config = readinessConfig[status];
-                      const count = summary[status];
-                      if (count === 0) return null;
-                      return (
-                        <div
-                          key={status}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm ${config.badge}`}
-                        >
-                          <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${config.dot}`} />
-                          <span className="font-semibold">{count}</span>
-                          <span className="text-xs truncate">{config.label}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-3">
-                    Selecione um cliente no menu lateral para abrir o Centro Fiscal.
-                  </p>
-                </CardContent>
-              </ZenCard>
-            )}
-
-            {totalClients === 0 && (
+            {/* Portfolio readiness summary — clickable badges with client list */}
+            {readinessLoading ? (
+              <PortfolioReadinessCard
+                clients={[]}
+                readinessMap={new Map()}
+                summary={{ ready: 0, partial: 0, no_data: 0, no_credentials: 0, blocked: 0, needs_import: 0 }}
+                totalClients={0}
+                isLoading
+              />
+            ) : totalClients > 0 ? (
+              <PortfolioReadinessCard
+                clients={accountantClients}
+                readinessMap={readinessMap}
+                summary={summary}
+                totalClients={totalClients}
+              />
+            ) : (
               <ZenEmptyState
                 icon={Users}
                 title="Sem clientes associados"
@@ -200,7 +182,8 @@ export default function Dashboard() {
                   onClick: () => navigate('/settings'),
                 }}
               />
-            )}
+            )
+            }
 
             {/* Quick-start guide for accountants — only when they have clients */}
             {totalClients > 0 && <ZenCard withLine animationDelay="150ms" className="shadow-lg">

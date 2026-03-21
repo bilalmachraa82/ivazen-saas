@@ -90,8 +90,8 @@ export const readinessConfig: Record<ClientReadiness, ReadinessConfig> = {
   },
   no_credentials: {
     label: 'Sem credenciais',
-    dot: 'bg-slate-300',
-    badge: 'text-slate-500 bg-slate-50 border-slate-200 dark:text-slate-400 dark:bg-slate-900 dark:border-slate-700',
+    dot: 'bg-orange-400',
+    badge: 'text-orange-700 bg-orange-50 border-orange-200 dark:text-orange-400 dark:bg-orange-950 dark:border-orange-800',
     description: 'Credenciais AT não configuradas',
   },
   blocked: {

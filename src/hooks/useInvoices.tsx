@@ -555,7 +555,7 @@ export function useInvoices(externalClientId?: string | null) {
     return `${base.replace(/\/$/, '')}/storage/v1${String(rawSignedUrl).startsWith('/') ? '' : '/'}${rawSignedUrl}`;
   };
 
-  // Fetch ALL fiscal periods for this client from DB (not just from the current page slice)
+  // Fetch distinct fiscal periods via RPC (efficient: returns ~20 rows instead of 166K)
   const fetchFiscalPeriods = useCallback(async () => {
     if (!user) return;
     if (externalClientId === null) {
@@ -563,22 +563,16 @@ export function useInvoices(externalClientId?: string | null) {
       return;
     }
     try {
-      let query = supabase
-        .from('invoices')
-        .select('fiscal_period')
-        .not('fiscal_period', 'is', null);
-
-      if (effectiveClientId && effectiveClientId !== 'all') {
-        query = query.eq('client_id', effectiveClientId);
-      }
-
-      const { data, error } = await query;
+      const clientId = (effectiveClientId && effectiveClientId !== 'all') ? effectiveClientId : null;
+      const { data, error } = await supabase.rpc('get_distinct_fiscal_periods', {
+        p_client_id: clientId,
+        p_table_name: 'invoices',
+      });
       if (error) {
         console.error('Error fetching fiscal periods:', error);
         return;
       }
-      const periods = new Set((data || []).map(r => r.fiscal_period).filter(Boolean) as string[]);
-      setAllFiscalPeriods(Array.from(periods).sort().reverse());
+      setAllFiscalPeriods(((data as string[]) || []).filter(Boolean));
     } catch (err) {
       console.error('Error fetching fiscal periods:', err);
     }
