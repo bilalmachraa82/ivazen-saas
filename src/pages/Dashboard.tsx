@@ -156,21 +156,14 @@ export default function Dashboard() {
 
         {isAccountant && !hasSelectedClient ? (
           <>
-            {/* Portfolio readiness summary — clickable badges with client list */}
-            {readinessLoading ? (
-              <PortfolioReadinessCard
-                clients={[]}
-                readinessMap={new Map()}
-                summary={{ ready: 0, partial: 0, no_data: 0, no_credentials: 0, blocked: 0, needs_import: 0 }}
-                totalClients={0}
-                isLoading
-              />
-            ) : totalClients > 0 ? (
+            {/* Portfolio readiness summary — single instance avoids unmount/remount */}
+            {readinessLoading || totalClients > 0 ? (
               <PortfolioReadinessCard
                 clients={accountantClients}
                 readinessMap={readinessMap}
                 summary={summary}
                 totalClients={totalClients}
+                isLoading={readinessLoading}
               />
             ) : (
               <ZenEmptyState
@@ -182,8 +175,7 @@ export default function Dashboard() {
                   onClick: () => navigate('/settings'),
                 }}
               />
-            )
-            }
+            )}
 
             {/* Quick-start guide for accountants — only when they have clients */}
             {totalClients > 0 && <ZenCard withLine animationDelay="150ms" className="shadow-lg">

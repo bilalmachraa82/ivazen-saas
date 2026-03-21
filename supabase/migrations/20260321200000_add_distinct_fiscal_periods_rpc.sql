@@ -3,6 +3,9 @@
 --
 -- Uses SECURITY INVOKER so RLS policies on invoices/sales_invoices
 -- apply automatically under the calling user's identity.
+--
+-- When p_client_id is NULL, returns periods across all rows visible
+-- to the caller via RLS (client sees own; accountant sees portfolio).
 
 CREATE OR REPLACE FUNCTION get_distinct_fiscal_periods(
   p_client_id uuid DEFAULT NULL,
@@ -63,11 +66,12 @@ REVOKE EXECUTE ON FUNCTION get_distinct_fiscal_periods(uuid, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION get_distinct_fiscal_periods(uuid, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_distinct_fiscal_periods(uuid, text) TO service_role;
 
--- Composite indexes for efficient index-only scans on fiscal_period queries
+-- Composite partial indexes: predicate matches query WHERE clause exactly
+-- (IS NOT NULL AND <> '') to enable true index-only scans.
 CREATE INDEX IF NOT EXISTS idx_invoices_client_fiscal_period
   ON public.invoices(client_id, fiscal_period DESC)
-  WHERE fiscal_period IS NOT NULL;
+  WHERE fiscal_period IS NOT NULL AND fiscal_period <> '';
 
 CREATE INDEX IF NOT EXISTS idx_sales_invoices_client_fiscal_period
   ON public.sales_invoices(client_id, fiscal_period DESC)
-  WHERE fiscal_period IS NOT NULL;
+  WHERE fiscal_period IS NOT NULL AND fiscal_period <> '';

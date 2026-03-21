@@ -8,7 +8,7 @@
  *  - Centro Fiscal loads with obligation cards
  *  - Switching clients via localStorage changes displayed data
  */
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type BrowserContext } from '@playwright/test';
 import {
   authenticateAndSetup,
   navigateAndWait,
@@ -22,9 +22,10 @@ test.use({ viewport: { width: 1280, height: 900 } });
 
 test.describe.serial('Accountant Flow — Portfolio & Client Navigation', () => {
   let page: Page;
+  let context: BrowserContext;
 
   test.beforeAll(async ({ browser }) => {
-    const context = await browser.newContext();
+    context = await browser.newContext();
     // Start WITHOUT a pre-selected client to test portfolio view
     page = await authenticateAndSetup(context, {
       clientId: '', // No client selected initially
@@ -33,7 +34,8 @@ test.describe.serial('Accountant Flow — Portfolio & Client Navigation', () => 
   });
 
   test.afterAll(async () => {
-    if (page) await page.close();
+    await page?.close();
+    await context?.close();
   });
 
   test('dashboard loads with portfolio readiness card', async () => {
@@ -46,21 +48,17 @@ test.describe.serial('Accountant Flow — Portfolio & Client Navigation', () => 
     await dismissOverlays(page);
 
     // Portfolio readiness card should be visible
-    const readinessCard = page.locator('text=/Estado da Carteira/i').first();
-    await expect(readinessCard).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('text=/Estado da Carteira/i').first()).toBeVisible({ timeout: 15_000 });
 
     // Should show client count badge
-    const clientsBadge = page.locator('text=/clientes/i').first();
-    await expect(clientsBadge).toBeVisible();
+    await expect(page.locator('text=/clientes/i').first()).toBeVisible();
 
     await page.screenshot({ path: 'e2e/screenshots/accountant-portfolio.png', fullPage: true });
   });
 
   test('readiness badges are visible and show counts', async () => {
-    // At least some readiness badges should be visible
     const body = await page.textContent('body');
 
-    // The readiness system uses these labels
     const possibleLabels = [
       'Pronto', 'Parcial', 'Sem dados', 'Sem credenciais', 'Bloqueado', 'Importar',
     ];
@@ -75,73 +73,56 @@ test.describe.serial('Accountant Flow — Portfolio & Client Navigation', () => 
   });
 
   test('clicking a readiness badge shows filtered client list', async () => {
-    // Find any clickable badge with aria-pressed
     const badges = page.locator('[aria-pressed]');
     const badgeCount = await badges.count();
+    // Must have at least one clickable badge
+    expect(badgeCount).toBeGreaterThan(0);
 
-    if (badgeCount > 0) {
-      // Click the first badge
-      await badges.first().click();
-      await page.waitForTimeout(1_000);
+    // Click the first badge
+    await badges.first().click();
+    await page.waitForTimeout(1_000);
 
-      // A client list should appear below
-      const body = await page.textContent('body');
-      // Should show client names or "Nenhum cliente encontrado"
-      const hasClientList =
-        /nif|cliente encontrado|nenhum cliente/i.test(body || '');
-      expect(hasClientList || badgeCount > 0).toBeTruthy();
+    // A client list or empty state MUST appear
+    const clientList = page.locator('text=/NIF|Nenhum cliente encontrado/i');
+    await expect(clientList.first()).toBeVisible({ timeout: 5_000 });
 
-      // Click same badge again to toggle off
-      await badges.first().click();
-      await page.waitForTimeout(500);
-    }
+    // Toggle off
+    await badges.first().click();
+    await page.waitForTimeout(500);
   });
 
   test('selecting Bilal client navigates to Centro Fiscal', async () => {
-    // Set Bilal as selected client
     await switchClient(page, BILAL_CLIENT_ID, 'Bilal');
     await navigateAndWait(page, '/centro-fiscal');
 
     const body = await page.textContent('body');
 
-    // Centro Fiscal should show obligation cards
+    // Centro Fiscal should show obligation cards, not "select a client" prompt
     expect(body).not.toContain('Selecione um cliente');
-
-    // Should have fiscal obligation indicators
-    const hasObligations =
-      /compras|vendas|iva|segurança social|modelo 10/i.test(body || '');
-    expect(hasObligations).toBeTruthy();
+    expect(body).toMatch(/compras|vendas|iva|segurança social|modelo 10/i);
 
     await page.screenshot({ path: 'e2e/screenshots/accountant-centro-fiscal-bilal.png', fullPage: true });
   });
 
   test('Centro Fiscal shows fiscal data for Bilal', async () => {
     const body = await page.textContent('body');
-
-    // Bilal has known data: purchases (761) and sales (25)
-    const hasCompras = /compras/i.test(body || '');
-    const hasVendas = /vendas/i.test(body || '');
-
-    expect(hasCompras).toBeTruthy();
-    expect(hasVendas).toBeTruthy();
+    expect(body).toMatch(/compras/i);
+    expect(body).toMatch(/vendas/i);
   });
 
   test('switching to CAAD shows Modelo 10 data', async () => {
     await switchClient(page, CAAD_CLIENT_ID, 'CAAD');
     await navigateAndWait(page, '/modelo-10');
-    await page.waitForTimeout(3_000); // Large dataset
+
+    // Wait for the large dataset header to appear
+    await expect(page.locator('text=/Lista de Retenções|Retenções/i').first()).toBeVisible({ timeout: 30_000 });
 
     const body = await page.textContent('body');
 
-    // CAAD has >2000 withholdings
-    const hasRetencoes = /retenç|withhold/i.test(body || '');
-    expect(hasRetencoes).toBeTruthy();
-
     // Should show category badges
-    const hasCat = /Cat\.\s*[ABEFGHR]/i.test(body || '');
-    expect(hasCat).toBeTruthy();
+    expect(body).toMatch(/Cat\.\s*[ABEFGHR]/i);
 
-    // Check retention count (should be >1000, not truncated at 1000)
+    // Check retention count (should be >1000, not truncated)
     const countMatch = (body || '').match(/Lista de Retenções\s*\((\d[\d.,]*)/);
     if (countMatch) {
       const num = parseInt(countMatch[1].replace(/\./g, ''), 10);
@@ -158,26 +139,18 @@ test.describe.serial('Accountant Flow — Portfolio & Client Navigation', () => 
 
     const body = await page.textContent('body');
 
-    // Dashboard should show Bilal-specific data
-    // Should have the Fluxo Fiscal widget or stat cards
-    const hasDashboardContent =
-      /fluxo fiscal|compras|vendas|obrigações/i.test(body || '');
-    expect(hasDashboardContent).toBeTruthy();
-
-    // No error states
+    expect(body).toMatch(/fluxo fiscal|compras|vendas|obrigações/i);
     expect(body).not.toContain('Something went wrong');
-    expect(body).not.toContain('Erro');
+    expect(body).not.toContain('Erro ao carregar');
   });
 
   test('sidebar navigation items are correct for accountant', async () => {
     const body = await page.textContent('body');
 
-    // Should have these nav items
     for (const item of ['Centro Fiscal', 'Vendas', 'Obrigações Fiscais']) {
       expect(body).toContain(item);
     }
 
-    // Should NOT show these (accountant-only hidden or removed items)
     for (const item of ['Glossário', 'Calculadora IVA']) {
       const link = await page.locator(`a:has-text("${item}")`).count();
       expect(link).toBe(0);

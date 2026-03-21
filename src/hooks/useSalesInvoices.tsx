@@ -65,11 +65,8 @@ export function useSalesInvoices(externalClientId?: string | null) {
           query = query.eq('fiscal_period', filters.fiscalPeriod);
         }
 
-        if (filters.search) {
-          query = query.or(
-            `customer_name.ilike.%${filters.search}%,customer_nif.ilike.%${filters.search}%`
-          );
-        }
+        // Search is applied client-side after fetch to avoid PostgREST filter injection
+        // (filters.search could contain commas or filter syntax that corrupt the .or() string)
 
         const recentCutoff = getRecentImportCutoff(filters.recentWindow || 'all');
         if (recentCutoff) {
@@ -86,8 +83,18 @@ export function useSalesInvoices(externalClientId?: string | null) {
       const data = await fetchAllPages<SalesInvoice>((from, to) => buildQuery().range(from, to));
       // Enrich customer names (reuse supplier resolver for NIF→name lookups)
       const enrichedData = await enrichSupplierNames(data as any) as unknown as SalesInvoice[];
-      setInvoices(enrichedData);
-      setTotalCount(enrichedData.length);
+
+      // Client-side search filter (safe — avoids PostgREST filter injection)
+      const searchTerm = (filters.search || '').trim().toLowerCase();
+      const filtered = searchTerm
+        ? enrichedData.filter(inv =>
+            (inv.customer_name || '').toLowerCase().includes(searchTerm) ||
+            (inv.customer_nif || '').toLowerCase().includes(searchTerm)
+          )
+        : enrichedData;
+
+      setInvoices(filtered);
+      setTotalCount(filtered.length);
     } catch (error) {
       console.error('Error fetching sales invoices:', error);
       toast.error('Erro ao carregar facturas de vendas');

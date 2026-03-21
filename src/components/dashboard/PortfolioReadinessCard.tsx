@@ -133,6 +133,7 @@ export function PortfolioReadinessCard({
                       <button
                         key={client.id}
                         onClick={() => handleClientClick(client.id)}
+                        aria-label={`Abrir Centro Fiscal para ${client.company_name || client.full_name || 'Cliente'}`}
                         className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/50 transition-colors group"
                       >
                         <div className="min-w-0">
@@ -149,7 +150,7 @@ export function PortfolioReadinessCard({
                   </div>
                   {/* Scroll fade indicator */}
                   {filteredClients.length > 5 && (
-                    <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-background to-transparent pointer-events-none rounded-b-lg" />
+                    <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-card to-transparent pointer-events-none rounded-b-lg" />
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
