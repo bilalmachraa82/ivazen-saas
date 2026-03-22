@@ -29,9 +29,9 @@ interface CredentialRow {
 }
 
 /**
- * Counts rows per client_id in a given table.
- * Uses a lightweight select of just client_id, then counts client-side.
- * RLS ensures only the accountant's clients' rows are returned.
+ * Counts rows per client_id via server-side RPC (GROUP BY).
+ * Returns ~242 rows instead of downloading 53K rows client-side.
+ * RLS enforced via SECURITY INVOKER.
  */
 async function countByClientId(
   table: 'sales_invoices' | 'tax_withholdings',
@@ -39,37 +39,20 @@ async function countByClientId(
 ): Promise<Record<string, number>> {
   if (!clientIds.length) return {};
 
-  const PAGE_SIZE = 1000;
-  const counts: Record<string, number> = {};
+  const { data, error } = await supabase.rpc('count_rows_by_client', {
+    p_client_ids: clientIds,
+    p_table_name: table,
+  });
 
-  // Fetch in batches of 1000 client_ids to stay within Supabase .in() limits
-  for (let batchOffset = 0; batchOffset < clientIds.length; batchOffset += PAGE_SIZE) {
-    const batch = clientIds.slice(batchOffset, batchOffset + PAGE_SIZE);
-
-    // Paginate returned rows to avoid Supabase default row limit truncation
-    let from = 0;
-    while (true) {
-      const { data, error } = await supabase
-        .from(table)
-        .select('client_id')
-        .in('client_id', batch)
-        .range(from, from + PAGE_SIZE - 1);
-
-      if (error) {
-        console.error(`[useClientReadiness] ${table} count failed:`, error);
-        break;
-      }
-
-      for (const row of data || []) {
-        counts[row.client_id] = (counts[row.client_id] || 0) + 1;
-      }
-
-      // If we got fewer rows than PAGE_SIZE, we've fetched all rows
-      if (!data || data.length < PAGE_SIZE) break;
-      from += PAGE_SIZE;
-    }
+  if (error) {
+    console.error(`[useClientReadiness] ${table} count failed:`, error);
+    return {};
   }
 
+  const counts: Record<string, number> = {};
+  for (const row of (data || []) as { client_id: string; row_count: number }[]) {
+    counts[row.client_id] = row.row_count;
+  }
   return counts;
 }
 

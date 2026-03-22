@@ -1,3 +1,4 @@
+Initialising login role...
 export type Json =
   | string
   | number
@@ -11,6 +12,31 @@ export type Database = {
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.1"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -1480,8 +1506,8 @@ export type Database = {
           has_accountant_ss: boolean | null
           has_other_employment: boolean | null
           id: string
-          iva_cadence: string
           is_first_year: boolean | null
+          iva_cadence: string
           last_ss_declaration: string | null
           nif: string | null
           niss: string | null
@@ -1507,8 +1533,8 @@ export type Database = {
           has_accountant_ss?: boolean | null
           has_other_employment?: boolean | null
           id: string
-          iva_cadence?: string
           is_first_year?: boolean | null
+          iva_cadence?: string
           last_ss_declaration?: string | null
           nif?: string | null
           niss?: string | null
@@ -1534,8 +1560,8 @@ export type Database = {
           has_accountant_ss?: boolean | null
           has_other_employment?: boolean | null
           id?: string
-          iva_cadence?: string
           is_first_year?: boolean | null
+          iva_cadence?: string
           last_ss_declaration?: string | null
           nif?: string | null
           niss?: string | null
@@ -2231,6 +2257,13 @@ export type Database = {
         Returns: number
       }
       cleanup_old_queue_items: { Args: never; Returns: number }
+      count_rows_by_client: {
+        Args: { p_client_ids: string[]; p_table_name: string }
+        Returns: {
+          client_id: string
+          row_count: number
+        }[]
+      }
       get_accountant_clients: {
         Args: { accountant_uuid: string }
         Returns: {
@@ -2240,8 +2273,8 @@ export type Database = {
           email: string
           full_name: string
           id: string
-          iva_cadence: string
           is_primary: boolean
+          iva_cadence: string
           nif: string
           pending_invoices: number
           phone: string
@@ -2298,6 +2331,10 @@ export type Database = {
           is_primary: boolean
           nif: string
         }[]
+      }
+      get_distinct_fiscal_periods: {
+        Args: { p_client_id?: string; p_table_name?: string }
+        Returns: string[]
       }
       get_my_accountant_request: {
         Args: never
@@ -2558,6 +2595,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["client", "accountant", "admin"],
