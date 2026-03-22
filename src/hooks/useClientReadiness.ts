@@ -78,7 +78,7 @@ export function useClientReadiness() {
       return (data || []) as CredentialRow[];
     },
     enabled: isAccountant && !!user?.id,
-    staleTime: 60000,
+    staleTime: 30_000,
   });
 
   // ── Sales counts (vendas) ──
@@ -86,7 +86,7 @@ export function useClientReadiness() {
     queryKey: ['client-readiness-sales', user?.id, clientIds],
     queryFn: () => countByClientId('sales_invoices', clientIds),
     enabled: isAccountant && clientIds.length > 0,
-    staleTime: 60000,
+    staleTime: 30_000,
   });
 
   // ── Withholding counts (retenções) ──
@@ -94,7 +94,7 @@ export function useClientReadiness() {
     queryKey: ['client-readiness-withholdings', user?.id, clientIds],
     queryFn: () => countByClientId('tax_withholdings', clientIds),
     enabled: isAccountant && clientIds.length > 0,
-    staleTime: 60000,
+    staleTime: 30_000,
   });
 
   // ── Build readiness map ──

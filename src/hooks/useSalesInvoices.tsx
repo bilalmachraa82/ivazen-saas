@@ -5,7 +5,7 @@ import { fetchAllPages } from '@/lib/supabasePagination';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 import { getRecentImportCutoff, type RecentImportWindow } from '@/lib/recentImports';
-import { enrichSupplierNames } from '@/lib/supplierNameResolver';
+
 
 type SalesInvoice = Tables<'sales_invoices'>;
 
@@ -81,17 +81,15 @@ export function useSalesInvoices(externalClientId?: string | null) {
       };
 
       const data = await fetchAllPages<SalesInvoice>((from, to) => buildQuery().range(from, to));
-      // Enrich customer names (reuse supplier resolver for NIF→name lookups)
-      const enrichedData = await enrichSupplierNames(data as any) as unknown as SalesInvoice[];
 
       // Client-side search filter (safe — avoids PostgREST filter injection)
       const searchTerm = (filters.search || '').trim().toLowerCase();
       const filtered = searchTerm
-        ? enrichedData.filter(inv =>
+        ? data.filter(inv =>
             (inv.customer_name || '').toLowerCase().includes(searchTerm) ||
             (inv.customer_nif || '').toLowerCase().includes(searchTerm)
           )
-        : enrichedData;
+        : data;
 
       setInvoices(filtered);
       setTotalCount(filtered.length);
