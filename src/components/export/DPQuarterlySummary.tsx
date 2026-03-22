@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback, useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Copy, ExternalLink, ClipboardCheck } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface DPFieldSummary {
   field: number;
@@ -41,6 +43,26 @@ export function DPQuarterlySummary({
     () => dpFieldSummaries.filter(s => s.invoiceCount > 0 || s.baseTotal > 0),
     [dpFieldSummaries]
   );
+
+  const [copiedField, setCopiedField] = useState<number | null>(null);
+
+  const copyFieldValue = useCallback((field: number, value: number) => {
+    const formatted = value.toFixed(2);
+    navigator.clipboard.writeText(formatted);
+    setCopiedField(field);
+    toast.success(`Campo ${field}: ${formatted} copiado`);
+    setTimeout(() => setCopiedField(null), 2000);
+  }, []);
+
+  const copyAllFields = useCallback(() => {
+    const lines = activeFields.map(s =>
+      `Campo ${s.field} — ${s.label}: Base ${s.baseTotal.toFixed(2)} | IVA ${s.vatTotal.toFixed(2)} | Dedutível ${s.vatDeductible.toFixed(2)}`
+    );
+    lines.push('');
+    lines.push(`TOTAL: Base ${totals.baseTotal.toFixed(2)} | IVA ${totals.vatTotal.toFixed(2)} | Dedutível ${totals.vatDeductible.toFixed(2)}`);
+    navigator.clipboard.writeText(lines.join('\n'));
+    toast.success('Todos os campos DP copiados para a área de transferência');
+  }, [activeFields, totals]);
 
   return (
     <div className="space-y-4">
@@ -97,7 +119,21 @@ export function DPQuarterlySummary({
                 <TableCell className="text-right">{fmt(summary.baseTotal)}</TableCell>
                 <TableCell className="text-right">{fmt(summary.vatTotal)}</TableCell>
                 <TableCell className="text-right font-medium">
-                  {fmt(summary.vatDeductible)}
+                  <span className="inline-flex items-center gap-1">
+                    {fmt(summary.vatDeductible)}
+                    {summary.invoiceCount > 0 && (
+                      <button
+                        onClick={() => copyFieldValue(summary.field, summary.vatDeductible)}
+                        className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-muted transition-colors"
+                        title={`Copiar valor do Campo ${summary.field}`}
+                        aria-label={`Copiar ${summary.vatDeductible.toFixed(2)} do Campo ${summary.field}`}
+                      >
+                        {copiedField === summary.field
+                          ? <ClipboardCheck className="h-3 w-3 text-green-600" />
+                          : <Copy className="h-3 w-3 text-muted-foreground" />}
+                      </button>
+                    )}
+                  </span>
                 </TableCell>
               </TableRow>
             ))}
@@ -136,6 +172,25 @@ export function DPQuarterlySummary({
                 : '—'}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Delivery actions */}
+      {activeFields.length > 0 && (
+        <div className="flex flex-wrap gap-3 pt-2">
+          <Button variant="outline" size="sm" onClick={copyAllFields} className="gap-2">
+            <Copy className="h-4 w-4" />
+            Copiar todos os campos DP
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => window.open('https://iva.portaldasfinancas.gov.pt/dpiva/portal/dp', '_blank')}
+          >
+            <ExternalLink className="h-4 w-4" />
+            Abrir Declaração Periódica (AT)
+          </Button>
         </div>
       )}
     </div>

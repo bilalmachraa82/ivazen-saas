@@ -57,6 +57,7 @@ import {
   CheckCircle2,
   Copy,
   Euro,
+  ExternalLink,
   FileSpreadsheet,
   FileText,
   History,
@@ -923,6 +924,15 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                     {isSavingDeclaration && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     <CheckCircle2 className="h-4 w-4" />
                     Marcar como Submetida
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => window.open('https://app.seg-social.pt/sso/login', '_blank')}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Abrir SS Directa
                   </Button>
                 </div>
 

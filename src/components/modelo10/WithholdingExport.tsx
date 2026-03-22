@@ -4,7 +4,7 @@ import JSZip from 'jszip';
 import { Button } from '@/components/ui/button';
 import { ZenCard } from '@/components/zen';
 import { CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Download, FileSpreadsheet, FileText, Loader2, AlertCircle, FileDown, Users, Archive, Mail } from 'lucide-react';
+import { Download, FileSpreadsheet, FileText, Loader2, AlertCircle, FileDown, Users, Archive, Mail, ExternalLink } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { TaxWithholding, WithholdingSummary } from '@/hooks/useWithholdings';
 import { useProfile } from '@/hooks/useProfile';
@@ -552,16 +552,29 @@ export function WithholdingExport({ withholdings, summary, totals, selectedYear,
             </EmailExportButton>
           </div>
 
-          {/* Instructions */}
-          <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-            <h4 className="font-medium mb-2">📋 Instruções de Submissão</h4>
-            <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-              <li>Aceda ao Portal das Finanças em <span className="font-mono">portaldasfinancas.gov.pt</span></li>
-              <li>Navegue para Serviços → Entregar → IRS → Modelo 10</li>
-              <li>Seleccione o ano fiscal {selectedYear}</li>
-              <li>Importe o ficheiro CSV ou preencha manualmente com os dados do Excel</li>
-              <li>Verifique os dados no Quadro 5 e submeta a declaração</li>
-            </ol>
+          {/* AT Portal link + Instructions */}
+          <div className="mt-6 space-y-3">
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => window.open('https://www.portaldasfinancas.gov.pt/at/html/index.html', '_blank')}
+            >
+              <ExternalLink className="h-4 w-4" />
+              Abrir Portal das Finanças — Modelo 10
+            </Button>
+
+            <div className="p-4 bg-muted/50 rounded-lg">
+              <h4 className="font-medium mb-2">📋 Instruções de Submissão</h4>
+              <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                <li>Clique no botão acima para abrir o Portal das Finanças</li>
+                <li>Faça login com as credenciais da entidade pagadora</li>
+                <li>Navegue para Serviços → Entregar → IRS → Modelo 10</li>
+                <li>Seleccione o ano fiscal {selectedYear}</li>
+                <li><strong>Formato CSV</strong> → use "Importar ficheiro" no portal (mais rápido)</li>
+                <li><strong>Formato Excel</strong> → consulte os dados e preencha manualmente</li>
+                <li>Verifique os dados no Quadro 5 e submeta a declaração</li>
+              </ol>
+            </div>
           </div>
         </CardContent>
       </ZenCard>
