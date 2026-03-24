@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IVAzen — Guia do Contabilista</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@600;700;800;900&display=swap');
+
+  :root {
+    --pink: #e11d73;
+    --pink-dark: #be185d;
+    --pink-glow: rgba(225,29,115,0.15);
+    --pink-light: #fdf2f8;
+    --green: #059669;
+    --green-light: #d1fae5;
+    --orange: #d97706;
+    --orange-light: #fef3c7;
+    --red: #dc2626;
+    --red-light: #fee2e2;
+    --blue: #2563eb;
+    --blue-light: #dbeafe;
+    --purple: #7c3aed;
+    --purple-light: #ede9fe;
+    --text: #0f172a;
+    --text-2: #334155;
+    --text-3: #64748b;
+    --bg: #ffffff;
+    --bg-2: #f8fafc;
+    --border: #e2e8f0;
+    --radius: 16px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Inter', sans-serif; color: var(--text); background: var(--bg); line-height: 1.7; overflow-x: hidden; }
+
+  /* NAV */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border); transition: box-shadow 0.3s;
+  }
+  nav.scrolled { box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+  .nav-inner { max-width: 1100px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .nav-logo { font-family: 'Poppins'; font-weight: 900; font-size: 1.3em; color: var(--pink); text-decoration: none; }
+  .nav-links { display: flex; gap: 4px; flex-wrap: wrap; }
+  .nav-links a {
+    font-size: 0.78em; font-weight: 500; color: var(--text-3); text-decoration: none;
+    padding: 6px 12px; border-radius: 8px; transition: all 0.2s; white-space: nowrap;
+  }
+  .nav-links a:hover { background: var(--pink-glow); color: var(--pink); }
+  .nav-cta {
+    background: var(--pink); color: white; font-weight: 600; font-size: 0.82em;
+    padding: 8px 20px; border-radius: 10px; text-decoration: none; transition: all 0.2s; white-space: nowrap;
+  }
+  .nav-cta:hover { background: var(--pink-dark); transform: translateY(-1px); }
+
+  /* HERO */
+  .hero {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(160deg, #fdf2f8 0%, #fff1f2 30%, #fce7f3 60%, #fdf2f8 100%);
+    position: relative; overflow: hidden; padding: 120px 24px 80px;
+  }
+  .hero::before {
+    content: ''; position: absolute; top: -40%; right: -20%; width: 800px; height: 800px;
+    background: radial-gradient(circle, var(--pink-glow) 0%, transparent 70%);
+    border-radius: 50%; animation: pulse 8s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+
+  .hero-content { text-align: center; position: relative; z-index: 1; max-width: 720px; }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: white; border: 1px solid var(--border); padding: 8px 20px;
+    border-radius: 30px; font-size: 0.85em; font-weight: 600; color: var(--pink);
+    margin-bottom: 28px; box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    animation: fadeUp 0.6s ease-out;
+  }
+  .hero h1 {
+    font-family: 'Poppins'; font-size: clamp(2.2em, 5vw, 3.8em); font-weight: 900;
+    line-height: 1.1; margin-bottom: 20px; letter-spacing: -1.5px; animation: fadeUp 0.8s ease-out;
+  }
+  .hero h1 span { color: var(--pink); }
+  .hero p { font-size: 1.15em; color: var(--text-2); max-width: 560px; margin: 0 auto 36px; animation: fadeUp 1s ease-out; }
+
+  .hero-toc {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;
+    max-width: 700px; margin: 0 auto; animation: fadeUp 1.2s ease-out;
+  }
+  .hero-toc a {
+    display: flex; align-items: center; gap: 10px; padding: 14px 18px;
+    background: white; border: 1px solid var(--border); border-radius: 12px;
+    text-decoration: none; color: var(--text-2); font-size: 0.88em; font-weight: 500;
+    transition: all 0.2s;
+  }
+  .hero-toc a:hover { border-color: var(--pink); color: var(--pink); box-shadow: 0 4px 16px var(--pink-glow); transform: translateY(-2px); }
+  .hero-toc .toc-icon { font-size: 1.3em; }
+  .hero-toc .toc-num { font-family: 'Poppins'; font-weight: 800; color: var(--pink); font-size: 0.8em; min-width: 22px; }
+
+  /* SECTIONS */
+  section { padding: 80px 24px; }
+  section:nth-child(even) { background: var(--bg-2); }
+  .container { max-width: 900px; margin: 0 auto; }
+  .section-label {
+    display: inline-block; font-size: 0.75em; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 2px; color: var(--pink); background: var(--pink-glow);
+    padding: 6px 16px; border-radius: 6px; margin-bottom: 12px;
+  }
+  .section-title {
+    font-family: 'Poppins'; font-size: clamp(1.6em, 3vw, 2.2em); font-weight: 800;
+    line-height: 1.2; margin-bottom: 16px; letter-spacing: -0.5px;
+  }
+  .section-desc { font-size: 1.05em; color: var(--text-2); max-width: 600px; margin-bottom: 40px; }
+
+  /* MOCKUP */
+  .mockup-wrap {
+    margin: 24px 0; border-radius: var(--radius); overflow: hidden;
+    border: 1px solid var(--border); box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+    background: white;
+  }
+  .mockup-bar {
+    background: #f1f5f9; padding: 10px 16px; display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .mockup-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .mockup-dot:nth-child(1) { background: #ef4444; }
+  .mockup-dot:nth-child(2) { background: #f59e0b; }
+  .mockup-dot:nth-child(3) { background: #22c55e; }
+  .mockup-url {
+    margin-left: 12px; font-size: 0.75em; color: var(--text-3);
+    background: white; padding: 4px 14px; border-radius: 6px; border: 1px solid var(--border);
+    flex: 1; max-width: 400px;
+  }
+  .mockup-body { padding: 0; }
+  .mockup-caption {
+    text-align: center; font-size: 0.82em; color: var(--text-3);
+    padding: 10px; font-style: italic; background: var(--bg-2); border-top: 1px solid var(--border);
+  }
+
+  /* UI MOCKUP COMPONENTS */
+  .ui-sidebar {
+    width: 220px; background: linear-gradient(180deg, #fdf2f8 0%, white 100%);
+    border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0;
+  }
+  .ui-sidebar-logo {
+    font-family: 'Poppins'; font-weight: 900; color: var(--pink);
+    padding: 0 20px 16px; font-size: 1.1em; border-bottom: 1px solid var(--border); margin-bottom: 12px;
+  }
+  .ui-sidebar-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 20px;
+    font-size: 0.82em; color: var(--text-3); cursor: default; transition: all 0.15s;
+  }
+  .ui-sidebar-item.active { color: var(--pink); background: var(--pink-glow); font-weight: 600; border-right: 3px solid var(--pink); }
+  .ui-sidebar-item .si-icon { width: 18px; text-align: center; }
+  .ui-main { flex: 1; padding: 24px 28px; background: var(--bg-2); min-height: 400px; overflow: hidden; }
+  .ui-layout { display: flex; min-height: 420px; }
+
+  .ui-card {
+    background: white; border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px; margin-bottom: 16px;
+  }
+  .ui-card-title { font-weight: 700; font-size: 0.95em; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .ui-card-title .icon { color: var(--pink); }
+  .ui-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: 8px; font-size: 0.8em; font-weight: 600;
+    border: none; cursor: default;
+  }
+  .ui-btn-pink { background: var(--pink); color: white; }
+  .ui-btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-2); }
+  .ui-btn-green { background: var(--green); color: white; }
+  .ui-badge {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 0.72em; font-weight: 700;
+  }
+  .ui-badge-pink { background: var(--pink-glow); color: var(--pink); }
+  .ui-badge-green { background: var(--green-light); color: var(--green); }
+  .ui-badge-orange { background: var(--orange-light); color: var(--orange); }
+  .ui-badge-blue { background: var(--blue-light); color: var(--blue); }
+
+  .ui-input {
+    width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 0.85em; color: var(--text); background: white; margin-bottom: 10px;
+  }
+  .ui-label { font-size: 0.78em; font-weight: 600; color: var(--text-2); margin-bottom: 4px; display: block; }
+  .ui-select {
+    width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 0.85em; color: var(--text); background: white; margin-bottom: 10px;
+    appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+  }
+
+  .ui-table { width: 100%; border-collapse: collapse; font-size: 0.82em; }
+  .ui-table th { text-align: left; padding: 10px 12px; font-weight: 600; color: var(--text-3); font-size: 0.85em; border-bottom: 2px solid var(--border); }
+  .ui-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .ui-table tr:last-child td { border-bottom: none; }
+
+  .ui-dialog-overlay {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.3); display: flex;
+    align-items: center; justify-content: center; z-index: 10;
+  }
+  .ui-dialog {
+    background: white; border-radius: 16px; padding: 28px; width: 380px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15); max-height: 90%; overflow-y: auto;
+  }
+  .ui-dialog-title { font-family: 'Poppins'; font-weight: 700; font-size: 1.1em; margin-bottom: 4px; }
+  .ui-dialog-desc { font-size: 0.82em; color: var(--text-3); margin-bottom: 20px; }
+
+  /* HIGHLIGHT ARROW */
+  .highlight-arrow {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--pink); color: white; font-size: 0.75em; font-weight: 700;
+    padding: 5px 12px; border-radius: 20px; position: absolute;
+    animation: bounce 2s infinite;
+    white-space: nowrap;
+  }
+  .highlight-arrow::before { content: ''; width: 0; height: 0; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-right: 8px solid var(--pink); position: absolute; left: -8px; }
+  @keyframes bounce { 0%,100%{transform:translateX(0)} 50%{transform:translateX(4px)} }
+
+  /* STEPS */
+  .steps { counter-reset: step; }
+  .step-item {
+    display: grid; grid-template-columns: 60px 1fr; gap: 24px;
+    margin-bottom: 48px; position: relative;
+  }
+  .step-item::before {
+    content: ''; position: absolute; left: 29px; top: 64px; bottom: -48px;
+    width: 2px; background: linear-gradient(to bottom, var(--pink), var(--border));
+  }
+  .step-item:last-child::before { display: none; }
+  .step-num {
+    counter-increment: step; width: 60px; height: 60px; border-radius: 50%;
+    background: var(--pink); color: white; display: flex; align-items: center; justify-content: center;
+    font-family: 'Poppins'; font-weight: 800; font-size: 1.3em;
+    box-shadow: 0 4px 16px rgba(225,29,115,0.25); position: relative; z-index: 1;
+  }
+  .step-num::before { content: counter(step); }
+  .step-content h3 { font-family: 'Poppins'; font-size: 1.25em; font-weight: 700; margin-bottom: 8px; }
+  .step-content p { color: var(--text-2); margin-bottom: 12px; }
+
+  .step-card {
+    background: white; border: 2px solid var(--pink); border-radius: 14px;
+    padding: 20px 24px; margin: 12px 0;
+  }
+  .step-card ol { padding-left: 20px; }
+  .step-card li { margin-bottom: 8px; font-size: 0.95em; }
+  .step-card li strong { color: var(--pink); }
+
+  /* CALLOUT */
+  .callout {
+    border-radius: 12px; padding: 16px 20px; margin: 14px 0;
+    font-size: 0.92em; display: flex; gap: 12px; align-items: flex-start;
+  }
+  .callout-icon { font-size: 1.3em; flex-shrink: 0; margin-top: 2px; }
+  .callout-tip { background: var(--green-light); border: 1px solid #86efac; }
+  .callout-warn { background: var(--orange-light); border: 1px solid #fcd34d; }
+  .callout-danger { background: var(--red-light); border: 1px solid #fca5a5; }
+  .callout-info { background: #eff6ff; border: 1px solid #93c5fd; }
+
+  /* FEATURE GRID */
+  .feature-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; }
+  .feature-card {
+    background: white; border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 28px; transition: all 0.3s; position: relative; overflow: hidden;
+  }
+  .feature-card:hover { border-color: var(--pink); box-shadow: 0 8px 30px var(--pink-glow); transform: translateY(-3px); }
+  .feature-icon { font-size: 2em; margin-bottom: 14px; display: block; }
+  .feature-title { font-weight: 700; font-size: 1.05em; margin-bottom: 6px; }
+  .feature-desc { font-size: 0.88em; color: var(--text-3); }
+
+  /* FLOW DIAGRAM */
+  .flow-diagram {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    flex-wrap: wrap; margin: 24px 0; padding: 20px;
+  }
+  .flow-step {
+    display: flex; align-items: center; gap: 6px; padding: 10px 18px;
+    background: white; border: 2px solid var(--border); border-radius: 10px;
+    font-size: 0.85em; font-weight: 600; color: var(--text-2);
+  }
+  .flow-step.active { border-color: var(--pink); color: var(--pink); background: var(--pink-light); }
+  .flow-arrow { color: var(--pink); font-weight: 700; font-size: 1.2em; }
+
+  /* ROUTE MAP */
+  .route-map { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin: 20px 0; }
+  .route-card {
+    background: white; border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px; transition: all 0.3s;
+  }
+  .route-card:hover { border-color: var(--pink); box-shadow: 0 4px 16px var(--pink-glow); }
+  .route-path { font-family: monospace; font-size: 0.78em; color: var(--pink); background: var(--pink-glow); padding: 3px 10px; border-radius: 6px; margin-bottom: 10px; display: inline-block; }
+  .route-name { font-weight: 700; font-size: 1em; margin-bottom: 4px; }
+  .route-desc { font-size: 0.82em; color: var(--text-3); }
+
+  /* TABLE */
+  .table-wrap { border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); margin: 20px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+  th { background: var(--pink); color: white; font-weight: 600; padding: 14px 18px; text-align: left; }
+  td { padding: 12px 18px; border-top: 1px solid var(--border); }
+  tr:hover td { background: #fdf2f8; }
+
+  /* CTA */
+  .cta-section {
+    background: linear-gradient(160deg, var(--pink) 0%, var(--pink-dark) 100%);
+    color: white; text-align: center; padding: 80px 24px;
+  }
+  .cta-section h2 { font-family: 'Poppins'; font-size: 2em; font-weight: 800; margin-bottom: 16px; }
+  .cta-section p { font-size: 1.1em; opacity: 0.9; margin-bottom: 32px; }
+  .cta-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: white; color: var(--pink); font-weight: 700; font-size: 1.05em;
+    padding: 16px 36px; border-radius: 14px; text-decoration: none; transition: all 0.3s;
+  }
+  .cta-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
+
+  /* FOOTER */
+  footer { padding: 40px 24px; text-align: center; font-size: 0.82em; color: var(--text-3); border-top: 1px solid var(--border); }
+
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    .nav-links { display: none; }
+    .hero-toc { grid-template-columns: 1fr; }
+    .ui-layout { flex-direction: column; }
+    .ui-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); padding: 12px 0; }
+    .ui-sidebar-item { padding: 8px 16px; }
+    .step-item { grid-template-columns: 44px 1fr; gap: 16px; }
+    .step-num { width: 44px; height: 44px; font-size: 1em; }
+    .feature-grid { grid-template-columns: 1fr; }
+    .route-map { grid-template-columns: 1fr; }
+    .flow-diagram { flex-direction: column; }
+    .flow-arrow { transform: rotate(90deg); }
+    .ui-dialog { width: 90%; }
+  }
+
+  /* ANIMATIONS */
+  .reveal { opacity: 0; transform: translateY(24px); transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1); }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">IVAzen</a>
+    <div class="nav-links">
+      <a href="#criar-cliente">Criar Cliente</a>
+      <a href="#importar">Importar</a>
+      <a href="#validar">Validar</a>
+      <a href="#iva">IVA</a>
+      <a href="#modelo10">Modelo 10</a>
+      <a href="#ss">Seg. Social</a>
+      <a href="#mapa">Mapa</a>
+    </div>
+    <a href="https://ivazen-saas.vercel.app" target="_blank" class="nav-cta">Abrir App &rarr;</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-content">
+    <div class="hero-badge">Guia Completo para Contabilistas</div>
+    <h1>Como usar o <span>IVAzen</span></h1>
+    <p>Guia passo a passo de todas as funcionalidades essenciais. Siga cada secao pela ordem recomendada.</p>
+
+    <div class="hero-toc">
+      <a href="#criar-cliente"><span class="toc-num">1</span> Criar Clientes</a>
+      <a href="#selecionar"><span class="toc-num">2</span> Selecionar Cliente</a>
+      <a href="#importar"><span class="toc-num">3</span> Importar Facturas</a>
+      <a href="#validar"><span class="toc-num">4</span> Validar Compras</a>
+      <a href="#iva"><span class="toc-num">5</span> Apuramento IVA</a>
+      <a href="#vendas"><span class="toc-num">6</span> Vendas / Recibos Verdes</a>
+      <a href="#ss"><span class="toc-num">7</span> Seguranca Social</a>
+      <a href="#modelo10"><span class="toc-num">8</span> Modelo 10</a>
+      <a href="#exportar"><span class="toc-num">9</span> Exportar Relatorios</a>
+      <a href="#at-config"><span class="toc-num">10</span> Credenciais AT</a>
+      <a href="#mapa"><span class="toc-num">&bull;</span> Mapa Completo</a>
+      <a href="#atalhos"><span class="toc-num">&bull;</span> Atalhos & Dicas</a>
+    </div>
+  </div>
+</section>
+
+<!-- 1. CRIAR CLIENTE -->
+<section id="criar-cliente">
+  <div class="container">
+    <span class="section-label reveal">Passo 1</span>
+    <h2 class="section-title reveal">Criar novos clientes</h2>
+    <p class="section-desc reveal">O primeiro passo e adicionar os seus clientes a plataforma. Isto e feito nas Definicoes.</p>
+
+    <div class="step-card reveal">
+      <ol>
+        <li>No menu lateral, clicar em <strong>Definicoes</strong> (icone de engrenagem)</li>
+        <li>No painel <strong>"Gestao de Clientes"</strong>, clicar no <strong>botao [+]</strong> ao lado do icone de utilizadores</li>
+        <li>Preencher o formulario: <strong>Nome, NIF, Email</strong> (obrigatorios) + Telefone e Morada (opcionais)</li>
+        <li>Clicar <strong>"Criar Cliente"</strong></li>
+        <li>Copiar o <strong>magic link</strong> gerado e enviar ao cliente para activar a conta</li>
+      </ol>
+    </div>
+
+    <!-- MOCKUP: Settings page with create dialog -->
+    <div class="mockup-wrap reveal">
+      <div class="mockup-bar">
+        <span class="mockup-dot"></span><span class="mockup-dot"></span><span class="mockup-dot"></span>
+        <span class="mockup-url">ivazen-saas.vercel.app/settings</span>
+      </div>
+      <div class="mockup-body" style="position: relative;">
+        <div class="ui-layout">
+          <div class="ui-sidebar">
+            <div class="ui-sidebar-logo">IVAzen</div>
+            <div class="ui-sidebar-item"><span class="si-icon">&#9633;</span> Dashboard</div>
+            <div class="ui-sidebar-item"><span class="si-icon">&#9636;</span> Centro Fiscal</div>
+            <div class="ui-sidebar-item"><span class="si-icon">&#8682;</span> Upload</div>
+            <div class="ui-sidebar-item"><span class="si-icon">&#10003;</span> Validacao</div>
+            <div class="ui-sidebar-item"><span class="si-icon">&#9881;</span> Exportar</div>
+            <div class="ui-sidebar-item active"><span class="si-icon">&#9881;</span> Definicoes</div>
+          </div>
+          <div class="ui-main" style="position: relative;">
+            <div class="ui-card" style="opacity: 0.3;">
+              <div class="ui-card-title"><span class="icon">&#128101;</span> Gestao de Clientes <span class="ui-btn ui-btn-pink" style="margin-left: auto; font-size: 0.75em;">+ Novo Cliente</span></div>
+              <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                <div class="ui-input" style="margin-bottom: 0; flex: 1; color: var(--text-3);">Pesquisar por nome, NIF ou email...</div>
+                <span class="ui-btn ui-btn-outline">Pesquisar</span>
+              </div>
+              <table class="ui-table">
+                <tr><th>Cliente</th><th>NIF</th><th>IVA</th><th>Estado</th><th></th></tr>
+                <tr><td>Maria Silva</td><td>234 567 890</td><td><span class="ui-badge ui-badge-blue">Trimestral</span></td><td><span class="ui-badge ui-badge-green">Activo</span></td><td style="text-align:right"><span class="ui-btn ui-btn-outline" style="font-size:0.7em">Editar</span></td></tr>
+                <tr><td>Joao Santos</td><td>345 678 901</td><td><span class="ui-badge ui-badge-pink">Mensal</span></td><td><span class="ui-badge ui-badge-green">Activo</span></td><td style="text-align:right"><span class="ui-btn ui-btn-outline" style="font-size:0.7em">Editar</span></td></tr>
+              </table>
+            </div>
+
+            <!-- Dialog overlay -->
+            <div class="ui-dialog-overlay">
+              <div class="ui-dialog">
+                <div class="ui-dialog-title">Criar Novo Cliente</div>
+                <div class="ui-dialog-desc">Preencha os dados do cliente. Sera enviado um link de activacao.</div>
+                <label class="ui-label">Nome completo *</label>
+                <div class="ui-input" style="color: var(--text);">Ana Ferreira Lda</div>
+                <label class="ui-label">NIF *</label>
+                <div class="ui-input" style="color: var(--text);">512 345 678</div>
+                <label class="ui-label">Email *</label>
+                <div class="ui-input" style="color: var(--text);">ana@ferreira.pt</div>
+                <label class="ui-label">Telefone</label>
+                <div class="ui-input" style="color: var(--text-3);">912 345 678</div>
+                <label class="ui-label">Morada</label>
+                <div class="ui-input" style="color: var(--text-3);">Rua da Liberdade 10, Lisboa</div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px;">
+                  <span class="ui-btn ui-btn-outline">Cancelar</span>
+                  <span class="ui-btn ui-btn-pink">Criar Cliente</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="mockup-caption">Definicoes &rarr; Gestao de Clientes &rarr; botao [+ Novo Cliente] abre este formulario</div>
+    </div>
+
+    <div class="callout callout-tip reveal">
+      <span class="callout-icon">&#128161;</span>
+      <div><strong>Magic Link:</strong> Depois de criar, o sistema gera um link unico. Envie ao cliente por email ou WhatsApp para ele activar a conta e comecar a enviar facturas.</div>
+    </div>
+
+    <div class="callout callout-info reveal">
+      <span class="callout-icon">&#8505;</span>
+      <div><strong>NIF validado automaticamente:</strong> O sistema verifica o digito de controlo do NIF portugues. Se estiver errado, nao deixa criar.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. SELECIONAR CLIENTE -->
+<section id="selecionar">
+  <div class="container">
+    <span class="section-label reveal">Passo 2</span>
+    <h2 class="section-title reveal">Selecionar um cliente para trabalhar</h2>
+    <p class="section-desc reveal">Antes de fazer qualquer operacao (importar, validar, exportar), precisa de selecionar o cliente.</p>
+
+    <!-- MOCKUP: Client selector -->
+    <div class="mockup-wrap reveal">
+      <div class="mockup-bar">
+        <span class="mockup-dot"></span><span class="mockup-dot"></span><span class="mockup-dot"></span>
+        <span class="mockup-url">ivazen-saas.vercel.app/dashboard</span>
+      </div>
+      <div class="mockup-body">
+        <div class="ui-layout" style="min-height: 300px;">
+          <div class="ui-sidebar">
+            <div class="ui-sidebar-logo">IVAzen</div>
+            <div class="ui-sidebar-item active"><span class="si-icon">&#9633;</span> Dashboard</div>
+            <div class="ui-sidebar-item"><span class="si-icon">&#9636;</span> Centro Fiscal</div>
+          </div>
+          <div class="ui-main">
+            <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px;">
+              <div style="font-family: Poppins; font-weight: 700; font-size: 1.3em;">Dashboard</div>
+              <div style="position: relative;">
+                <div style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: white; border: 2px solid var(--pink); border-radius: 10px; font-size: 0.9em; font-weight: 600; color: var(--pink); min-width: 250px;">
+                  <span>&#128100;</span> Ana Ferreira Lda
+                  <span style="margin-left: auto; font-size: 0.8em; opacity: 0.5;">&#9660;</span>
+                </div>
+                <!-- Dropdown -->
+                <div style="position: absolute; top: 46px; left: 0; right: 0; background: white; border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.1); padding: 8px; z-index: 5;">
+                  <div style="padding: 4px 8px; margin-bottom: 4px;"><input class="ui-input" style="margin: 0; font-size: 0.8em;" placeholder="Pesquisar cliente..." /></div>
+                  <div style="padding: 8px 12px; border-radius: 6px; background: var(--pink-glow); font-size: 0.82em; font-weight: 600; color: var(--pink); cursor: default;">Ana Ferreira Lda <span style="opacity: 0.6; font-weight: 400;">512345678</span></div>
+                  <div style="padding: 8px 12px; border-radius: 6px; font-size: 0.82em; color: var(--text-2); cursor: default;">Maria Silva <span style="opacity: 0.5; font-weight: 400;">234567890</span></div>
+                  <div style="padding: 8px 12px; border-radius: 6px; font-size: 0.82em; color: var(--text-2); cursor: default;">Joao Santos <span style="opacity: 0.5; font-weight: 400;">345678901</span></div>
+                </div>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+              <div class="ui-card" style="text-align: center; border-top: 3px solid var(--pink);"><div style="font-size: 1.8em; font-weight: 800; color: var(--pink);">47</div><div style="font-size: 0.78em; color: var(--text-3);">Facturas pendentes</div></div>
+              <div class="ui-card" style="text-align: center; border-top: 3px solid var(--green);"><div style="font-size: 1.8em; font-weight: 800; color: var(--green);">123</div><div style="font-size: 0.78em; color: var(--text-3);">Validadas</div></div>
+              <div class="ui-card" style="text-align: center; border-top: 3px solid var(--blue);"><div style="font-size: 1.8em; font-weight: 800; color: var(--blue);">2.340 &euro;</div><div style="font-size: 0.78em; color: var(--text-3);">IVA dedutivel</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="mockup-caption">O selector de cliente aparece no topo de todas as paginas. Clique para trocar de cliente.</div>
+    </div>
+
+    <div class="callout callout-warn reveal">
+      <span class="callout-icon">&#9888;</span>
+      <div><strong>Importante:</strong> Todas as operacoes (upload, validacao, exportacao) sao feitas no contexto do cliente seleccionado. Verifique sempre que tem o cliente correcto antes de trabalhar.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 3. IMPORTAR FACTURAS -->
+<section id="importar">
+  <div class="container">
+    <span class="section-label reveal">Passo 3</span>
+    <h2 class="section-title reveal">Importar facturas (compras)</h2>
+    <p class="section-desc reveal">Ha 4 formas de importar facturas de compras para o IVAzen.</p>
+
+    <div class="feature-grid reveal">
+      <div class="feature-card">
+        <span class="feature-icon">&#128196;</span>
+        <div class="feature-title">SIRE CSV (Recomendado)</div>
+        <div class="feature-desc">Descarregue o ficheiro SIRE do Portal das Financas e importe directamente. O metodo mais fiavel e completo.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">&#128247;</span>
+        <div class="feature-title">Upload PDF/Imagem</div>
+        <div class="feature-desc">Arraste ficheiros PDF ou fotos de facturas. A IA extrai os dados automaticamente com 90%+ de precisao.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">&#128187;</span>
+        <div class="feature-title">SAF-T (XML)</div>
+        <div class="feature-desc">Exporte o SAF-T do software de contabilidade (Primavera, Sage, PHC) e importe no IVAzen.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">&#9889;</span>
+        <div class="feature-title">Sync AT Automatico</div>
+        <div class="feature-desc">Com credenciais AT configuradas, o sistema sincroniza facturas automaticamente 2x/dia.</div>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 32px; font-family: Poppins; font-weight: 700;" class="reveal">Como importar via SIRE CSV</h3>
+    <div class="step-card reveal">
+      <ol>
+        <li>Abrir o <a href="https://irs.portaldasfinancas.gov.pt" target="_blank"><strong>Portal das Financas</strong></a> &rarr; Login com NIF do cliente</li>
+        <li>Ir a <strong>e-Fatura &rarr; Adquirente &rarr; Faturas</strong></li>
+        <li>Selecionar o periodo (trimestre ou mes) e <strong>exportar CSV</strong></li>
+        <li>No IVAzen, ir ao <a href="https://ivazen-saas.vercel.app/centro-importacao" target="_blank"><strong>Centro de Importacao</strong></a></li>
+        <li>Escolher <strong>"Importar SIRE CSV"</strong> e carregar o ficheiro</li>
+        <li>O sistema importa e <strong>classifica automaticamente</strong> cada factura</li>
+      </ol>
+    </div>
+
+    <!-- MOCKUP: Import Center -->
+    <div class="mockup-wrap reveal">
+      <div class="mockup-bar">
+        <span class="mockup-dot"></span><span class="mockup-dot"></span><span class="mockup-dot"></span>
+        <span class="mockup-url">ivazen-saas.vercel.app/centro-importacao</span>
+      </div>
+      <div class="mockup-body">
+        <div class="ui-layout" style="min-height: 340px;">
+          <div class="ui-sidebar">
+            <div class="ui-sidebar-logo">IVAzen</div>
+            <div class="ui-sidebar-item"><span class="si-icon">&#9633;</span> Dashboard</div>
+            <div class="ui-sidebar-item active"><span class="si-icon">&#8682;</span> Centro Import.</div>
+          </div>
+          <div class="ui-main">
+            <div style="font-family: Poppins; font-weight: 700; font-size: 1.2em; margin-bottom: 16px;">Centro de Importacao</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div class="ui-card" style="border: 2px solid var(--pink); cursor: pointer; text-align: center; padding: 24px;">
+                <div style="font-size: 2em; margin-bottom: 8px;">&#128196;</div>
+                <div style="font-weight: 700; color: var(--pink);">SIRE CSV</div>
+                <div style="font-size: 0.78em; color: var(--text-3); margin-top: 4px;">Importar compras do Portal AT</div>
+              </div>
+              <div class="ui-card" style="cursor: pointer; text-align: center; padding: 24px;">
+                <div style="font-size: 2em; margin-bottom: 8px;">&#128195;</div>
+                <div style="font-weight: 700;">Recibos Verdes Excel</div>
+                <div style="font-size: 0.78em; color: var(--text-3); margin-top: 4px;">Importar vendas do Portal AT</div>
+              </div>
+              <div class="ui-card" style="cursor: pointer; text-align: center; padding: 24px;">
+                <div style="font-size: 2em; margin-bottom: 8px;">&#128247;</div>
+                <div style="font-weight: 700;">Upload PDF / Imagem</div>
+                <div style="font-size: 0.78em; color: var(--text-3); margin-top: 4px;">OCR + IA extraem os dados</div>
+              </div>
+              <div class="ui-card" style="cursor: pointer; text-align: center; padding: 24px;">
+                <div style="font-size: 2em; margin-bottom: 8px;">&#128187;</div>
+                <div style="font-weight: 700;">SAF-T (XML)</div>
+                <div style="font-size: 0.78em; color: var(--text-3); margin-top: 4px;">Primavera, Sage, PHC</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="mockup-caption">Centro de Importacao — escolha o metodo mais adequado ao seu fluxo</div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. VALIDAR COMPRAS -->
+<section id="validar">
+  <div class="container">
+    <span class="section-label reveal">Passo 4</span>
+    <h2 class="section-title reveal">Validar e classificar compras</h2>
+    <p class="section-desc reveal">Depois de importar, valide as classificacoes da IA e exclua facturas nao dedutiveis.</p>
+
+    <div class="flow-diagram reveal">
+      <div class="flow-step">Importar</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step active">IA classifica</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step">Contabilista valida</div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step">Pronto para IVA</div>
+    </div>
+
+    <!-- MOCKUP: Validation page -->
+    <div class="mockup-wrap reveal">
+      <div class="mockup-bar">
+        <span class="mockup-dot"></span><span class="mockup-dot"></span><span class="mockup-dot"></span>
+        <span class="mockup-url">ivazen-saas.vercel.app/validation</span>
+      </div>
+      <div class="mockup-body">
+        <div class="ui-layout" style="min-height: 380px;">
+          <div class="ui-sidebar">
+            <div class="ui-sidebar-logo">IVAzen</div>
+            <div class="ui-sidebar-item"><span class="si-icon">&#9633;</span> Dashboard</div>
+            <div class="ui-sidebar-item active"><span class="si-icon">&#10003;</span> Validacao</div>
+          </div>
+          <div class="ui-main">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+              <div style="font-family: Poppins; font-weight: 700; font-size: 1.1em;">Validacao de Compras</div>
+              <div style="display: flex; gap: 8px;">
+                <span class="ui-btn ui-btn-outline" style="font-size: 0.72em; border-color: var(--pink); color: var(--pink);">Ultimas 24h</span>
+                <span class="ui-btn ui-btn-outline" style="font-size: 0.72em;">Ultimos 7 dias</span>
+                <span class="ui-btn ui-btn-outline" style="font-size: 0.72em;">Tudo</span>
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+              <span class="ui-btn ui-btn-pink" style="font-size: 0.72em;">&#9745; Selecionar</span>
+              <span class="ui-btn ui-btn-outline" style="font-size: 0.72em; border-color: var(--orange); color: var(--orange);">Nao Contabilizar (3)</span>
+              <span class="ui-btn ui-btn-outline" style="font-size: 0.72em; color: var(--red); border-color: var(--red);">Eliminar</span>
+            </div>
+            <table class="ui-table">
+              <tr><th style="width: 30px;"><input type="checkbox" checked /></th><th>Fornecedor</th><th>Valor</th><th>IVA</th><th>Classificacao</th><th>Estado</th></tr>
+              <tr style="background: var(--pink-light);">
+                <td><input type="checkbox" checked /></td>
+                <td style="font-weight: 600;">Continente</td><td>45,20 &euro;</td><td>23%</td>
+                <td><span class="ui-badge ui-badge-green">Dedutivel</span></td>
+                <td><span class="ui-badge ui-badge-orange">Pendente</span></td>
+              </tr>
+              <tr style="background: var(--pink-light);">
+                <td><input type="checkbox" checked /></td>
+                <td style="font-weight: 600;">Pingo Doce</td><td>23,80 &euro;</td><td>6%</td>
+                <td><span class="ui-badge ui-badge-pink">Nao dedutivel</span></td>
+                <td><span class="ui-badge ui-badge-orange">Pendente</span></td>
+              </tr>
+              <tr style="background: var(--pink-light);">
+                <td><input type="checkbox" checked /></td>
+                <td style="font-weight: 600;">BP Combustiveis</td><td>62,50 &euro;</td><td>23%</td>
+                <td><span class="ui-badge ui-badge-green">50% Dedutivel</span></td>
+                <td><span class="ui-badge ui-badge-orange">Pendente</span></td>
+              </tr>
+              <tr>
+                <td><input type="checkbox" /></td>
+                <td style="font-weight: 600;">EDP Energia</td><td>156,30 &euro;</td><td>23%</td>
+                <td><span class="ui-badge ui-badge-green">Dedutivel</span></td>
+                <td><span class="ui-badge ui-badge-green">Validada</span></td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="mockup-caption">Seleccionar facturas &rarr; "Nao Contabilizar" para excluir do IVA em massa</div>
+    </div>
+
+    <div class="callout callout-warn reveal">
+      <span class="callout-icon">&#9888;</span>
+      <div><strong>"Nao contabilizar"</strong> = mantem no sistema mas exclui do calculo IVA.<br><strong>"Eliminar"</strong> = apaga do sistema por completo.<br>Para facturas nao dedutiveis, usar sempre <strong>"Nao contabilizar"</strong>.</div>
+    </div>
+
+    <div class="callout callout-tip reveal">
+      <span class="callout-icon">&#128161;</span>
+      <div><strong>Filtro "Ultimas 24h":</strong> Use este filtro para ver apenas as facturas recem-importadas. Ideal para processar novos lotes sem se perder entre facturas antigas.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. APURAMENTO IVA -->
+<section id="iva">
+  <div class="container">
+    <span class="section-label reveal">Passo 5</span>
+    <h2 class="section-title reveal">Ver apuramento de IVA</h2>
+    <p class="section-desc reveal">Depois de validar, consulte o resumo de IVA com mapeamento directo para a Declaracao Periodica.</p>
+
+    <!-- MOCKUP: Centro Fiscal -->
+    <div class="mockup-wrap reveal">
+      <div class="mockup-bar">
+        <span class="mockup-dot"></span><span class="mockup-dot"></span><span class="mockup-dot"></span>
+        <span class="mockup-url">ivazen-saas.vercel.app/centro-fiscal</span>
+      </div>
+      <div class="mockup-body">
+        <div class="ui-layout" style="min-height: 380px;">
+          <div class="ui-sidebar">
+            <div class="ui-sidebar-logo">IVAzen</div>
+            <div class="ui-sidebar-item"><span class="si-icon">&#9633;</span> Dashboard</div>
+            <div class="ui-sidebar-item active"><span class="si-icon">&#9636;</span> Centro Fiscal</div>
+          </div>
+          <div class="ui-main">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+              <div style="font-family: Poppins; font-weight: 700; font-size: 1.1em;">Centro Fiscal &mdash; Ana Ferreira Lda</div>
+              <div style="display: flex; gap: 8px;">
+                <span class="ui-btn ui-btn-outline" style="font-size: 0.72em;">Q1 2026</span>
+                <span class="ui-btn ui-btn-pink" style="font-size: 0.72em;">&#128203; Copiar Campos DP</span>
+                <span class="ui-btn ui-btn-green" style="font-size: 0.72em;">Abrir Portal AT</span>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+              <div class="ui-card" style="border-left: 4px solid var(--pink);">
+                <div style="font-size: 0.78em; color: var(--text-3); margin-bottom: 4px;">IVA Liquidado (Vendas)</div>
+                <div style="font-size: 1.6em; font-weight: 800; color: var(--pink);">3.450,00 &euro;</div>
+              </div>
+              <div class="ui-card" style="border-left: 4px solid var(--green);">
+                <div style="font-size: 0.78em; color: var(--text-3); margin-bottom: 4px;">IVA Dedutivel (Compras)</div>
+                <div style="font-size: 1.6em; font-weight: 800; color: var(--green);">2.340,00 &euro;</div>
+              </div>
+            </div>
+            <div class="ui-card">
+              <div class="ui-card-title">Campos da Declaracao Periodica</div>
+              <table class="ui-table">
+                <tr><th>Campo</th><th>Descricao</th><th>Valor</th><th></th></tr>
+                <tr><td style="font-weight:700; color: var(--pink);">Campo 3</td><td>Base tributavel 23%</td><td>15.000,00 &euro;</td><td><span class="ui-btn ui-btn-outline" style="font-size:0.65em">&#128203; Copiar</span></td></tr>
+                <tr><td style="font-weight:700; color: var(--pink);">Campo 4</td><td>IVA liquidado 23%</td><td>3.450,00 &euro;</td><td><span class="ui-btn ui-btn-outline" style="font-size:0.65em">&#128203; Copiar</span></td></tr>
+                <tr><td style="font-weight:700; color: var(--green);">Campo 20</td><td>IVA dedutivel compras</td><td>2.340,00 &euro;</td><td><span class="ui-btn ui-btn-outline" style="font-size:0.65em">&#128203; Copiar</span></td></tr>
+                <tr><td style="font-weight:700; color: var(--blue);">Campo 41</td><td>IVA a entregar ao Estado</td><td style="font-weight: 800;">1.110,00 &euro;</td><td><span class="ui-btn ui-btn-outline" style="font-size:0.65em">&#128203; Copiar</span></td></tr>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="mockup-caption">Centro Fiscal com campos DP mapeados — copie e cole directamente no portal AT</div>
+    </div>
+
+    <div class="callout callout-tip reveal">
+      <span class="callout-icon">&#128161;</span>
+      <div><strong>Fluxo recomendado:</strong> Gerar dados no IVAzen &rarr; "Copiar Campos DP" &rarr; "Abrir Portal AT" &rarr; Colar no formulario da DP &rarr; Submeter. Sem Excel intermedio.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 6. VENDAS / RECIBOS VERDES -->
+<section id="vendas">
+  <div class="container">
+    <span class="section-label reveal">Passo 6</span>
+    <h2 class="section-title reveal">Importar vendas e recibos verdes</h2>
+    <p class="section-desc reveal">As vendas nao sao importadas automaticamente. E necessario descarregar o Excel do portal AT.</p>
+
+    <div class="callout callout-danger reveal">
+      <span class="callout-icon">&#128308;</span>
+      <div><strong>As vendas / recibos verdes NAO vem pela API.</strong> A AT nao fornece esta informacao por sistema. E necessario descarregar o Excel manualmente do portal, tal como faz no Primavera ou Sage.</div>
+    </div>
+
+    <div class="step-card reveal">
+      <ol>
+        <li>Abrir o <a href="https://irs.portaldasfinancas.gov.pt" target="_blank"><strong>Portal das Financas</strong></a></li>
+        <li>Login com o NIF e password do <strong>cliente</strong></li>
+        <li>Ir a <strong>Cidadaos &rarr; Emitir &rarr; Recibos Verdes &rarr; Emitidos</strong></li>
+        <li>Escolher o ano e <strong>descarregar o Excel</strong></li>
+        <li>No IVAzen, ir ao <a href="https://ivazen-saas.vercel.app/centro-importacao" target="_blank"><strong>Centro de Importacao</strong></a></li>
+        <li>Escolher <strong>"Importar Recibos Verdes"</strong> &rarr; carregar o Excel</li>
+      </ol>
+    </div>
+
+    <div class="callout callout-info reveal">
+      <span class="callout-icon">&#8505;</span>
+      <div><strong>Apos importar:</strong> As vendas aparecem em <a href="https://ivazen-saas.vercel.app/sales" target="_blank"><strong>Vendas</strong></a> com nomes, valores, categorias de receita e IVA liquidado. Este valor alimenta automaticamente o Centro Fiscal e a Seguranca Social.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 7. SEGURANCA SOCIAL -->
+<section id="ss">
+  <div class="container">
+    <span class="section-label reveal">Passo 7</span>
+    <h2 class="section-title reveal">Seguranca Social (clientes ENI)</h2>
+    <p class="section-desc reveal">Para trabalhadores independentes (ENI), o IVAzen calcula automaticamente as contribuicoes trimestrais.</p>
+
+    <!-- MOCKUP: Social Security -->
+    <div class="mockup-wrap reveal">
+      <div class="mockup-bar">
+        <span class="mockup-dot"></span><span class="mockup-dot"></span><span class="mockup-dot"></span>
+        <span class="mockup-url">ivazen-saas.vercel.app/seguranca-social</span>
+      </div>
+      <div class="mockup-body">
+        <div class="ui-layout" style="min-height: 340px;">
+          <div class="ui-sidebar">
+            <div class="ui-sidebar-logo">IVAzen</div>
+            <div class="ui-sidebar-item"><span class="si-icon">&#9633;</span> Dashboard</div>
+            <div class="ui-sidebar-item active"><span class="si-icon">&#127963;</span> Seg. Social</div>
+          </div>
+          <div class="ui-main">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+              <div style="font-family: Poppins; font-weight: 700; font-size: 1.1em;">Seguranca Social</div>
+              <div style="display: flex; gap: 8px;">
+                <select class="ui-select" style="width: auto; margin: 0; font-size: 0.8em; padding: 6px 32px 6px 10px;"><option>Q1 2026 (Jan-Mar)</option></select>
+                <span class="ui-btn ui-btn-pink" style="font-size: 0.72em;">&#128203; Copiar Dados</span>
+                <span class="ui-btn ui-btn-green" style="font-size: 0.72em;">Abrir SS Directa</span>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px;">
+              <div class="ui-card" style="text-align: center; padding: 16px;">
+                <div style="font-size: 0.72em; color: var(--text-3);">Rendimento Bruto</div>
+                <div style="font-size: 1.4em; font-weight: 800; color: var(--text);">8.250,00 &euro;</div>
+              </div>
+              <div class="ui-card" style="text-align: center; padding: 16px;">
+                <div style="font-size: 0.72em; color: var(--text-3);">Coeficiente</div>
+                <div style="font-size: 1.4em; font-weight: 800; color: var(--orange);">0,70</div>
+                <div style="font-size: 0.65em; color: var(--text-3);">Prestacao servicos</div>
+              </div>
+              <div class="ui-card" style="text-align: center; padding: 16px;">
+                <div style="font-size: 0.72em; color: var(--text-3);">Base Tributavel</div>
+                <div style="font-size: 1.4em; font-weight: 800; color: var(--blue);">5.775,00 &euro;</div>
+              </div>
+              <div class="ui-card" style="text-align: center; padding: 16px; border: 2px solid var(--pink);">
+                <div style="font-size: 0.72em; color: var(--text-3);">Contribuicao (21,4%)</div>
+                <div style="font-size: 1.4em; font-weight: 800; color: var(--pink);">1.235,85 &euro;</div>
+              </div>
+            </div>
+            <div class="ui-card" style="margin-top: 12px;">
+              <div class="ui-card-title" style="font-size: 0.85em;">Detalhe do calculo</div>
+              <div style="font-size: 0.82em; color: var(--text-2); line-height: 2;">
+                8.250,00 &euro; (rendimento) &times; 0,70 (coeficiente) = <strong>5.775,00 &euro;</strong> (base tributavel)<br>
+                5.775,00 &euro; &divide; 3 (meses) = <strong>1.925,00 &euro;/mes</strong> (rendimento mensal relevante)<br>
+                1.925,00 &euro; &times; 21,4% = <strong>411,95 &euro;/mes</strong> &times; 3 = <strong>1.235,85 &euro;</strong> (contribuicao trimestral)
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="mockup-caption">Calculo automatico: rendimento &times; coeficiente &times; 21,4% — zero Excel</div>
+    </div>
+
+    <div class="table-wrap reveal">
+      <table>
+        <tr><th>Rendimentos de...</th><th>Determinam contribuicoes de...</th></tr>
+        <tr><td>Jan-Mar (Q1)</td><td>Jul-Set</td></tr>
+        <tr><td>Abr-Jun (Q2)</td><td>Out-Dez</td></tr>
+        <tr><td>Jul-Set (Q3)</td><td>Jan-Mar do ano seguinte</td></tr>
+        <tr><td>Out-Dez (Q4)</td><td>Abr-Jun do ano seguinte</td></tr>
+      </table>
+    </div>
+
+    <div class="callout callout-info reveal">
+      <span class="callout-icon">&#8505;</span>
+      <div><strong>Requisito:</strong> As vendas/recibos verdes precisam de estar importadas primeiro (Passo 6). Se os valores aparecem a zeros, importe primeiro as vendas.</div>
+    </div>
+
+    <div class="callout callout-warn reveal">
+      <span class="callout-icon">&#9888;</span>
+      <div><strong>Apenas para ENI:</strong> A Seguranca Social so se aplica a trabalhadores independentes (ENI). Para empresas (Lda/SA), esta secao nao e relevante. Configure o "Tipo de Contribuinte" em Definicoes &rarr; Editar Cliente.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 8. MODELO 10 -->
+<section id="modelo10">
+  <div class="container">
+    <span class="section-label reveal">Passo 8</span>
+    <h2 class="section-title reveal">Modelo 10 (Retencoes na Fonte)</h2>
+    <p class="section-desc reveal">Gestao completa de retencoes na fonte com importacao, validacao e exportacao para o portal AT.</p>
+
+    <div class="feature-grid reveal">
+      <div class="feature-card">
+        <span class="feature-icon">&#128196;</span>
+        <div class="feature-title">Importar SIRE CSV</div>
+        <div class="feature-desc">Importa retencoes do SIRE directamente. O sistema extrai beneficiarios, categorias (A/B/E/F) e valores.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">&#129302;</span>
+        <div class="feature-title">Deteccao Automatica</div>
+        <div class="feature-desc">A IA detecta candidatos a retencao nas facturas importadas. Reveja e aprove na tab "Candidatos".</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">&#128202;</span>
+        <div class="feature-title">Exportar CSV AT</div>
+        <div class="feature-desc">Exporta no formato AT (Portaria 4/2024) para importacao directa no portal das Financas.</div>
+      </div>
+    </div>
+
+    <div class="step-card reveal" style="margin-top: 24px;">
+      <ol>
+        <li>Ir a <a href="https://ivazen-saas.vercel.app/modelo-10" target="_blank"><strong>Modelo 10</strong></a></li>
+        <li>Na tab <strong>"Importar"</strong>, carregar o SIRE CSV ou adicionar manualmente</li>
+        <li>Na tab <strong>"Candidatos"</strong>, rever retencoes auto-detectadas pela IA</li>
+        <li>Na tab <strong>"Resumo"</strong>, verificar totais por categoria e beneficiario</li>
+        <li>Clicar <strong>"Exportar CSV"</strong> no formato AT</li>
+        <li>Clicar <strong>"Abrir Portal das Financas"</strong> e importar o CSV</li>
+      </ol>
+    </div>
+
+    <div class="callout callout-tip reveal">
+      <span class="callout-icon">&#128161;</span>
+      <div><strong>Multi-Cliente:</strong> Use a tab "Multi-Cliente" para exportar o Modelo 10 de todos os seus clientes de uma vez.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 9. EXPORTAR -->
+<section id="exportar">
+  <div class="container">
+    <span class="section-label reveal">Passo 9</span>
+    <h2 class="section-title reveal">Exportar relatorios</h2>
+    <p class="section-desc reveal">Gere relatorios em PDF e Excel para arquivo ou entrega ao cliente.</p>
+
+    <div class="feature-grid reveal">
+      <div class="feature-card">
+        <span class="feature-icon">&#128202;</span>
+        <div class="feature-title">IVA — Campos DP</div>
+        <div class="feature-desc">Cada campo da Declaracao Periodica tem botao de copiar. Botao "Copiar todos" + link directo para o portal AT.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">&#127963;</span>
+        <div class="feature-title">SS — Copiar Dados</div>
+        <div class="feature-desc">Formata o resumo trimestral (rendimento, coeficiente, base, contribuicao) + botao "Abrir SS Directa".</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">&#128209;</span>
+        <div class="feature-title">Modelo 10 — CSV + Portal</div>
+        <div class="feature-desc">CSV no formato AT (Portaria 4/2024) para importacao directa. Guia de submissao incluido.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">&#128200;</span>
+        <div class="feature-title">Resumo Fiscal PDF</div>
+        <div class="feature-desc">Relatorio completo com totais de IVA, deducoes, retencoes e vendas. Ideal para entregar ao cliente.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip reveal">
+      <span class="callout-icon">&#128161;</span>
+      <div><strong>Fluxo recomendado:</strong> Gerar dados no IVAzen &rarr; Copiar/Exportar &rarr; Abrir portal &rarr; Colar/Importar &rarr; Submeter. Zero Excel intermedio.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 10. CREDENCIAIS AT -->
+<section id="at-config">
+  <div class="container">
+    <span class="section-label reveal">Passo 10</span>
+    <h2 class="section-title reveal">Configurar credenciais AT</h2>
+    <p class="section-desc reveal">Para activar o sync automatico de facturas, configure as credenciais AT de cada cliente.</p>
+
+    <div class="step-card reveal">
+      <ol>
+        <li>Ir a <a href="https://ivazen-saas.vercel.app/settings" target="_blank"><strong>Definicoes</strong></a></li>
+        <li>Encontrar o cliente e clicar <strong>"Editar"</strong></li>
+        <li>Na seccao <strong>"Credenciais AT"</strong>, introduzir:
+          <ul style="margin-top: 4px; margin-left: 16px;">
+            <li><strong>NIF</strong> do contribuinte</li>
+            <li><strong>Password do Portal das Financas</strong></li>
+          </ul>
+        </li>
+        <li>Gravar — o sistema encripta e sincroniza 2x/dia automaticamente</li>
+      </ol>
+    </div>
+
+    <div class="callout callout-warn reveal">
+      <span class="callout-icon">&#9888;</span>
+      <div><strong>Opcional:</strong> As credenciais AT sao opcionais. Sem elas, pode continuar a importar facturas manualmente via SIRE CSV ou upload. O sync automatico e apenas uma conveniencia adicional.</div>
+    </div>
+
+    <div class="callout callout-info reveal">
+      <span class="callout-icon">&#128274;</span>
+      <div><strong>Seguranca:</strong> As passwords sao encriptadas com AES-256-GCM antes de serem guardadas. Nunca sao armazenadas em texto simples. Apenas o sistema automatico as utiliza para sincronizar.</div>
+    </div>
+  </div>
+</section>
+
+<!-- MAPA COMPLETO -->
+<section id="mapa">
+  <div class="container">
+    <span class="section-label reveal">Referencia</span>
+    <h2 class="section-title reveal">Mapa completo da aplicacao</h2>
+    <p class="section-desc reveal">Todas as paginas disponiveis para contabilistas, organizadas por funcao.</p>
+
+    <div class="route-map reveal">
+      <div class="route-card">
+        <span class="route-path">/dashboard</span>
+        <div class="route-name">Dashboard</div>
+        <div class="route-desc">Visao geral: facturas pendentes, validadas, IVA dedutivel. Para contabilistas, mostra estado da carteira.</div>
+      </div>
+      <div class="route-card">
+        <span class="route-path">/accountant</span>
+        <div class="route-name">Dashboard Contabilista</div>
+        <div class="route-desc">Painel agregado com metricas de todos os clientes, alertas e estado de sync.</div>
+      </div>
+      <div class="route-card">
+        <span class="route-path">/centro-fiscal</span>
+        <div class="route-name">Centro Fiscal</div>
+        <div class="route-desc">Hub principal: compras, vendas, deducoes, campos DP. Visao completa do cliente seleccionado.</div>
+      </div>
+      <div class="route-card">
+        <span class="route-path">/centro-importacao</span>
+        <div class="route-name">Centro de Importacao</div>
+        <div class="route-desc">Todos os metodos de importacao: SIRE CSV, Recibos Verdes, Upload, SAF-T.</div>
+      </div>
+      <div class="route-card">
+        <span class="route-path">/upload</span>
+        <div class="route-name">Upload</div>
+        <div class="route-desc">Upload directo de PDFs e imagens. Suporta drag-and-drop e upload em massa.</div>
+      </div>
+      <div class="route-card">
+        <span class="route-path">/validation</span>
+        <div class="route-name">Validacao de Compras</div>
+        <div class="route-desc">Rever e validar classificacoes da IA. Filtrar, seleccionar, excluir em massa.</div>
+      </div>
+      <div class="route-card">
+        <span class="route-path">/sales</span>
+        <div class="route-name">Vendas</div>
+        <div class="route-desc">Recibos verdes e facturas emitidas. Categorias de receita e IVA liquidado.</div>
+      </div>
+      <div class="route-card">
+        <span class="route-path">/seguranca-social</span>
+        <div class="route-name">Seguranca Social</div>
+        <div class="route-desc">Calculo automatico de contribuicoes trimestrais para ENI.</div>
+      </div>
+      <div class="route-card">
+        <span class="route-path">/modelo-10</span>
+        <div class="route-name">Modelo 10</div>
+        <div class="route-desc">Retencoes na fonte: importar, validar, resumir e exportar CSV AT.</div>
+      </div>
+      <div class="route-card">
+        <span class="route-path">/export</span>
+        <div class="route-name">Exportar</div>
+        <div class="route-desc">Gerar relatorios PDF/Excel: IVA, Modelo 10, resumo fiscal.</div>
+      </div>
+      <div class="route-card">
+        <span class="route-path">/reconciliation</span>
+        <div class="route-name">Reconciliacao</div>
+        <div class="route-desc">Comparar dados AT vs App. Detectar discrepancias e facturas em falta.</div>
+      </div>
+      <div class="route-card">
+        <span class="route-path">/settings</span>
+        <div class="route-name">Definicoes</div>
+        <div class="route-desc">Gestao de clientes: criar, editar, configurar regime IVA e credenciais AT.</div>
+      </div>
+      <div class="route-card">
+        <span class="route-path">/efatura</span>
+        <div class="route-name">e-Fatura Sync</div>
+        <div class="route-desc">Import hibrido: CSV manual + configuracao API de producao e testes.</div>
+      </div>
+      <div class="route-card">
+        <span class="route-path">/bulk-sync</span>
+        <div class="route-name">Sync em Massa</div>
+        <div class="route-desc">Sincronizar facturas AT de todos os clientes de uma vez.</div>
+      </div>
+      <div class="route-card">
+        <span class="route-path">/at-control-center</span>
+        <div class="route-name">Centro AT</div>
+        <div class="route-desc">Gestao de credenciais AT, diagnostico de sync, saude das ligacoes.</div>
+      </div>
+      <div class="route-card">
+        <span class="route-path">/guide</span>
+        <div class="route-name">Guia Interno</div>
+        <div class="route-desc">Manual de referencia com workflows, atalhos e FAQ.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ATALHOS & DICAS -->
+<section id="atalhos">
+  <div class="container">
+    <span class="section-label reveal">Dicas</span>
+    <h2 class="section-title reveal">Atalhos e regras de ouro</h2>
+
+    <div class="feature-grid reveal">
+      <div class="feature-card">
+        <span class="feature-icon">&#127919;</span>
+        <div class="feature-title">Regra de Ouro</div>
+        <div class="feature-desc"><strong>Se tem dados</strong> &rarr; use o Centro Fiscal.<br><strong>Se nao tem dados</strong> &rarr; use o Centro de Importacao.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">&#9889;</span>
+        <div class="feature-title">Fluxo Padrao</div>
+        <div class="feature-desc">1. Selecionar cliente<br>2. Importar facturas<br>3. Validar classificacoes<br>4. Exportar/Copiar para portal</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">&#128736;</span>
+        <div class="feature-title">Configurar Primeiro</div>
+        <div class="feature-desc">Antes de trabalhar um cliente novo: Definicoes &rarr; Editar &rarr; definir regime IVA (mensal/trimestral) e tipo contribuinte (ENI/Empresa).</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">&#128197;</span>
+        <div class="feature-title">Regime IVA</div>
+        <div class="feature-desc"><strong>Mensal:</strong> facturacao &gt;650.000 &euro;/ano.<br><strong>Trimestral:</strong> facturacao &lt;650.000 &euro;/ano ou Art. 53.<br>Configurar em Definicoes.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">&#128100;</span>
+        <div class="feature-title">Tipo Contribuinte</div>
+        <div class="feature-desc"><strong>ENI:</strong> Trabalhador independente (SS activa, Modelo 10 secundario).<br><strong>Empresa:</strong> Lda/SA (Modelo 10 primario, SS inactiva).</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">&#128172;</span>
+        <div class="feature-title">Encontrou um problema?</div>
+        <div class="feature-desc">Envie mensagem no WhatsApp com: screenshot + nome/NIF do cliente + o que esperava ver. Resolvemos rapidamente.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<div class="cta-section">
+  <h2>Pronta para comecar?</h2>
+  <p>Siga os 10 passos deste guia e vai dominar a plataforma em minutos.</p>
+  <a href="https://ivazen-saas.vercel.app" target="_blank" class="cta-btn">Abrir IVAzen &rarr;</a>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <p><strong>IVAzen</strong> &middot; Guia do Contabilista &middot; 24 de Marco de 2026</p>
+  <p>812 testes automaticos &middot; Zero erros em producao &middot; 16 paginas de aplicacao</p>
+</footer>
+
+<!-- SCRIPTS -->
+<script>
+  // Nav scroll effect
+  window.addEventListener('scroll', () => {
+    document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 20);
+  });
+
+  // Reveal on scroll
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+
+</body>
+</html>
