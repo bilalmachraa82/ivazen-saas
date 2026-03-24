@@ -33,6 +33,7 @@ import { useReconciliationData } from '@/hooks/useReconciliationData';
 import { ReviewInboxPanel } from '@/components/fiscalcenter/ReviewInboxPanel';
 import { getCurrentQuarter, getQuarterLabel, getQuarterDateRange } from '@/lib/fiscalQuarter';
 import { taxpayerKindBadge, taxpayerKindLabel, isObligationPrimary } from '@/lib/taxpayerKind';
+import { formatVatRegime } from '@/lib/formatVatRegime';
 import { cn } from '@/lib/utils';
 
 type ObligationStatus = 'ready' | 'attention' | 'setup';
@@ -610,7 +611,7 @@ export default function ClientFiscalCenter() {
                   </div>
                   <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-4">
                     <div className="text-xs uppercase tracking-wide text-muted-foreground">Regime IVA</div>
-                    <div className="mt-1 text-base font-semibold">{data.client?.vat_regime || 'Não definido'}</div>
+                    <div className="mt-1 text-base font-semibold">{formatVatRegime(data.client?.vat_regime, data.client?.iva_cadence)}</div>
                   </div>
                   <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-4">
                     <div className="text-xs uppercase tracking-wide text-muted-foreground">SS do período</div>

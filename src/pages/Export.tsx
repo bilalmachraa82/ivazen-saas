@@ -348,7 +348,7 @@ export default function Export() {
                   <ZenStatsCard
                     icon={Receipt}
                     value={purchaseTotals.invoiceCount}
-                    label="Facturas no Período"
+                    label="Facturas no Período (inclui auto-aprovadas)"
                     variant="primary"
                     animationDelay="0ms"
                   />
@@ -808,30 +808,40 @@ export default function Export() {
 
           {/* SALES TAB */}
           <TabsContent value="sales" className="space-y-6">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <ZenStatsCard
-                icon={Receipt}
-                value={salesTotals.invoiceCount}
-                label="Facturas Validadas"
-                variant="primary"
-                animationDelay="0ms"
-              />
-              <ZenStatsCard
-                icon={Euro}
-                value={formatCurrency(salesTotals.total)}
-                label="Total Vendas"
-                variant="success"
-                animationDelay="50ms"
-              />
-              <ZenStatsCard
-                icon={Calculator}
-                value={formatCurrency(salesTotals.vatTotal)}
-                label="IVA Liquidado"
-                variant="warning"
-                animationDelay="100ms"
-              />
-            </div>
+            {/* Stats Cards — show period totals when period selected, global totals otherwise */}
+            {(() => {
+              const globalInvoiceCount = periodSummaries.reduce((s, p) => s + p.invoiceCount, 0);
+              const globalTotal = periodSummaries.reduce((s, p) => s + p.total, 0);
+              const globalVat = periodSummaries.reduce((s, p) => s + p.vatTotal, 0);
+              const displayCount = salesPeriod ? salesTotals.invoiceCount : globalInvoiceCount;
+              const displayTotal = salesPeriod ? salesTotals.total : globalTotal;
+              const displayVat = salesPeriod ? salesTotals.vatTotal : globalVat;
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <ZenStatsCard
+                    icon={Receipt}
+                    value={displayCount}
+                    label={salesPeriod ? "Facturas Validadas" : "Total Facturas Validadas"}
+                    variant="primary"
+                    animationDelay="0ms"
+                  />
+                  <ZenStatsCard
+                    icon={Euro}
+                    value={formatCurrency(displayTotal)}
+                    label={salesPeriod ? "Total Vendas" : "Total Vendas (todos os períodos)"}
+                    variant="success"
+                    animationDelay="50ms"
+                  />
+                  <ZenStatsCard
+                    icon={Calculator}
+                    value={formatCurrency(displayVat)}
+                    label={salesPeriod ? "IVA Liquidado" : "IVA Liquidado (todos os períodos)"}
+                    variant="warning"
+                    animationDelay="100ms"
+                  />
+                </div>
+              );
+            })()}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Export Configuration Card */}

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -299,6 +299,13 @@ export function useSalesExport(clientId?: string | null) {
   const availablePeriods = useMemo(() => {
     return periodSummaries.map(s => s.period);
   }, [periodSummaries]);
+
+  // Auto-select the most recent period when data loads and no period is selected
+  useEffect(() => {
+    if (availablePeriods.length > 0 && !selectedPeriod) {
+      setSelectedPeriod(availablePeriods[0]);
+    }
+  }, [availablePeriods, selectedPeriod]);
 
   return {
     selectedPeriod,

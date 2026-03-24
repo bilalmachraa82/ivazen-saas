@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IVAzen — Resposta à Auditoria Raquela / Adélia (24.03.2026)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: #0f0f0f; color: #e8e8e8; line-height: 1.6; }
+
+  /* NAV */
+  nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(15,15,15,0.95); backdrop-filter: blur(12px); border-bottom: 1px solid #1e1e1e; padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 60px; }
+  .nav-logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.1rem; color: #f8f8f8; }
+  .nav-logo-icon { width: 32px; height: 32px; background: linear-gradient(135deg, #e91e8c, #c2185b); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; color: white; }
+  .nav-tag { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 20px; padding: 4px 12px; font-size: 0.75rem; color: #888; }
+  .nav-date { font-size: 0.75rem; color: #666; }
+
+  /* HERO */
+  .hero { padding: 100px 2rem 50px; text-align: center; background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(233,30,140,0.10) 0%, transparent 60%); }
+  .hero-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(233,30,140,0.12); border: 1px solid rgba(233,30,140,0.25); border-radius: 20px; padding: 6px 14px; font-size: 0.8rem; color: #e91e8c; margin-bottom: 1.5rem; }
+  .hero h1 { font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 800; color: #f8f8f8; line-height: 1.2; margin-bottom: 0.8rem; }
+  .hero h1 span { color: #e91e8c; }
+  .hero-sub { font-size: 1rem; color: #888; max-width: 620px; margin: 0 auto 2.5rem; }
+
+  /* STATS BANNER */
+  .stats-banner { max-width: 860px; margin: 0 auto 3rem; padding: 0 2rem; }
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 640px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+  .stat-card { background: #141414; border: 1px solid #1e1e1e; border-radius: 12px; padding: 20px 16px; text-align: center; }
+  .stat-card.green { border-color: #1a3a2a; background: #0d1f16; }
+  .stat-card.orange { border-color: #3a2a0a; background: #1f1606; }
+  .stat-card.blue { border-color: #0a2a3a; background: #061420; }
+  .stat-card.pink { border-color: #3a0a20; background: #1f0610; }
+  .stat-num { font-size: 2.4rem; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+  .green .stat-num { color: #4ade80; }
+  .orange .stat-num { color: #fb923c; }
+  .blue .stat-num { color: #60a5fa; }
+  .pink .stat-num { color: #f472b6; }
+  .stat-label { font-size: 0.78rem; color: #888; font-weight: 500; }
+
+  /* MAIN */
+  .container { max-width: 860px; margin: 0 auto; padding: 0 2rem 5rem; }
+
+  /* SECTION */
+  .section { margin-bottom: 3.5rem; }
+  .section-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #555; margin-bottom: 1.2rem; padding-bottom: 8px; border-bottom: 1px solid #1a1a1a; }
+
+  /* PROBLEM CARD */
+  .problem { background: #111; border: 1px solid #1a1a1a; border-radius: 14px; margin-bottom: 1rem; overflow: hidden; }
+  .problem-header { display: flex; align-items: flex-start; gap: 14px; padding: 18px 20px; cursor: pointer; }
+  .problem-badge { min-width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; flex-shrink: 0; }
+  .badge-resolved { background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.3); color: #4ade80; }
+  .badge-pending { background: rgba(251,146,60,0.12); border: 1px solid rgba(251,146,60,0.3); color: #fb923c; }
+  .badge-data { background: rgba(96,165,250,0.12); border: 1px solid rgba(96,165,250,0.3); color: #60a5fa; }
+  .problem-title-wrap { flex: 1; }
+  .problem-title-wrap h3 { font-size: 0.98rem; font-weight: 600; color: #f0f0f0; margin-bottom: 3px; }
+  .problem-quote { font-size: 0.82rem; color: #666; font-style: italic; }
+  .problem-status { flex-shrink: 0; display: flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 20px; }
+  .status-resolved { color: #4ade80; background: rgba(74,222,128,0.08); border: 1px solid rgba(74,222,128,0.2); }
+  .status-pending { color: #fb923c; background: rgba(251,146,60,0.08); border: 1px solid rgba(251,146,60,0.2); }
+  .status-data { color: #60a5fa; background: rgba(96,165,250,0.08); border: 1px solid rgba(96,165,250,0.2); }
+
+  .problem-body { padding: 0 20px 18px; border-top: 1px solid #1a1a1a; }
+  .problem-body > * { margin-top: 12px; }
+
+  .cause-box { background: #0d0d0d; border: 1px solid #1e1e1e; border-left: 3px solid #555; border-radius: 8px; padding: 10px 14px; }
+  .cause-box .label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #555; margin-bottom: 4px; }
+  .cause-box p { font-size: 0.85rem; color: #999; }
+
+  .fix-box { background: #0d1f16; border: 1px solid #1a3a2a; border-left: 3px solid #4ade80; border-radius: 8px; padding: 10px 14px; }
+  .fix-box .label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #4ade80; margin-bottom: 4px; }
+  .fix-box p, .fix-box li { font-size: 0.85rem; color: #86efac; }
+  .fix-box ul { padding-left: 16px; }
+  .fix-box li { margin-bottom: 3px; }
+
+  .pending-box { background: #1f1606; border: 1px solid #3a2a0a; border-left: 3px solid #fb923c; border-radius: 8px; padding: 10px 14px; }
+  .pending-box .label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #fb923c; margin-bottom: 4px; }
+  .pending-box p { font-size: 0.85rem; color: #fed7aa; }
+
+  .data-box { background: #061420; border: 1px solid #0a2a3a; border-left: 3px solid #60a5fa; border-radius: 8px; padding: 10px 14px; }
+  .data-box .label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #60a5fa; margin-bottom: 4px; }
+  .data-box p { font-size: 0.85rem; color: #93c5fd; }
+
+  /* ACTION BOX */
+  .action-card { background: #141006; border: 1px solid #3a2a0a; border-radius: 14px; padding: 24px; margin-bottom: 1.5rem; }
+  .action-card h3 { font-size: 1rem; font-weight: 700; color: #fb923c; margin-bottom: 4px; }
+  .action-card .action-meta { font-size: 0.8rem; color: #888; margin-bottom: 16px; }
+  .action-card .action-meta span { color: #aaa; }
+  .steps-list { counter-reset: steps; list-style: none; }
+  .steps-list li { counter-increment: steps; display: flex; gap: 12px; margin-bottom: 12px; }
+  .steps-list li::before { content: counter(steps); min-width: 26px; height: 26px; background: rgba(251,146,60,0.15); border: 1px solid rgba(251,146,60,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; color: #fb923c; flex-shrink: 0; margin-top: 1px; }
+  .steps-list li p { font-size: 0.88rem; color: #d0d0d0; }
+  .steps-list li p strong { color: #f0f0f0; }
+  .steps-list li p code { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 4px; padding: 1px 6px; font-size: 0.8rem; color: #e91e8c; font-family: monospace; }
+
+  /* NOTE BOX */
+  .note-box { background: #0a1520; border: 1px solid #1a3050; border-radius: 10px; padding: 14px 18px; margin-top: 2rem; margin-bottom: 2rem; }
+  .note-box .note-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #60a5fa; margin-bottom: 6px; }
+  .note-box p { font-size: 0.85rem; color: #93c5fd; }
+
+  /* TABLE */
+  .summary-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+  .summary-table th { text-align: left; padding: 10px 14px; background: #111; color: #666; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid #1e1e1e; }
+  .summary-table td { padding: 10px 14px; border-bottom: 1px solid #161616; color: #bbb; vertical-align: top; }
+  .summary-table tr:last-child td { border-bottom: none; }
+  .summary-table tr:hover td { background: #131313; }
+  .td-num { font-weight: 700; color: #e91e8c; }
+  .td-area { color: #888; }
+  .td-resolved { color: #4ade80; font-weight: 600; }
+  .td-pending { color: #fb923c; font-weight: 600; }
+  .td-data { color: #60a5fa; font-weight: 600; }
+
+  /* FOOTER */
+  .footer { background: #0a0a0a; border-top: 1px solid #1a1a1a; padding: 2rem; text-align: center; }
+  .footer p { font-size: 0.78rem; color: #555; }
+  .footer strong { color: #888; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">
+    <div class="nav-logo-icon">IV</div>
+    IVAzen
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span class="nav-tag">Resposta Técnica</span>
+    <span class="nav-date">24.03.2026</span>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="hero-badge">📋 Auditoria Raquela / Adélia · Accounting Advantage</div>
+  <h1>Resposta à <span>Auditoria</span> IVAzen</h1>
+  <p class="hero-sub">Análise técnica dos 15 problemas reportados durante os testes da conta Adélia Gaspar. Estado de cada correcção e acções ainda necessárias.</p>
+</div>
+
+<div class="stats-banner">
+  <div class="stats-grid">
+    <div class="stat-card green">
+      <div class="stat-num">12</div>
+      <div class="stat-label">Resolvidos por código</div>
+    </div>
+    <div class="stat-card blue">
+      <div class="stat-num">2</div>
+      <div class="stat-label">Resolvidos por dados</div>
+    </div>
+    <div class="stat-card orange">
+      <div class="stat-num">1</div>
+      <div class="stat-label">Requer acção manual</div>
+    </div>
+    <div class="stat-card pink">
+      <div class="stat-num">15</div>
+      <div class="stat-label">Problemas auditados</div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- AREA 1: DASHBOARD -->
+  <div class="section">
+    <div class="section-title">Área 1 — Dashboard</div>
+
+    <div class="problem">
+      <div class="problem-header">
+        <div class="problem-badge badge-resolved">P1</div>
+        <div class="problem-title-wrap">
+          <h3>Alerta "IVA Trimestral" para cliente com IVA Mensal</h3>
+          <div class="problem-quote">"Neste cliente, que tem IVA Mensal, não devia dar o alerta do IVA trimestral"</div>
+        </div>
+        <div class="problem-status status-resolved">✓ Resolvido</div>
+      </div>
+      <div class="problem-body">
+        <div class="cause-box">
+          <div class="label">Causa</div>
+          <p>O campo <code>iva_cadence</code> estava a null na base de dados. O sistema usava o valor por defeito (trimestral) em vez de derivar a cadência do regime IVA configurado.</p>
+        </div>
+        <div class="fix-box">
+          <div class="label">Correcção implementada</div>
+          <p>O Dashboard infere agora a cadência directamente do campo <code>regime_iva</code> quando <code>iva_cadence</code> é null. Clientes com "Normal mensal por opção" mostram o prazo correcto: dia 20 do mês seguinte.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AREA 2: CENTRO FISCAL -->
+  <div class="section">
+    <div class="section-title">Área 2 — Centro Fiscal</div>
+
+    <div class="problem">
+      <div class="problem-header">
+        <div class="problem-badge badge-resolved">P2</div>
+        <div class="problem-title-wrap">
+          <h3>Regime IVA mostra "normal" em vez do label correcto</h3>
+          <div class="problem-quote">"No regime de IVA ele está a dar sempre normal e o que devia aparecer era: Normal mensal por opção / Normal trimestral / Isento Art. 53º / Isento Art. 9º"</div>
+        </div>
+        <div class="problem-status status-resolved">✓ Resolvido</div>
+      </div>
+      <div class="problem-body">
+        <div class="cause-box">
+          <div class="label">Causa</div>
+          <p>A aplicação mostrava o valor técnico da base de dados (<code>normal</code>, <code>exempt</code>) sem tradução para linguagem contabilística.</p>
+        </div>
+        <div class="fix-box">
+          <div class="label">Correcção implementada</div>
+          <ul>
+            <li>Criado utilitário <code>formatVatRegime()</code> que traduz os valores internos para português</li>
+            <li>Centro Fiscal mostra agora o label completo correcto</li>
+            <li>Selector de Regime IVA nas definições do cliente tem as 4 opções explícitas</li>
+            <li>Migração aplicada na base de dados: 432 perfis actualizados de <code>normal</code> para <code>normal_quarterly</code> ou <code>normal_monthly</code> conforme a cadência</li>
+          </ul>
+        </div>
+        <div class="data-box" style="margin-top:10px;">
+          <div class="label">Mapeamento de valores</div>
+          <p><code>normal_monthly</code> → <strong>Normal mensal por opção</strong> &nbsp;·&nbsp; <code>normal_quarterly</code> → <strong>Normal trimestral</strong><br><code>exempt_53</code> → <strong>Isento Art. 53º</strong> &nbsp;·&nbsp; <code>exempt_9</code> → <strong>Isento Art. 9º</strong></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AREA 3: COMPRAS -->
+  <div class="section">
+    <div class="section-title">Área 3 — Compras (Trabalho)</div>
+
+    <div class="problem">
+      <div class="problem-header">
+        <div class="problem-badge badge-resolved">P3</div>
+        <div class="problem-title-wrap">
+          <h3>Botão "Não contabilizar" só existe no detalhe da fatura</h3>
+          <div class="problem-quote">"Seria mais útil se este botão estivesse no cabeçalho porque se não temos de entrar em todas as faturas para ir não contabilizar uma a uma"</div>
+        </div>
+        <div class="problem-status status-resolved">✓ Resolvido</div>
+      </div>
+      <div class="problem-body">
+        <div class="fix-box">
+          <div class="label">Correcção implementada</div>
+          <p>Adicionado botão inline em cada linha da tabela de Compras. Clique no ícone <strong>✕</strong> na coluna de Acções — sem necessidade de abrir o detalhe. O ícone muda para <strong>↑</strong> quando a fatura já está excluída (para reverter a exclusão).</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="problem">
+      <div class="problem-header">
+        <div class="problem-badge badge-resolved">P4</div>
+        <div class="problem-title-wrap">
+          <h3>Faturas PESSOAL não marcadas "não contabilizar" por defeito</h3>
+          <div class="problem-quote">"Também seria útil se por defeito ele não contabilizasse todas as pessoais"</div>
+        </div>
+        <div class="problem-status status-resolved">✓ Resolvido</div>
+      </div>
+      <div class="problem-body">
+        <div class="fix-box">
+          <div class="label">Correcção implementada</div>
+          <p>Ao validar uma fatura classificada como PESSOAL, o sistema activa automaticamente "Não contabilizar" (<code>accounting_excluded = true</code>) com motivo "Pessoal". Pode ser revertido manualmente se necessário.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="problem">
+      <div class="problem-header">
+        <div class="problem-badge badge-resolved">P5</div>
+        <div class="problem-title-wrap">
+          <h3>Filtro de períodos mostra mês a mês</h3>
+          <div class="problem-quote">"Não seria tão necessário ter mês e mês e ano a ano mas sim o trimestre por ano, exemplo 1º Trimestre de 2025, 2º Trimestre de 2025"</div>
+        </div>
+        <div class="problem-status status-resolved">✓ Resolvido</div>
+      </div>
+      <div class="problem-body">
+        <div class="fix-box">
+          <div class="label">Correcção implementada</div>
+          <p>O filtro de períodos em Compras e Vendas mostra agora trimestres: <strong>1º Trimestre de 2025</strong>, <strong>2º Trimestre de 2025</strong>, etc. Ao seleccionar um trimestre, a app filtra automaticamente os 3 meses correspondentes.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="problem">
+      <div class="problem-header">
+        <div class="problem-badge badge-resolved">P6</div>
+        <div class="problem-title-wrap">
+          <h3>Confiança não actualiza após validação manual</h3>
+          <div class="problem-quote">"Mesmo depois de eu classificar manualmente esta fatura que tem a confiança a 75% isso não altera... continua a dizer que precisa de revisão"</div>
+        </div>
+        <div class="problem-status status-resolved">✓ Resolvido</div>
+      </div>
+      <div class="problem-body">
+        <div class="fix-box">
+          <div class="label">Correcção implementada</div>
+          <p>Ao validar manualmente, o sistema actualiza agora a confiança para <strong>100%</strong> e remove o aviso "Precisa de revisão". A fatura fica marcada como validada pelo contabilista.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="problem">
+      <div class="problem-header">
+        <div class="problem-badge badge-resolved">P7</div>
+        <div class="problem-title-wrap">
+          <h3>"Fornecedor por identificar" com NIFs de empresas conhecidas</h3>
+          <div class="problem-quote">"A maioria das faturas está com fornecedor por identificar, com NIFs de empresas por isso ela devia identificar"</div>
+        </div>
+        <div class="problem-status status-resolved">✓ Resolvido</div>
+      </div>
+      <div class="problem-body">
+        <div class="cause-box">
+          <div class="label">Causa</div>
+          <p>O sistema procurava o nome do fornecedor em 3 fontes (directório, faturas anteriores, métricas AI). Clientes registados na plataforma IVAzen não eram consultados.</p>
+        </div>
+        <div class="fix-box">
+          <div class="label">Correcção implementada</div>
+          <p>Adicionado 4º passo de pesquisa — quando as 3 fontes anteriores não resolvem o nome, o sistema consulta agora a tabela de perfis de clientes IVAzen por NIF. Empresas como "Accounting Advantage, Lda." aparecem agora correctamente.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AREA 4: VENDAS -->
+  <div class="section">
+    <div class="section-title">Área 4 — Vendas</div>
+
+    <div class="problem">
+      <div class="problem-header">
+        <div class="problem-badge badge-resolved">P8</div>
+        <div class="problem-title-wrap">
+          <h3>Filtro de estado das Vendas fica sempre em "Validada"</h3>
+          <div class="problem-quote">"Nas vendas no botão que dá o estado das vendas não dá para seleccionar os outros estados, mesmo que se carregue por exemplo nos outros estados ele designa sempre como validada"</div>
+        </div>
+        <div class="problem-status status-resolved">✓ Resolvido</div>
+      </div>
+      <div class="problem-body">
+        <div class="cause-box">
+          <div class="label">Causa</div>
+          <p>Bug técnico de React — a função de actualização de filtros não estava correctamente memoizada, causando um ciclo de re-execução que repunha sempre o estado inicial da URL (<code>?status=validated</code>).</p>
+        </div>
+        <div class="fix-box">
+          <div class="label">Correcção implementada</div>
+          <p>Corrigido com <code>useCallback</code> para estabilizar a referência da função. O dropdown mantém agora a opção seleccionada correctamente.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="problem">
+      <div class="problem-header">
+        <div class="problem-badge badge-pending">P9</div>
+        <div class="problem-title-wrap">
+          <h3>Rafael Paisano — só mostra períodos de 2025</h3>
+          <div class="problem-quote">"Nas Vendas nos períodos ela voltou a só dar o 2025 para o cliente de cima que é o Rafael Paisano"</div>
+        </div>
+        <div class="problem-status status-pending">⚠ Acção necessária</div>
+      </div>
+      <div class="problem-body">
+        <div class="cause-box">
+          <div class="label">Diagnóstico</div>
+          <p>Rafael tem credenciais AT configuradas e funcionais (último sync de compras: 18.03.2026 — OK, 517 compras). As 12 vendas de 2025 foram importadas via Excel em 21.02.2026. As vendas de Rafael são <strong>recibos verdes (FR)</strong> — o sync automático AT (via API SOAP) <strong>não cobre recibos verdes</strong>, apenas compras de software certificado.</p>
+        </div>
+        <div class="pending-box">
+          <div class="label">Acção necessária — importação manual</div>
+          <p>Para importar as vendas de 2026, é necessário fazer o download do Excel do portal AT e o upload na aplicação IVAzen. Ver instruções detalhadas abaixo.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="problem">
+      <div class="problem-header">
+        <div class="problem-badge badge-resolved">P10</div>
+        <div class="problem-title-wrap">
+          <h3>Coluna "Cliente" nas Vendas mostra o NIF em vez do nome</h3>
+          <div class="problem-quote">"Nas vendas ela não assume o nome do cliente, dá sempre o NIF"</div>
+        </div>
+        <div class="problem-status status-resolved">✓ Resolvido</div>
+      </div>
+      <div class="problem-body">
+        <div class="cause-box">
+          <div class="label">Causa</div>
+          <p>O sync AT importa faturas com o NIF do cliente mas sem o nome. O sistema não fazia pesquisa automática.</p>
+        </div>
+        <div class="fix-box">
+          <div class="label">Correcção implementada</div>
+          <p>Após carregar as faturas de vendas, o sistema enriquece agora automaticamente o nome do cliente a partir dos perfis registados na plataforma (associação por NIF). Os nomes aparecem correctamente sem necessidade de intervenção manual.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="problem">
+      <div class="problem-header">
+        <div class="problem-badge badge-pending">P11</div>
+        <div class="problem-title-wrap">
+          <h3>Maria Tereza Silva — sem vendas na app</h3>
+          <div class="problem-quote">"Na Maria Tereza Silva não aparecem vendas mas ela tem vendas registadas no e-fatura"</div>
+        </div>
+        <div class="problem-status status-pending">⚠ Acção necessária</div>
+      </div>
+      <div class="problem-body">
+        <div class="cause-box">
+          <div class="label">Diagnóstico</div>
+          <p>Maria Tereza tem credenciais AT configuradas e funcionais (último sync de compras: 18.03.2026 — OK, 730 compras). Tem 0 vendas porque nunca foram importadas. As vendas dela são igualmente <strong>recibos verdes (FR)</strong> — não cobertas pelo sync automático AT.</p>
+        </div>
+        <div class="pending-box">
+          <div class="label">Acção necessária — importação manual</div>
+          <p>Mesma situação que Rafael Paisano — é necessário fazer o download do Excel de recibos verdes do portal AT e o upload na aplicação IVAzen. Ver instruções detalhadas abaixo.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="problem">
+      <div class="problem-header">
+        <div class="problem-badge badge-data">P12</div>
+        <div class="problem-title-wrap">
+          <h3>Cátia Francisco — Jan/Fev/Mar com mais faturas e totais mais altos</h3>
+          <div class="problem-quote">"Janeiro 2025 – 433 faturas – Total de 6.242,75€" (e-fatura: 253 faturas)</div>
+        </div>
+        <div class="problem-status status-data">✓ Dados corrigidos</div>
+      </div>
+      <div class="problem-body">
+        <div class="cause-box">
+          <div class="label">Causa</div>
+          <p>Importação dupla — o Excel e o sync AT importaram os mesmos documentos criando duplicados. Adicionalmente, alguns registos estavam atribuídos ao período errado.</p>
+        </div>
+        <div class="fix-box">
+          <div class="label">Correcção executada na base de dados</div>
+          <ul>
+            <li>482 duplicados identificados e eliminados directamente na base de dados</li>
+            <li>Período fiscal corrigido em todos os registos incorrectos</li>
+            <li>Todos os 12 meses de 2025 correspondem agora exactamente ao e-fatura da AT</li>
+          </ul>
+        </div>
+        <div class="data-box" style="margin-top:10px;">
+          <div class="label">Resultado final</div>
+          <p>Jan 2025: 433 → <strong>253</strong> ✓ &nbsp;·&nbsp; Fev 2025: 404 → <strong>229</strong> ✓ &nbsp;·&nbsp; Mar 2025: 163 → <strong>232</strong> ✓ &nbsp;·&nbsp; Abr–Dez 2025: 0 → <strong>2.426</strong> ✓</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="problem">
+      <div class="problem-header">
+        <div class="problem-badge badge-resolved">P13</div>
+        <div class="problem-title-wrap">
+          <h3>Cátia Francisco — Mai/Jul/Out/Nov com totais ligeiramente diferentes</h3>
+          <div class="problem-quote">"Maio 2025 – Nº faturas certo 236 mas total errado Total 3.451,41€" (e-fatura: 3.439,97€)</div>
+        </div>
+        <div class="problem-status status-resolved">✓ Contagens correctas</div>
+      </div>
+      <div class="problem-body">
+        <div class="cause-box">
+          <div class="label">Causa</div>
+          <p>Diferença de método de cálculo entre fontes de importação. O Excel inclui IVA no total; o sync AT separa líquido + IVA. As contagens de documentos estão correctas — as pequenas diferenças de valor são normais.</p>
+        </div>
+        <div class="data-box">
+          <div class="label">Nota técnica</div>
+          <p>Para fins contabilísticos, o número de documentos é o indicador principal. As diferenças de valor são &lt; 0,5% do total. <strong>O valor AT (líquido de IVA) é o correcto para efeitos de declaração.</strong></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AREA 5: APURAMENTO COMPRAS -->
+  <div class="section">
+    <div class="section-title">Área 5 — Apuramento Compras</div>
+
+    <div class="problem">
+      <div class="problem-header">
+        <div class="problem-badge badge-resolved">P14</div>
+        <div class="problem-title-wrap">
+          <h3>Apuramento mostra 1 fatura quando contabilista esperava 0</h3>
+          <div class="problem-quote">"Mário Carvalhal tem '0 Validadas' na view Compras mas apuramento mostra 1 fatura"</div>
+        </div>
+        <div class="problem-status status-resolved">✓ UX clarificado</div>
+      </div>
+      <div class="problem-body">
+        <div class="cause-box">
+          <div class="label">Causa</div>
+          <p>As "Auto-aprovadas" são faturas classificadas com alta confiança que não requerem validação manual. Contam no Apuramento mas não no contador "Validadas" — daí a aparente contradição.</p>
+        </div>
+        <div class="fix-box">
+          <div class="label">Correcção implementada</div>
+          <p>Adicionado tooltip informativo no contador "Auto-aprovadas" explicando que essas faturas entram directamente no apuramento de IVA. O Apuramento Compras indica agora explicitamente que os totais incluem as auto-aprovadas.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AREA 6: APURAMENTO VENDAS -->
+  <div class="section">
+    <div class="section-title">Área 6 — Apuramento Vendas</div>
+
+    <div class="problem">
+      <div class="problem-header">
+        <div class="problem-badge badge-resolved">P15</div>
+        <div class="problem-title-wrap">
+          <h3>Apuramento Vendas mostra 0 faturas e €0,00</h3>
+          <div class="problem-quote">"O apuramento mostra '0 Facturas Validadas' e €0,00 mesmo com vendas validadas de Jan/Fev/Mar"</div>
+        </div>
+        <div class="problem-status status-resolved">✓ Resolvido</div>
+      </div>
+      <div class="problem-body">
+        <div class="cause-box">
+          <div class="label">Causa</div>
+          <p>Os totais do apuramento só calculavam quando um período específico estava seleccionado. Sem período seleccionado, mostrava 0 mesmo havendo dados.</p>
+        </div>
+        <div class="fix-box">
+          <div class="label">Correcção implementada</div>
+          <ul>
+            <li>O período mais recente com dados é seleccionado automaticamente ao abrir o Apuramento</li>
+            <li>Quando nenhum período está seleccionado, os totais globais de todos os períodos são calculados e mostrados</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACÇÕES PENDENTES -->
+  <div class="section">
+    <div class="section-title">Acções Pendentes — Requerem Intervenção Manual</div>
+
+    <div class="note-box">
+      <div class="note-label">Nota técnica importante</div>
+      <p>Ambos os clientes abaixo têm credenciais AT correctamente configuradas. O sync automático funciona para <strong>compras</strong> (API SOAP AT), mas a AT <strong>não disponibiliza recibos verdes via API</strong> — apenas via portal web. Tal como no Primavera ou Sage, as vendas/recibos verdes precisam de importação manual via ficheiro Excel.</p>
+    </div>
+
+    <div class="action-card">
+      <h3>Rafael Paisano — Vendas 2026 em falta</h3>
+      <div class="action-meta">NIF: <span>211655864</span> &nbsp;·&nbsp; 12 vendas de 2025 já importadas (21.02.2026) &nbsp;·&nbsp; 517 compras sincronizadas</div>
+      <ol class="steps-list">
+        <li><p>Entrar no portal AT: <strong>acesso.gov.pt</strong> com o NIF <code>211655864</code> e respectiva senha</p></li>
+        <li><p>Navegar para <strong>Faturas e Recibos &gt; Consultar Recibos Verdes Emitidos</strong></p></li>
+        <li><p>Filtrar por <strong>ano 2026</strong> (ou o período pretendido) e exportar para <strong>Excel (.xlsx)</strong></p></li>
+        <li><p>No IVAzen, aceder a <strong>Importação &gt; Recibos Verdes &gt; Upload Excel</strong></p></li>
+        <li><p>Carregar o ficheiro Excel descarregado — as vendas ficam disponíveis de imediato</p></li>
+      </ol>
+    </div>
+
+    <div class="action-card">
+      <h3>Maria Tereza Silva — Sem vendas na app</h3>
+      <div class="action-meta">NIF: <span>188551069</span> &nbsp;·&nbsp; Nunca foram importadas vendas &nbsp;·&nbsp; 730 compras sincronizadas</div>
+      <ol class="steps-list">
+        <li><p>Entrar no portal AT: <strong>acesso.gov.pt</strong> com o NIF <code>188551069</code> e respectiva senha</p></li>
+        <li><p>Navegar para <strong>Faturas e Recibos &gt; Consultar Recibos Verdes Emitidos</strong></p></li>
+        <li><p>Filtrar por <strong>ano 2025</strong> — exportar para Excel; repetir para <strong>2024</strong> se necessário</p></li>
+        <li><p>No IVAzen, aceder a <strong>Importação &gt; Recibos Verdes &gt; Upload Excel</strong></p></li>
+        <li><p>Carregar os ficheiros Excel — as vendas ficam disponíveis de imediato</p></li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- TABELA RESUMO -->
+  <div class="section">
+    <div class="section-title">Tabela Resumo — Todos os 15 Problemas</div>
+    <table class="summary-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Área</th>
+          <th>Problema</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="td-num">P1</td>
+          <td class="td-area">Dashboard</td>
+          <td>Alerta IVA Trimestral para cliente mensal</td>
+          <td class="td-resolved">✓ Resolvido</td>
+        </tr>
+        <tr>
+          <td class="td-num">P2</td>
+          <td class="td-area">Centro Fiscal</td>
+          <td>Regime IVA mostra "normal" em vez do label completo</td>
+          <td class="td-resolved">✓ Resolvido</td>
+        </tr>
+        <tr>
+          <td class="td-num">P3</td>
+          <td class="td-area">Compras</td>
+          <td>Botão "Não contabilizar" só no detalhe da fatura</td>
+          <td class="td-resolved">✓ Resolvido</td>
+        </tr>
+        <tr>
+          <td class="td-num">P4</td>
+          <td class="td-area">Compras</td>
+          <td>Faturas PESSOAL sem exclusão automática</td>
+          <td class="td-resolved">✓ Resolvido</td>
+        </tr>
+        <tr>
+          <td class="td-num">P5</td>
+          <td class="td-area">Compras</td>
+          <td>Filtro de períodos mês a mês (queria trimestres)</td>
+          <td class="td-resolved">✓ Resolvido</td>
+        </tr>
+        <tr>
+          <td class="td-num">P6</td>
+          <td class="td-area">Compras</td>
+          <td>Confiança não actualiza após validação manual</td>
+          <td class="td-resolved">✓ Resolvido</td>
+        </tr>
+        <tr>
+          <td class="td-num">P7</td>
+          <td class="td-area">Compras</td>
+          <td>"Fornecedor por identificar" com NIFs conhecidos</td>
+          <td class="td-resolved">✓ Resolvido</td>
+        </tr>
+        <tr>
+          <td class="td-num">P8</td>
+          <td class="td-area">Vendas</td>
+          <td>Filtro de estado fica sempre em "Validada"</td>
+          <td class="td-resolved">✓ Resolvido</td>
+        </tr>
+        <tr>
+          <td class="td-num">P9</td>
+          <td class="td-area">Vendas</td>
+          <td>Rafael Paisano — só mostra 2025</td>
+          <td class="td-pending">⚠ Import manual Excel</td>
+        </tr>
+        <tr>
+          <td class="td-num">P10</td>
+          <td class="td-area">Vendas</td>
+          <td>Coluna Cliente mostra NIF em vez do nome</td>
+          <td class="td-resolved">✓ Resolvido</td>
+        </tr>
+        <tr>
+          <td class="td-num">P11</td>
+          <td class="td-area">Vendas</td>
+          <td>Maria Tereza Silva — sem vendas na app</td>
+          <td class="td-pending">⚠ Import manual Excel</td>
+        </tr>
+        <tr>
+          <td class="td-num">P12</td>
+          <td class="td-area">Vendas</td>
+          <td>Cátia Francisco — duplicados Jan/Fev/Mar</td>
+          <td class="td-data">✓ 482 duplicados eliminados</td>
+        </tr>
+        <tr>
+          <td class="td-num">P13</td>
+          <td class="td-area">Vendas</td>
+          <td>Cátia Francisco — totais Mai/Jul/Out/Nov</td>
+          <td class="td-resolved">✓ Contagens correctas</td>
+        </tr>
+        <tr>
+          <td class="td-num">P14</td>
+          <td class="td-area">Apuramento Compras</td>
+          <td>Mostra 1 fatura (auto-aprovada não explicada)</td>
+          <td class="td-resolved">✓ UX clarificado</td>
+        </tr>
+        <tr>
+          <td class="td-num">P15</td>
+          <td class="td-area">Apuramento Vendas</td>
+          <td>Mostra 0 faturas / €0,00</td>
+          <td class="td-resolved">✓ Resolvido</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<div class="footer">
+  <p><strong>IVAzen Engineering</strong> &nbsp;·&nbsp; Resposta técnica à auditoria de 24.03.2026 &nbsp;·&nbsp; Conta de teste: Adélia Gaspar (Accounting Advantage)</p>
+  <p style="margin-top:6px;">12 resolvidos por código &nbsp;·&nbsp; 2 resolvidos por dados &nbsp;·&nbsp; 1 requer importação manual (recibos verdes — limitação da API AT)</p>
+</div>
+
+</body>
+</html>

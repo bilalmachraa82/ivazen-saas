@@ -77,12 +77,18 @@ export default function Dashboard() {
   const { myRequest } = useAccountantRequest();
   const { clients: accountantClients, summary, totalClients, readinessMap, isLoading: readinessLoading } = useClientReadiness();
   const navigate = useNavigate();
-  const ivaCadence = isAccountant
-    ? (selectedClient?.iva_cadence ?? 'quarterly')
-    : (profile?.iva_cadence ?? 'quarterly');
-  const vatRegime = isAccountant
+  const rawVatRegime = isAccountant
     ? (selectedClientTaxProfile?.vat_regime ?? null)
     : (profile?.vat_regime ?? null);
+  const vatRegime = rawVatRegime;
+  // Infer cadence from vat_regime when iva_cadence is not explicitly set
+  const rawCadence = isAccountant
+    ? (selectedClient?.iva_cadence ?? null)
+    : (profile?.iva_cadence ?? null);
+  const ivaCadence: 'monthly' | 'quarterly' | 'both' = rawCadence
+    ?? (rawVatRegime === 'normal_monthly' ? 'monthly'
+      : rawVatRegime === 'normal_quarterly' ? 'quarterly'
+      : 'quarterly');
 
   const hasPendingRequest = myRequest?.status === 'pending';
   const showAccountantPromo = !isAccountant && !hasPendingRequest;

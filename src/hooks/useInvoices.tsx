@@ -9,6 +9,7 @@ import { fetchAllPages } from '@/lib/supabasePagination';
 import { isTemporarySupplierTaxId, normalizeSupplierTaxId, normalizeSupplierVatId } from '@/lib/taxId';
 import { enrichSupplierNames } from '@/lib/supplierNameResolver';
 import { getRecentImportCutoff, type RecentImportWindow } from '@/lib/recentImports';
+import { expandQuarterToPeriods } from '@/lib/formatFiscalPeriod';
 
 type Invoice = Tables<'invoices'>;
 
@@ -155,7 +156,11 @@ export function useInvoices(externalClientId?: string | null) {
         }
 
         if (filters.fiscalPeriod !== 'all') {
-          query = query.eq('fiscal_period', filters.fiscalPeriod);
+          // Quarter periods (YYYY-Q#) expand to all matching monthly formats stored in the DB
+          const periodValues = expandQuarterToPeriods(filters.fiscalPeriod);
+          query = periodValues.length === 1
+            ? query.eq('fiscal_period', periodValues[0])
+            : query.in('fiscal_period', periodValues);
         }
 
         if (filters.year !== 'all') {
@@ -245,6 +250,10 @@ export function useInvoices(externalClientId?: string | null) {
         ? `Corrigido: ${invoiceData?.ai_classification || 'N/A'} → ${classification.final_classification}`
         : `Confirmado IA (${invoiceData?.ai_confidence || 0}% confiança)`;
 
+      // PESSOAL invoices are automatically excluded from accounting — they are personal expenses
+      // that don't count for VAT deduction and accountants typically don't want to review them.
+      const isPessoal = classification.final_classification === 'PESSOAL';
+
       // Update the invoice
       const { error } = await supabase
         .from('invoices')
@@ -253,6 +262,10 @@ export function useInvoices(externalClientId?: string | null) {
           status: 'validated',
           validated_at: new Date().toISOString(),
           validated_by: user?.id,
+          // Manual validation = full confidence; clear the "needs review" flag
+          ai_confidence: 100,
+          requires_accountant_validation: false,
+          ...(isPessoal ? { accounting_excluded: true, exclusion_reason: 'Pessoal' } : {}),
         })
         .eq('id', invoiceId);
 

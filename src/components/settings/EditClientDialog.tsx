@@ -411,9 +411,10 @@ export function EditClientDialog({ open, onOpenChange, client, onSuccess }: Edit
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="normal">Normal</SelectItem>
-                        <SelectItem value="simplified">Simplificado</SelectItem>
-                        <SelectItem value="exempt">Isento (Art. 53)</SelectItem>
+                        <SelectItem value="normal_monthly">Normal mensal por opção</SelectItem>
+                        <SelectItem value="normal_quarterly">Normal trimestral</SelectItem>
+                        <SelectItem value="exempt_53">Isento Art. 53º</SelectItem>
+                        <SelectItem value="exempt_9">Isento Art. 9º</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

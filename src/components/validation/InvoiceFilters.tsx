@@ -1,6 +1,6 @@
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatFiscalPeriod } from '@/lib/formatFiscalPeriod';
+import { formatFiscalPeriod, groupPeriodsToQuarters } from '@/lib/formatFiscalPeriod';
 import { Search } from 'lucide-react';
 
 interface InvoiceFiltersProps {
@@ -17,13 +17,15 @@ interface InvoiceFiltersProps {
   fiscalPeriods: string[];
 }
 
-export function InvoiceFilters({ 
-  filters, 
-  onFiltersChange, 
-  fiscalPeriods, 
+export function InvoiceFilters({
+  filters,
+  onFiltersChange,
+  fiscalPeriods,
 }: InvoiceFiltersProps) {
   const currentYear = new Date().getFullYear();
   const yearOptions = Array.from({ length: 4 }, (_, index) => String(currentYear - index));
+  // Group monthly periods into quarters for a cleaner period selector
+  const quarterPeriods = groupPeriodsToQuarters(fiscalPeriods);
 
   return (
     <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
@@ -59,14 +61,14 @@ export function InvoiceFilters({
         value={filters.fiscalPeriod}
         onValueChange={(value) => onFiltersChange({ ...filters, fiscalPeriod: value })}
       >
-        <SelectTrigger className="w-full sm:w-[180px]">
+        <SelectTrigger className="w-full sm:w-[220px]">
           <SelectValue placeholder="Período" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">Todos os períodos</SelectItem>
-          {fiscalPeriods.map((period) => (
-            <SelectItem key={period} value={period}>
-              {formatFiscalPeriod(period)}
+          {quarterPeriods.map((quarter) => (
+            <SelectItem key={quarter} value={quarter}>
+              {formatFiscalPeriod(quarter)}
             </SelectItem>
           ))}
         </SelectContent>

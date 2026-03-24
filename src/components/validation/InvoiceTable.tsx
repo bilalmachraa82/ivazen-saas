@@ -25,6 +25,8 @@ interface InvoiceTableProps {
   invoices: Invoice[];
   loading: boolean;
   onSelectInvoice: (invoice: Invoice) => void;
+  /** Called when user toggles accounting exclusion inline from table row */
+  onExcludeFromAccounting?: (invoiceId: string, excluded: boolean) => Promise<boolean>;
   /** Enable checkbox selection mode */
   selectable?: boolean;
   /** Currently selected invoice IDs */
@@ -62,7 +64,7 @@ const getConfidenceConfig = (confidence: number) => {
   };
 };
 
-export function InvoiceTable({ invoices, loading, onSelectInvoice, selectable, selectedIds, onSelectionChange }: InvoiceTableProps) {
+export function InvoiceTable({ invoices, loading, onSelectInvoice, onExcludeFromAccounting, selectable, selectedIds, onSelectionChange }: InvoiceTableProps) {
   const navigate = useNavigate();
   // Default: sort by confidence ascending (lowest first - needs more attention)
   const [sortField, setSortField] = useState<SortField>('confidence');
@@ -397,14 +399,41 @@ export function InvoiceTable({ invoices, loading, onSelectInvoice, selectable, s
                   </div>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onSelectInvoice(invoice)}
-                    aria-label="Ver detalhes da factura"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    {onExcludeFromAccounting && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onExcludeFromAccounting(invoice.id, !invoice.accounting_excluded);
+                            }}
+                            aria-label={invoice.accounting_excluded ? 'Voltar a contabilizar' : 'Não contabilizar'}
+                            className={invoice.accounting_excluded ? 'text-muted-foreground' : 'text-destructive/70 hover:text-destructive'}
+                          >
+                            {invoice.accounting_excluded ? (
+                              <Upload className="h-4 w-4" />
+                            ) : (
+                              <XCircle className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {invoice.accounting_excluded ? 'Voltar a contabilizar' : 'Não contabilizar'}
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onSelectInvoice(invoice)}
+                      aria-label="Ver detalhes da factura"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
               );

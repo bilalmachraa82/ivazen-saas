@@ -5,6 +5,7 @@ import { fetchAllPages } from '@/lib/supabasePagination';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 import { getRecentImportCutoff, type RecentImportWindow } from '@/lib/recentImports';
+import { expandQuarterToPeriods } from '@/lib/formatFiscalPeriod';
 
 
 type SalesInvoice = Tables<'sales_invoices'>;
@@ -18,6 +19,45 @@ export interface SalesInvoiceFilters {
 }
 
 const PAGE_SIZE = 50;
+
+/**
+ * Enriches sales invoices that have a customer_nif but no customer_name by
+ * looking up the name from the profiles table (clients known to the system).
+ */
+async function enrichCustomerNames(invoices: SalesInvoice[]): Promise<SalesInvoice[]> {
+  const missingNameNifs = [
+    ...new Set(
+      invoices
+        .filter(inv => !inv.customer_name && inv.customer_nif)
+        .map(inv => inv.customer_nif as string),
+    ),
+  ];
+
+  if (missingNameNifs.length === 0) return invoices;
+
+  try {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('nif, full_name, company_name')
+      .in('nif', missingNameNifs);
+
+    if (!profiles || profiles.length === 0) return invoices;
+
+    const nifToName: Record<string, string> = {};
+    for (const p of profiles) {
+      if (p.nif) nifToName[p.nif] = p.company_name || p.full_name || '';
+    }
+
+    return invoices.map(inv =>
+      !inv.customer_name && inv.customer_nif && nifToName[inv.customer_nif]
+        ? { ...inv, customer_name: nifToName[inv.customer_nif] }
+        : inv,
+    );
+  } catch {
+    // Non-blocking — return original list if lookup fails
+    return invoices;
+  }
+}
 
 export function useSalesInvoices(externalClientId?: string | null) {
   const { user } = useAuth();
@@ -62,7 +102,10 @@ export function useSalesInvoices(externalClientId?: string | null) {
         }
 
         if (filters.fiscalPeriod !== 'all') {
-          query = query.eq('fiscal_period', filters.fiscalPeriod);
+          const periodValues = expandQuarterToPeriods(filters.fiscalPeriod);
+          query = periodValues.length === 1
+            ? query.eq('fiscal_period', periodValues[0])
+            : query.in('fiscal_period', periodValues);
         }
 
         // Search is applied client-side after fetch to avoid PostgREST filter injection
@@ -82,14 +125,17 @@ export function useSalesInvoices(externalClientId?: string | null) {
 
       const data = await fetchAllPages<SalesInvoice>((from, to) => buildQuery().range(from, to));
 
+      // Enrich customer_name for records that only have a NIF (AT sync doesn't always populate the name)
+      const enriched = await enrichCustomerNames(data);
+
       // Client-side search filter (safe — avoids PostgREST filter injection)
       const searchTerm = (filters.search || '').trim().toLowerCase();
       const filtered = searchTerm
-        ? data.filter(inv =>
+        ? enriched.filter(inv =>
             (inv.customer_name || '').toLowerCase().includes(searchTerm) ||
             (inv.customer_nif || '').toLowerCase().includes(searchTerm)
           )
-        : data;
+        : enriched;
 
       setInvoices(filtered);
       setTotalCount(filtered.length);
@@ -178,12 +224,16 @@ export function useSalesInvoices(externalClientId?: string | null) {
   const getFiscalPeriods = (): string[] => allFiscalPeriods;
 
   // Reset page to 0 when filters change (not when page itself changes)
-  const setFiltersAndResetPage = (
-    value: SalesInvoiceFilters | ((prev: SalesInvoiceFilters) => SalesInvoiceFilters),
-  ) => {
-    setPage(0);
-    setFilters(value);
-  };
+  // useCallback prevents a new reference on every render — critical because SalesValidation.tsx
+  // has a useEffect with setFilters as a dep; without this, the effect re-ran on every render
+  // and overwrote the dropdown selection with the stale URL value.
+  const setFiltersAndResetPage = useCallback(
+    (value: SalesInvoiceFilters | ((prev: SalesInvoiceFilters) => SalesInvoiceFilters)) => {
+      setPage(0);
+      setFilters(value);
+    },
+    [setPage, setFilters],
+  );
 
   // Single fetch effect — use memoized callback as dep to capture all changes
   useEffect(() => {

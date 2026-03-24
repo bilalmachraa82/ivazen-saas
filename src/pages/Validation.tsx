@@ -9,6 +9,7 @@ import { useSelectedClient } from '@/hooks/useSelectedClient';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { InvoiceFilters } from '@/components/validation/InvoiceFilters';
 import { InvoiceTable } from '@/components/validation/InvoiceTable';
 import { InvoiceDetailDialog } from '@/components/validation/InvoiceDetailDialog';
@@ -500,17 +501,26 @@ export default function Validation() {
               syncFilterParams({ status: 'all', review: 'needs_review' });
             }}
           />
-          <ZenStatsCard
-            icon={CheckCircle}
-            value={autoApprovedCount}
-            label="Auto-aprovadas"
-            variant="success"
-            animationDelay="100ms"
-            onClick={() => {
-              setFilters((prev) => ({ ...prev, status: 'all', reviewFilter: 'auto_approved' }));
-              syncFilterParams({ status: 'all', review: 'auto_approved' });
-            }}
-          />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <ZenStatsCard
+                  icon={CheckCircle}
+                  value={autoApprovedCount}
+                  label="Auto-aprovadas"
+                  variant="success"
+                  animationDelay="100ms"
+                  onClick={() => {
+                    setFilters((prev) => ({ ...prev, status: 'all', reviewFilter: 'auto_approved' }));
+                    syncFilterParams({ status: 'all', review: 'auto_approved' });
+                  }}
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              Estas facturas foram classificadas automaticamente com alta confiança e entram directamente no apuramento de IVA
+            </TooltipContent>
+          </Tooltip>
           <ZenStatsCard
             icon={CheckCircle}
             value={validatedCount}
@@ -684,6 +694,7 @@ export default function Validation() {
                   invoices={invoices}
                   loading={loading}
                   onSelectInvoice={handleSelectInvoice}
+                  onExcludeFromAccounting={setAccountingExcluded}
                   selectable={selectionMode}
                   selectedIds={selectedIds}
                   onSelectionChange={setSelectedIds}

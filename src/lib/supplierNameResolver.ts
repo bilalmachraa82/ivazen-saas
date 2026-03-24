@@ -122,6 +122,32 @@ async function fetchNamesFromMetrics(nifs: string[]) {
   return nameMap;
 }
 
+async function fetchNamesFromProfiles(nifs: string[]) {
+  const nameMap = new Map<string, string>();
+
+  for (const batch of chunkArray(nifs, SUPPLIER_LOOKUP_BATCH)) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('nif, company_name, full_name')
+      .in('nif', batch);
+
+    if (error) {
+      console.error('Error fetching profile supplier names:', error);
+      continue;
+    }
+
+    for (const row of data || []) {
+      const name = row.company_name || row.full_name;
+      const normalizedName = normalizeSupplierName(name, row.nif);
+      if (normalizedName && row.nif && !nameMap.has(row.nif)) {
+        nameMap.set(row.nif, normalizedName);
+      }
+    }
+  }
+
+  return nameMap;
+}
+
 export async function buildSupplierNameMap(nifs: Array<string | null | undefined>) {
   const uniqueNifs = Array.from(
     new Set(
@@ -140,11 +166,14 @@ export async function buildSupplierNameMap(nifs: Array<string | null | undefined
   const invoiceMap = await fetchNamesFromInvoices(unresolvedAfterDirectory);
   const unresolvedAfterInvoices = unresolvedAfterDirectory.filter((nif) => !invoiceMap.has(nif));
   const metricsMap = await fetchNamesFromMetrics(unresolvedAfterInvoices);
+  const unresolvedAfterMetrics = unresolvedAfterInvoices.filter((nif) => !metricsMap.has(nif));
+  const profilesMap = await fetchNamesFromProfiles(unresolvedAfterMetrics);
 
   return new Map<string, string>([
     ...directoryMap.entries(),
     ...invoiceMap.entries(),
     ...metricsMap.entries(),
+    ...profilesMap.entries(),
   ]);
 }
 
