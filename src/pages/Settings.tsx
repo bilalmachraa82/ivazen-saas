@@ -16,7 +16,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Save, Loader2, Building2, User, Shield, Settings as SettingsIcon, Mail, Smartphone, Download, CheckCircle, AlertTriangle, RotateCcw, HelpCircle, Briefcase, Calculator, Wand2, Bell, Users, Palette, Moon, Sun, Database } from 'lucide-react';
+import { Save, Loader2, Building2, User, Shield, Settings as SettingsIcon, Mail, Smartphone, Download, CheckCircle, AlertTriangle, RotateCcw, HelpCircle, Briefcase, Calculator, Wand2, Bell, Users, Palette, Moon, Sun, Database, Sparkles } from 'lucide-react';
 import { ZenCard, ZenHeader, ZenDecorations } from '@/components/zen';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { Link } from 'react-router-dom';
@@ -32,6 +32,7 @@ import { DatabaseImporter } from '@/components/settings/DatabaseImporter';
 import { InfoIcon } from '@/components/ui/info-tooltip';
 import { useTheme } from 'next-themes';
 import { VAT_REGIME_OPTIONS, getCanonicalVatRegime, getVatCadence, isVatExemptRegime } from '@/lib/formatVatRegime';
+import { useVatRegimeDetection } from '@/hooks/useVatRegimeDetection';
 
 const IVA_CADENCES = [
   { value: 'quarterly', label: 'Trimestral' },
@@ -57,6 +58,7 @@ export default function Settings() {
   const { resetTour, isTourCompleted } = useInteractiveTour();
   const { isAccountant } = useClientManagement();
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const { detectRegime, isDetecting, result: vatDetection } = useVatRegimeDetection();
   const [mounted, setMounted] = useState(false);
   const [showTourResetConfirm, setShowTourResetConfirm] = useState(false);
   const [showFiscalWizard, setShowFiscalWizard] = useState(false);
@@ -344,25 +346,65 @@ export default function Settings() {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="vatRegime" className="text-sm font-medium">Regime de IVA</Label>
-                        <Select
-                          value={formData.vatRegime}
-                          onValueChange={(value) => setFormData({
-                            ...formData,
-                            vatRegime: value,
-                            ivaCadence: getVatCadence(value, formData.ivaCadence),
-                          })}
-                        >
-                          <SelectTrigger id="vatRegime" className="bg-background/50 border-border/50 hover:border-primary/50 transition-colors">
-                            <SelectValue placeholder="Seleccione o regime" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {VAT_REGIME_OPTIONS.map((regime) => (
-                              <SelectItem key={regime.value} value={regime.value}>
-                                {regime.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex gap-2">
+                          <Select
+                            value={formData.vatRegime}
+                            onValueChange={(value) => setFormData({
+                              ...formData,
+                              vatRegime: value,
+                              ivaCadence: getVatCadence(value, formData.ivaCadence),
+                            })}
+                          >
+                            <SelectTrigger id="vatRegime" className="bg-background/50 border-border/50 hover:border-primary/50 transition-colors">
+                              <SelectValue placeholder="Seleccione o regime" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {VAT_REGIME_OPTIONS.map((regime) => (
+                                <SelectItem key={regime.value} value={regime.value}>
+                                  {regime.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="shrink-0 border-primary/30 hover:bg-primary/10"
+                            disabled={isDetecting || !formData.nif}
+                            title="Auto-detectar regime de IVA"
+                            onClick={async () => {
+                              if (!user?.id) return;
+                              const detection = await detectRegime(formData.nif, user.id);
+                              if (detection?.suggestedRegime) {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  vatRegime: detection.suggestedRegime!,
+                                  ivaCadence: getVatCadence(detection.suggestedRegime, prev.ivaCadence),
+                                }));
+                                toast.success('Regime sugerido aplicado — reveja antes de guardar');
+                              }
+                            }}
+                          >
+                            {isDetecting ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Sparkles className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                        {vatDetection && (
+                          <div className={`mt-2 p-3 rounded-lg text-xs border ${
+                            vatDetection.confidence === 'high'
+                              ? 'bg-green-500/10 border-green-500/20 text-green-700 dark:text-green-400'
+                              : vatDetection.confidence === 'medium'
+                                ? 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400'
+                                : 'bg-muted/50 border-border/50 text-muted-foreground'
+                          }`}>
+                            <span className="font-medium">Confiança {vatDetection.confidence === 'high' ? 'alta' : vatDetection.confidence === 'medium' ? 'média' : 'baixa'}:</span>{' '}
+                            {vatDetection.reason}
+                          </div>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="ivaCadence" className="text-sm font-medium">Periodicidade IVA</Label>
