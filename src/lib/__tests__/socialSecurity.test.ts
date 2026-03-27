@@ -11,6 +11,10 @@ import {
   getCurrentQuarter,
   getQuarterLabel,
   getDeadlineMonth,
+  getDeclarationQuarterForDate,
+  isQuarterInDeadlineMonth,
+  getSalesInvoiceRevenueAmount,
+  getSalesInvoiceRevenueCategory,
 } from '@/hooks/useSocialSecurity';
 
 /**
@@ -296,6 +300,54 @@ describe('Utilitários de Trimestre', () => {
     it('Q4 deve ter prazo em Janeiro do ano seguinte', () => {
       expect(getDeadlineMonth('2024-Q4')).toEqual({ month: 1, year: 2025 });
     });
+  });
+
+  describe('getDeclarationQuarterForDate', () => {
+    it('em mês de entrega devolve o trimestre anterior', () => {
+      expect(getDeclarationQuarterForDate(new Date(2026, 0, 10))).toBe('2025-Q4');
+      expect(getDeclarationQuarterForDate(new Date(2026, 3, 10))).toBe('2026-Q1');
+    });
+
+    it('fora do mês de entrega mantém o trimestre corrente', () => {
+      expect(getDeclarationQuarterForDate(new Date(2026, 2, 10))).toBe('2026-Q1');
+      expect(getDeclarationQuarterForDate(new Date(2026, 4, 10))).toBe('2026-Q2');
+    });
+  });
+
+  describe('isQuarterInDeadlineMonth', () => {
+    it('só sinaliza o trimestre cujo prazo está a decorrer', () => {
+      expect(isQuarterInDeadlineMonth('2025-Q4', new Date(2026, 0, 5))).toBe(true);
+      expect(isQuarterInDeadlineMonth('2026-Q1', new Date(2026, 0, 5))).toBe(false);
+    });
+  });
+});
+
+describe('Facturas de venda para Segurança Social', () => {
+  it('usa a base sem IVA quando as bases existem', () => {
+    expect(getSalesInvoiceRevenueAmount({
+      base_standard: 100,
+      total_vat: 23,
+      total_amount: 123,
+    })).toBe(100);
+  });
+
+  it('recuá para total sem IVA quando não há bases', () => {
+    expect(getSalesInvoiceRevenueAmount({
+      total_vat: 23,
+      total_amount: 123,
+    })).toBe(100);
+  });
+
+  it('usa o total em documentos isentos', () => {
+    expect(getSalesInvoiceRevenueAmount({
+      total_vat: 0,
+      total_amount: 80,
+    })).toBe(80);
+  });
+
+  it('infere prestação de serviços para FR e vendas nos restantes casos', () => {
+    expect(getSalesInvoiceRevenueCategory({ document_type: 'FR' })).toBe('prestacao_servicos');
+    expect(getSalesInvoiceRevenueCategory({ document_type: 'FT' })).toBe('vendas');
   });
 });
 

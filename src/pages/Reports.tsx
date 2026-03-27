@@ -17,12 +17,14 @@ import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 import { SS_COEFFICIENTS, getSSCoefficient, getSSCategoryLabel, normalizeSSCategory } from '@/lib/ssCoefficients';
 import { isFiscallyEffectivePurchase } from '@/lib/fiscalStatus';
+import { getSalesInvoiceRevenueAmount, getSalesInvoiceRevenueCategory } from '@/hooks/useSocialSecurity';
 
 type PeriodType = 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'year';
 type ReportType = 'vat' | 'ss' | 'expenses';
 
 const currentYear = new Date().getFullYear();
 const years = [currentYear, currentYear - 1, currentYear - 2];
+const currentQuarterPeriod = `Q${Math.ceil((new Date().getMonth() + 1) / 3)}` as PeriodType;
 
 const quarters: { value: PeriodType; label: string }[] = [
   { value: 'Q1', label: '1.o Trimestre (Jan-Mar)' },
@@ -37,7 +39,7 @@ const revenueCoefficients = SS_COEFFICIENTS;
 
 export default function Reports() {
   const [selectedYear, setSelectedYear] = useState(currentYear);
-  const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>('Q4');
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>(currentQuarterPeriod);
   const [activeTab, setActiveTab] = useState<ReportType>('vat');
   const [selectedClientId, setSelectedClientId] = useState<string>('all');
   
@@ -49,11 +51,15 @@ export default function Reports() {
   
   // Update invoice filters when client changes (for accountants)
   useEffect(() => {
-    if (isAccountant) {
-      setInvoiceFilters({ ...invoiceFilters, clientId: selectedClientId });
-      setSalesFilters({ ...salesFilters, clientId: selectedClientId });
-    }
-  }, [isAccountant, selectedClientId]);
+    if (!isAccountant) return;
+
+    setInvoiceFilters((prev) =>
+      prev.clientId === selectedClientId ? prev : { ...prev, clientId: selectedClientId },
+    );
+    setSalesFilters((prev) =>
+      prev.clientId === selectedClientId ? prev : { ...prev, clientId: selectedClientId },
+    );
+  }, [isAccountant, selectedClientId, setInvoiceFilters, setSalesFilters]);
   
   // Get selected client name for reports
   const selectedClientName = useMemo(() => {
@@ -112,8 +118,8 @@ export default function Reports() {
     const byCategory: Record<string, number> = {};
 
     filteredSales.forEach(inv => {
-      const category = normalizeSSCategory(inv.revenue_category || 'prestacao_servicos');
-      byCategory[category] = (byCategory[category] || 0) + Number(inv.total_amount || 0);
+      const category = normalizeSSCategory(getSalesInvoiceRevenueCategory(inv));
+      byCategory[category] = (byCategory[category] || 0) + getSalesInvoiceRevenueAmount(inv);
     });
 
     // Calculate relevant income using centralized coefficients
@@ -293,7 +299,7 @@ export default function Reports() {
         inv.customer_nif || '-',
         Number(inv.total_amount),
         Number(inv.total_vat || 0),
-        normalizeSSCategory(inv.revenue_category || 'prestacao_servicos'),
+        getSalesInvoiceRevenueCategory(inv),
       ]),
     ];
     const salesSheet = XLSX.utils.aoa_to_sheet(salesRows);

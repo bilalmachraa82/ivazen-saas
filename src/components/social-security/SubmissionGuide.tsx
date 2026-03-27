@@ -34,7 +34,7 @@ export function SubmissionGuide({
   const copyDataForSS = () => {
     const text = `Período: ${quarterLabel}
 Total de Rendimentos: ${totalRevenue.toFixed(2)}€
-Base de Incidência (70%): ${contributionBase.toFixed(2)}€
+Base de Incidência Contributiva: ${contributionBase.toFixed(2)}€
 Taxa Contributiva: ${contributionRate}%
 Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
 

@@ -18,6 +18,7 @@ import { StepNavigator } from '@/components/dashboard/StepNavigator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ClientSearchSelector } from '@/components/ui/client-search-selector';
 import { useSelectedClient } from '@/hooks/useSelectedClient';
+import { useClientFiscalProfile } from '@/hooks/useClientFiscalProfile';
 import { useExport } from '@/hooks/useExport';
 import { useSalesExport } from '@/hooks/useSalesExport';
 import { DPQuarterlySummary } from '@/components/export/DPQuarterlySummary';
@@ -51,6 +52,7 @@ export default function Export() {
   const effectiveClientId = isCheckingRole
     ? undefined
     : (isAccountant ? selectedClientId : user?.id);
+  const { profile: activeFiscalProfile } = useClientFiscalProfile(effectiveClientId);
 
   // Purchases export
   const {
@@ -209,9 +211,10 @@ export default function Export() {
       downloadSaftXml(xml, filename);
 
       toast.success(`SAF-T exportado: ${(purchases || []).length} compras, ${(sales || []).length} vendas`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('SAF-T export error:', err);
-      toast.error(`Erro ao gerar SAF-T: ${err.message}`);
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+      toast.error(`Erro ao gerar SAF-T: ${errorMessage}`);
     } finally {
       setIsExportingSaft(false);
     }
@@ -551,6 +554,7 @@ export default function Export() {
                       totals={purchaseTotals}
                       pendingCount={purchaseInvoices?.filter(inv => inv.status === 'pending').length}
                       duplicatesRemoved={duplicatesRemoved}
+                      vatRegime={activeFiscalProfile?.vat_regime}
                       period={purchasePeriod}
                     />
                   )}

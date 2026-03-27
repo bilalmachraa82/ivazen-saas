@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IVAzen — Relatorio Competitivo & Modelo de Negocio</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@600;700;800;900&display=swap');
+
+  :root {
+    --rose: #e11d74;
+    --rose-light: #fce7f3;
+    --rose-dark: #9d174d;
+    --emerald: #059669;
+    --emerald-light: #d1fae5;
+    --amber: #d97706;
+    --amber-light: #fef3c7;
+    --blue: #2563eb;
+    --blue-light: #dbeafe;
+    --slate-50: #f8fafc;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-400: #94a3b8;
+    --slate-600: #475569;
+    --slate-700: #334155;
+    --slate-800: #1e293b;
+    --slate-900: #0f172a;
+    --radius: 16px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--slate-50);
+    color: var(--slate-800);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Hero Section ── */
+  .hero {
+    background: linear-gradient(135deg, var(--slate-900) 0%, var(--rose-dark) 50%, var(--rose) 100%);
+    color: white;
+    padding: 80px 40px 60px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at 30% 70%, rgba(255,255,255,0.06) 0%, transparent 50%),
+                radial-gradient(circle at 70% 30%, rgba(255,255,255,0.04) 0%, transparent 40%);
+    animation: float 20s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(-30px, 20px); }
+  }
+  .hero * { position: relative; z-index: 1; }
+  .hero-badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 6px 16px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+  .hero h1 {
+    font-family: 'Poppins', sans-serif;
+    font-size: clamp(32px, 5vw, 56px);
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 16px;
+  }
+  .hero h1 span { color: var(--rose-light); }
+  .hero p {
+    font-size: 18px;
+    opacity: 0.85;
+    max-width: 600px;
+    margin: 0 auto 32px;
+  }
+  .hero-stats {
+    display: flex;
+    justify-content: center;
+    gap: 48px;
+    flex-wrap: wrap;
+    margin-top: 40px;
+  }
+  .hero-stat {
+    text-align: center;
+  }
+  .hero-stat .number {
+    font-family: 'Poppins', sans-serif;
+    font-size: 42px;
+    font-weight: 800;
+    display: block;
+  }
+  .hero-stat .label {
+    font-size: 13px;
+    opacity: 0.7;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Container ── */
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ── Section ── */
+  .section {
+    padding: 64px 0;
+  }
+  .section-label {
+    display: inline-block;
+    background: var(--rose-light);
+    color: var(--rose);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+  }
+  .section h2 {
+    font-family: 'Poppins', sans-serif;
+    font-size: clamp(24px, 3vw, 36px);
+    font-weight: 800;
+    color: var(--slate-900);
+    margin-bottom: 8px;
+  }
+  .section .subtitle {
+    font-size: 16px;
+    color: var(--slate-600);
+    margin-bottom: 40px;
+    max-width: 700px;
+  }
+
+  /* ── Cards ── */
+  .card {
+    background: white;
+    border-radius: var(--radius);
+    border: 1px solid var(--slate-200);
+    overflow: hidden;
+    transition: all 0.2s ease;
+  }
+  .card:hover {
+    box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+    transform: translateY(-2px);
+  }
+  .card-header {
+    padding: 24px 24px 0;
+  }
+  .card-body {
+    padding: 16px 24px 24px;
+  }
+
+  /* ── Grid ── */
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+
+  /* ── Market Overview ── */
+  .market-card {
+    background: white;
+    border-radius: var(--radius);
+    border: 1px solid var(--slate-200);
+    padding: 28px;
+    text-align: center;
+  }
+  .market-card .icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+    font-size: 24px;
+  }
+  .market-card .value {
+    font-family: 'Poppins', sans-serif;
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--slate-900);
+  }
+  .market-card .label {
+    font-size: 14px;
+    color: var(--slate-600);
+    margin-top: 4px;
+  }
+
+  /* ── Competitor Table ── */
+  .comp-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: white;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--slate-200);
+    font-size: 14px;
+  }
+  .comp-table thead {
+    background: var(--slate-900);
+    color: white;
+  }
+  .comp-table th {
+    padding: 14px 16px;
+    font-weight: 600;
+    text-align: left;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+  }
+  .comp-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--slate-100);
+    vertical-align: top;
+  }
+  .comp-table tbody tr:last-child td { border-bottom: none; }
+  .comp-table tbody tr:hover { background: var(--slate-50); }
+  .comp-table .highlight-row {
+    background: var(--rose-light) !important;
+    font-weight: 600;
+  }
+  .comp-table .highlight-row:hover {
+    background: #fbd5e8 !important;
+  }
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .tag-yes { background: var(--emerald-light); color: var(--emerald); }
+  .tag-no { background: #fee2e2; color: #dc2626; }
+  .tag-partial { background: var(--amber-light); color: var(--amber); }
+  .tag-unique { background: var(--blue-light); color: var(--blue); }
+
+  /* ── Feature Matrix ── */
+  .feature-matrix {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: white;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--slate-200);
+    font-size: 13px;
+  }
+  .feature-matrix thead { background: var(--slate-900); color: white; }
+  .feature-matrix th {
+    padding: 12px 10px;
+    font-weight: 600;
+    text-align: center;
+    font-size: 12px;
+  }
+  .feature-matrix th:first-child { text-align: left; min-width: 200px; }
+  .feature-matrix td {
+    padding: 10px;
+    border-bottom: 1px solid var(--slate-100);
+    text-align: center;
+  }
+  .feature-matrix td:first-child {
+    text-align: left;
+    font-weight: 500;
+    color: var(--slate-700);
+  }
+  .feature-matrix tbody tr:hover { background: var(--slate-50); }
+  .check { color: var(--emerald); font-weight: 700; font-size: 16px; }
+  .cross { color: #e5e7eb; font-size: 16px; }
+  .partial { color: var(--amber); font-size: 14px; }
+  .star { color: var(--rose); font-weight: 700; font-size: 16px; }
+  .feature-category {
+    background: var(--slate-50) !important;
+    font-weight: 700 !important;
+    color: var(--slate-900) !important;
+    font-size: 13px !important;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Pricing Section ── */
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    margin-top: 40px;
+  }
+  .pricing-card {
+    background: white;
+    border-radius: var(--radius);
+    border: 2px solid var(--slate-200);
+    padding: 32px;
+    position: relative;
+    transition: all 0.2s;
+  }
+  .pricing-card:hover { border-color: var(--rose); }
+  .pricing-card.featured {
+    border-color: var(--rose);
+    box-shadow: 0 8px 40px rgba(225, 29, 116, 0.15);
+    transform: scale(1.03);
+  }
+  .pricing-card.featured::before {
+    content: 'MAIS POPULAR';
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--rose);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 4px 16px;
+    border-radius: 100px;
+  }
+  .pricing-tier {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--slate-400);
+    margin-bottom: 8px;
+  }
+  .pricing-name {
+    font-family: 'Poppins', sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--slate-900);
+    margin-bottom: 4px;
+  }
+  .pricing-desc {
+    font-size: 14px;
+    color: var(--slate-600);
+    margin-bottom: 24px;
+  }
+  .pricing-price {
+    margin-bottom: 24px;
+  }
+  .pricing-price .amount {
+    font-family: 'Poppins', sans-serif;
+    font-size: 48px;
+    font-weight: 800;
+    color: var(--slate-900);
+  }
+  .pricing-price .currency { font-size: 24px; }
+  .pricing-price .period {
+    font-size: 14px;
+    color: var(--slate-400);
+  }
+  .pricing-features {
+    list-style: none;
+    margin-bottom: 24px;
+  }
+  .pricing-features li {
+    padding: 6px 0;
+    font-size: 14px;
+    color: var(--slate-700);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .pricing-features li::before {
+    content: '\2713';
+    color: var(--emerald);
+    font-weight: 700;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  /* ── SWOT ── */
+  .swot-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .swot-card {
+    border-radius: var(--radius);
+    padding: 28px;
+    border: 1px solid;
+  }
+  .swot-card h3 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .swot-card ul { list-style: none; }
+  .swot-card li {
+    padding: 6px 0;
+    font-size: 14px;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .swot-card li::before { flex-shrink: 0; }
+  .swot-s { background: #f0fdf4; border-color: #bbf7d0; }
+  .swot-s h3 { color: #166534; }
+  .swot-s li::before { content: '\1F4AA'; }
+  .swot-w { background: #fef2f2; border-color: #fecaca; }
+  .swot-w h3 { color: #991b1b; }
+  .swot-w li::before { content: '\26A0\FE0F'; }
+  .swot-o { background: #eff6ff; border-color: #bfdbfe; }
+  .swot-o h3 { color: #1e40af; }
+  .swot-o li::before { content: '\1F680'; }
+  .swot-t { background: #fefce8; border-color: #fef08a; }
+  .swot-t h3 { color: #854d0e; }
+  .swot-t li::before { content: '\1F6A8'; }
+
+  /* ── Revenue Projection ── */
+  .projection-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: white;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--slate-200);
+  }
+  .projection-table th {
+    background: var(--slate-900);
+    color: white;
+    padding: 14px 16px;
+    font-weight: 600;
+    text-align: right;
+    font-size: 13px;
+  }
+  .projection-table th:first-child { text-align: left; }
+  .projection-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--slate-100);
+    text-align: right;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+  .projection-table td:first-child { text-align: left; font-weight: 500; }
+  .projection-table .total-row {
+    background: var(--rose-light);
+    font-weight: 700;
+  }
+
+  /* ── Bar Chart (CSS) ── */
+  .bar-chart { margin: 20px 0; }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .bar-label {
+    width: 140px;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .bar-track {
+    flex: 1;
+    background: var(--slate-100);
+    border-radius: 8px;
+    height: 32px;
+    overflow: hidden;
+    position: relative;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    padding-left: 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: white;
+    transition: width 1s ease;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    background: var(--slate-900);
+    color: var(--slate-400);
+    padding: 40px;
+    text-align: center;
+    font-size: 14px;
+  }
+  .footer strong { color: white; }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .hero { padding: 48px 24px 40px; }
+    .hero-stats { gap: 24px; }
+    .swot-grid { grid-template-columns: 1fr; }
+    .comp-table, .feature-matrix, .projection-table { font-size: 12px; }
+    .comp-table th, .comp-table td,
+    .feature-matrix th, .feature-matrix td { padding: 8px 6px; }
+    .pricing-card.featured { transform: none; }
+  }
+
+  /* ── Divider ── */
+  .divider {
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--slate-200), transparent);
+    margin: 0;
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- HERO -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<section class="hero">
+  <div class="hero-badge">Confidencial &middot; Marco 2026</div>
+  <h1>IVAzen <span>Business Report</span></h1>
+  <p>Analise competitiva, modelo de precos e potencial de mercado para comercializacao no mercado portugues</p>
+  <div class="hero-stats">
+    <div class="hero-stat">
+      <span class="number">32</span>
+      <span class="label">Paginas / Funcionalidades</span>
+    </div>
+    <div class="hero-stat">
+      <span class="number">644</span>
+      <span class="label">Testes Unitarios</span>
+    </div>
+    <div class="hero-stat">
+      <span class="number">17</span>
+      <span class="label">Edge Functions</span>
+    </div>
+    <div class="hero-stat">
+      <span class="number">94</span>
+      <span class="label">DB Migrations</span>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- MERCADO PORTUGUES -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="container">
+    <span class="section-label">Mercado</span>
+    <h2>O Mercado Portugues</h2>
+    <p class="subtitle">Portugal tem um ecossistema fiscal complexo e digitalizado, com obrigatoriedade de SAF-T, e-Fatura e QR Code em todas as facturas desde 2022.</p>
+
+    <div class="grid-4">
+      <div class="market-card">
+        <div class="icon" style="background: var(--blue-light);">&#127970;</div>
+        <div class="value">1.4M</div>
+        <div class="label">Empresas ativas em Portugal</div>
+      </div>
+      <div class="market-card">
+        <div class="icon" style="background: var(--emerald-light);">&#128188;</div>
+        <div class="value">~75K</div>
+        <div class="label">Contabilistas Certificados (OCC)</div>
+      </div>
+      <div class="market-card">
+        <div class="icon" style="background: var(--amber-light);">&#128200;</div>
+        <div class="value">91.7%</div>
+        <div class="label">Adocao IA em Fintech PT</div>
+      </div>
+      <div class="market-card">
+        <div class="icon" style="background: var(--rose-light);">&#128176;</div>
+        <div class="value">~&euro;300M</div>
+        <div class="label">Mercado Software Gestao PT</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- CONCORRENCIA -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="container">
+    <span class="section-label">Concorrencia</span>
+    <h2>Mapa Competitivo</h2>
+    <p class="subtitle">Os principais players no mercado portugues de software de faturacao e contabilidade.</p>
+
+    <div style="overflow-x: auto;">
+      <table class="comp-table">
+        <thead>
+          <tr>
+            <th>Software</th>
+            <th>Preco Mensal</th>
+            <th>Clientes PT</th>
+            <th>Foco Principal</th>
+            <th>IA</th>
+            <th>Cloud</th>
+            <th>Limitacao Principal</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="highlight-row">
+            <td><strong>IVAzen</strong></td>
+            <td>&euro;19-49</td>
+            <td>Lancamento</td>
+            <td>Contabilistas + PMEs</td>
+            <td><span class="tag tag-unique">IA NATIVO</span></td>
+            <td><span class="tag tag-yes">100%</span></td>
+            <td>Novo no mercado</td>
+          </tr>
+          <tr>
+            <td><strong>Cegid PHC GO</strong></td>
+            <td>&euro;60-215</td>
+            <td>37.000</td>
+            <td>PMEs / ERP</td>
+            <td><span class="tag tag-no">Nao</span></td>
+            <td><span class="tag tag-yes">Sim</span></td>
+            <td>Preco elevado, complexo</td>
+          </tr>
+          <tr>
+            <td><strong>Cegid Primavera</strong></td>
+            <td>&euro;50-200+</td>
+            <td>165.000*</td>
+            <td>Mid-market / ERP</td>
+            <td><span class="tag tag-no">Nao</span></td>
+            <td><span class="tag tag-partial">Hibrido</span></td>
+            <td>Over-engineered para PMEs</td>
+          </tr>
+          <tr>
+            <td><strong>Sage 50c</strong></td>
+            <td>&euro;26-78</td>
+            <td>~22.000</td>
+            <td>Faturacao / Gestao</td>
+            <td><span class="tag tag-no">Nao</span></td>
+            <td><span class="tag tag-partial">Hibrido</span></td>
+            <td>Interface datada, on-premise</td>
+          </tr>
+          <tr>
+            <td><strong>Cegid Vendus</strong></td>
+            <td>&euro;6.50-25</td>
+            <td>15.000+</td>
+            <td>POS / Retalho</td>
+            <td><span class="tag tag-no">Nao</span></td>
+            <td><span class="tag tag-yes">Sim</span></td>
+            <td>Sem contabilidade fiscal</td>
+          </tr>
+          <tr>
+            <td><strong>InvoiceXpress</strong></td>
+            <td>&euro;1-30</td>
+            <td>12.000+</td>
+            <td>Faturacao simples</td>
+            <td><span class="tag tag-no">Nao</span></td>
+            <td><span class="tag tag-yes">Sim</span></td>
+            <td>So faturacao, sem IVA/DP</td>
+          </tr>
+          <tr>
+            <td><strong>Moloni</strong></td>
+            <td>&euro;5-30</td>
+            <td>~30.000</td>
+            <td>Faturacao / Stocks</td>
+            <td><span class="tag tag-no">Nao</span></td>
+            <td><span class="tag tag-yes">Sim</span></td>
+            <td>Sem classificacao fiscal</td>
+          </tr>
+          <tr>
+            <td><strong>TOConline</strong></td>
+            <td>Gratuito (OCC)</td>
+            <td>N/D</td>
+            <td>Contabilistas OCC</td>
+            <td><span class="tag tag-no">Nao</span></td>
+            <td><span class="tag tag-yes">Sim</span></td>
+            <td>Basico, sem AI, lento</td>
+          </tr>
+          <tr>
+            <td><strong>Jasmin (Cegid)</strong></td>
+            <td>Gratuito-25</td>
+            <td>~4.000</td>
+            <td>Startups / PMEs</td>
+            <td><span class="tag tag-no">Nao</span></td>
+            <td><span class="tag tag-yes">Sim</span></td>
+            <td>Funcionalidades limitadas</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size: 12px; color: var(--slate-400); margin-top: 12px;">* Primavera: 165K em toda a Iberia (PT + ES + Africa). IA nativa = classificacao automatica de facturas com inteligencia artificial.</p>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- FEATURE MATRIX -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="container">
+    <span class="section-label">Funcionalidades</span>
+    <h2>Matriz de Funcionalidades</h2>
+    <p class="subtitle">Comparacao detalhada de funcionalidades entre IVAzen e os principais concorrentes.</p>
+
+    <div style="overflow-x: auto;">
+      <table class="feature-matrix">
+        <thead>
+          <tr>
+            <th>Funcionalidade</th>
+            <th>IVAzen</th>
+            <th>PHC GO</th>
+            <th>Sage 50c</th>
+            <th>Vendus</th>
+            <th>InvoiceXpress</th>
+            <th>Moloni</th>
+            <th>TOConline</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- AI & Automation -->
+          <tr><td class="feature-category" colspan="8">INTELIGENCIA ARTIFICIAL & AUTOMACAO</td></tr>
+          <tr>
+            <td>Extracao AI de facturas (OCR)</td>
+            <td><span class="star">&#9733;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+          </tr>
+          <tr>
+            <td>Classificacao AI de IVA (dedutibilidade)</td>
+            <td><span class="star">&#9733;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+          </tr>
+          <tr>
+            <td>Classificacao por campo DP (20-24)</td>
+            <td><span class="star">&#9733;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+          </tr>
+          <tr>
+            <td>Pontuacao de confianca (0-100%)</td>
+            <td><span class="star">&#9733;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+          </tr>
+          <tr>
+            <td>Regras automaticas por fornecedor</td>
+            <td><span class="star">&#9733;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+          </tr>
+
+          <!-- Tax & Compliance -->
+          <tr><td class="feature-category" colspan="8">FISCAL & COMPLIANCE</td></tr>
+          <tr>
+            <td>Calculo IVA (6/13/23% + regioes)</td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td>Verificador isencao IVA (Art. 53)</td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+          </tr>
+          <tr>
+            <td>Modelo 10 (retencoes na fonte)</td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="partial">~</span></td>
+            <td><span class="partial">~</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="partial">~</span></td>
+          </tr>
+          <tr>
+            <td>Seguranca Social (contribuicoes)</td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+          </tr>
+          <tr>
+            <td>Exportacao SAF-T PT v1.04</td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td>Parsing QR Code portugues</td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+          </tr>
+
+          <!-- Integration -->
+          <tr><td class="feature-category" colspan="8">INTEGRACAO & SINCRONIZACAO</td></tr>
+          <tr>
+            <td>Sync e-Fatura (AT portal)</td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="partial">~</span></td>
+            <td><span class="partial">~</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="partial">~</span></td>
+            <td><span class="check">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td>Importacao CSV / Excel</td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td>Upload por camara (mobile)</td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+          </tr>
+
+          <!-- Accountant -->
+          <tr><td class="feature-category" colspan="8">CONTABILISTA</td></tr>
+          <tr>
+            <td>Multi-cliente (contabilista)</td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="partial">~</span></td>
+            <td><span class="check">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td>Dashboard agregado</td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+          </tr>
+          <tr>
+            <td>Sync massivo de clientes</td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+          </tr>
+          <tr>
+            <td>Exportacao multi-cliente Modelo 10</td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+          </tr>
+
+          <!-- UX -->
+          <tr><td class="feature-category" colspan="8">EXPERIENCIA DE UTILIZADOR</td></tr>
+          <tr>
+            <td>100% Cloud / PWA</td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="partial">~</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="check">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td>Modo offline / fila de uploads</td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+          </tr>
+          <tr>
+            <td>Notificacoes push</td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+          </tr>
+          <tr>
+            <td>Tema escuro</td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+            <td><span class="cross">&#8212;</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size: 12px; color: var(--slate-400); margin-top: 12px;">
+      <span class="star">&#9733;</span> = Exclusivo IVAzen &nbsp;&nbsp;
+      <span class="check">&#10003;</span> = Disponivel &nbsp;&nbsp;
+      <span class="partial">~</span> = Parcial &nbsp;&nbsp;
+      <span class="cross">&#8212;</span> = Nao disponivel
+    </p>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- DIFERENCIACAO -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<section class="section" style="background: linear-gradient(135deg, var(--slate-900), var(--rose-dark));">
+  <div class="container" style="color: white;">
+    <span class="section-label" style="background: rgba(255,255,255,0.15); color: white;">Diferenciacao</span>
+    <h2 style="color: white;">5 Vantagens Competitivas Unicas</h2>
+    <p class="subtitle" style="color: rgba(255,255,255,0.7);">Funcionalidades que NENHUM concorrente portugues oferece hoje.</p>
+
+    <div class="grid-3" style="margin-top: 32px;">
+      <div style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: var(--radius); padding: 28px;">
+        <div style="font-size: 32px; margin-bottom: 12px;">&#129302;</div>
+        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">Classificacao AI Automatica</h3>
+        <p style="font-size: 14px; opacity: 0.8;">Unico software PT que classifica automaticamente a dedutibilidade IVA, campo DP e confianca por IA. Poupa ~80% do tempo de validacao.</p>
+      </div>
+      <div style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: var(--radius); padding: 28px;">
+        <div style="font-size: 32px; margin-bottom: 12px;">&#128248;</div>
+        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">Upload por Camara + QR</h3>
+        <p style="font-size: 14px; opacity: 0.8;">Digitalize facturas com o telemovel, e o QR Code portugues e lido instantaneamente. Zero entrada manual.</p>
+      </div>
+      <div style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: var(--radius); padding: 28px;">
+        <div style="font-size: 32px; margin-bottom: 12px;">&#128101;</div>
+        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">Dashboard Multi-Cliente</h3>
+        <p style="font-size: 14px; opacity: 0.8;">Contabilistas gerem todos os clientes num so ecra: sync massivo e-Fatura, metricas agregadas, exportacao por cliente.</p>
+      </div>
+      <div style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: var(--radius); padding: 28px;">
+        <div style="font-size: 32px; margin-bottom: 12px;">&#128202;</div>
+        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">Modelo 10 + Seg. Social</h3>
+        <p style="font-size: 14px; opacity: 0.8;">Gestao completa de retencoes na fonte e contribuicoes SS com calculos IAS atualizados. Nenhum concorrente integra isto.</p>
+      </div>
+      <div style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: var(--radius); padding: 28px;">
+        <div style="font-size: 32px; margin-bottom: 12px;">&#128274;</div>
+        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">Seguranca Enterprise</h3>
+        <p style="font-size: 14px; opacity: 0.8;">RLS em todas as tabelas, credenciais AT encriptadas AES-256-GCM, CORS restrito, audit trail completo. Pronto para RGPD.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- PRICING MODEL -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="container">
+    <span class="section-label">Modelo de Precos</span>
+    <h2>Precos Propostos para o Mercado PT</h2>
+    <p class="subtitle">Estrategia freemium com upsell para contabilistas. Posicionamento entre Vendus (&euro;6.50) e PHC GO (&euro;60), com AI como diferenciador premium.</p>
+
+    <div class="pricing-grid">
+      <!-- FREE -->
+      <div class="pricing-card">
+        <div class="pricing-tier">Gratuito</div>
+        <div class="pricing-name">Starter</div>
+        <div class="pricing-desc">Para freelancers e micro-empresas a comecar</div>
+        <div class="pricing-price">
+          <span class="amount"><span class="currency">&euro;</span>0</span>
+          <span class="period">/mes para sempre</span>
+        </div>
+        <ul class="pricing-features">
+          <li>10 facturas/mes (upload)</li>
+          <li>Classificacao AI basica</li>
+          <li>Calculadora IVA</li>
+          <li>Exportacao Excel</li>
+          <li>1 utilizador</li>
+        </ul>
+      </div>
+
+      <!-- PRO -->
+      <div class="pricing-card featured">
+        <div class="pricing-tier">Profissional</div>
+        <div class="pricing-name">Pro</div>
+        <div class="pricing-desc">Para independentes e PMEs com volume fiscal</div>
+        <div class="pricing-price">
+          <span class="amount"><span class="currency">&euro;</span>19</span>
+          <span class="period">/mes (anual) &middot; &euro;24/mes (mensal)</span>
+        </div>
+        <ul class="pricing-features">
+          <li>Facturas ilimitadas</li>
+          <li>Classificacao AI completa + DP</li>
+          <li>Sync e-Fatura (AT)</li>
+          <li>Modelo 10 + Seg. Social</li>
+          <li>Exportacao SAF-T PT</li>
+          <li>Relatorios fiscais</li>
+          <li>Notificacoes push</li>
+          <li>3 utilizadores</li>
+        </ul>
+      </div>
+
+      <!-- ACCOUNTANT -->
+      <div class="pricing-card">
+        <div class="pricing-tier">Contabilista</div>
+        <div class="pricing-name">Office</div>
+        <div class="pricing-desc">Para gabinetes de contabilidade multi-cliente</div>
+        <div class="pricing-price">
+          <span class="amount"><span class="currency">&euro;</span>49</span>
+          <span class="period">/mes (anual) &middot; &euro;59/mes (mensal)</span>
+        </div>
+        <ul class="pricing-features">
+          <li>Tudo do Pro</li>
+          <li>Ate 50 clientes incluidos</li>
+          <li>Dashboard multi-cliente agregado</li>
+          <li>Sync massivo e-Fatura</li>
+          <li>Exportacao Modelo 10 multi-cliente</li>
+          <li>Reconciliacao de auditorias</li>
+          <li>Metricas AI por cliente</li>
+          <li>Utilizadores ilimitados</li>
+          <li>&euro;0.80/cliente acima dos 50</li>
+        </ul>
+      </div>
+    </div>
+
+    <div style="margin-top: 40px; background: white; border-radius: var(--radius); border: 1px solid var(--slate-200); padding: 24px;">
+      <h3 style="font-family: 'Poppins', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px;">Racional de Precos</h3>
+      <div class="bar-chart">
+        <div class="bar-row">
+          <div class="bar-label">InvoiceXpress</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width: 14%; background: var(--slate-400);">&euro;1-30</div>
+          </div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">Vendus</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width: 12%; background: var(--slate-400);">&euro;6.50-25</div>
+          </div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label" style="font-weight: 700; color: var(--rose);">IVAzen</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width: 27%; background: linear-gradient(90deg, var(--rose), var(--rose-dark));">&euro;0-59 (com AI)</div>
+          </div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">Sage 50c</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width: 36%; background: var(--slate-400);">&euro;26-78</div>
+          </div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">PHC GO</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width: 100%; background: var(--slate-400);">&euro;60-215</div>
+          </div>
+        </div>
+      </div>
+      <p style="font-size: 13px; color: var(--slate-600); margin-top: 8px;">IVAzen posiciona-se no &laquo;sweet spot&raquo;: mais barato que ERPs (PHC, Sage), mas com AI que nenhum oferece.</p>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SWOT -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="container">
+    <span class="section-label">Analise Estrategica</span>
+    <h2>Analise SWOT</h2>
+    <p class="subtitle">Avaliacao honesta das forcas, fraquezas, oportunidades e ameacas.</p>
+
+    <div class="swot-grid">
+      <div class="swot-card swot-s">
+        <h3>Forcas</h3>
+        <ul>
+          <li>Unico com IA nativa para classificacao fiscal PT</li>
+          <li>Modelo 10, SS e IVA num so produto</li>
+          <li>Multi-cliente para contabilistas</li>
+          <li>100% cloud, PWA, mobile-first</li>
+          <li>644 testes, seguranca enterprise (RLS, AES-256)</li>
+          <li>Preco competitivo vs ERPs tradicionais</li>
+        </ul>
+      </div>
+      <div class="swot-card swot-w">
+        <h3>Fraquezas</h3>
+        <ul>
+          <li>Novo no mercado, sem base instalada</li>
+          <li>SAF-T nao certificado pela AT (ref. only)</li>
+          <li>AT connector requer VPS separado</li>
+          <li>Sem faturacao integrada (emissao)</li>
+          <li>Dependencia de OpenRouter/Gemini AI</li>
+        </ul>
+      </div>
+      <div class="swot-card swot-o">
+        <h3>Oportunidades</h3>
+        <ul>
+          <li>91.7% adocao AI em fintech PT</li>
+          <li>Programa &laquo;AI for SMEs&raquo; (PRR): subsidio 75%</li>
+          <li>75K contabilistas certificados em PT</li>
+          <li>Mercado fragmentado sem lider cloud+AI</li>
+          <li>Obrigacao DP mensal/trimestral = necessidade real</li>
+          <li>Expansao para PALOP (Angola, Mocambique)</li>
+        </ul>
+      </div>
+      <div class="swot-card swot-t">
+        <h3>Ameacas</h3>
+        <ul>
+          <li>Cegid (PHC+Primavera) pode adicionar AI</li>
+          <li>Sage investindo forte em cloud</li>
+          <li>TOConline e gratuito para membros OCC</li>
+          <li>Regulacao AT pode mudar requisitos</li>
+          <li>Barreira de confianca em software novo</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- REVENUE PROJECTION -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="container">
+    <span class="section-label">Projecoes</span>
+    <h2>Projecao de Receita (3 Anos)</h2>
+    <p class="subtitle">Cenario conservador baseado em 0.1% a 0.5% de penetracao no mercado enderecavel de ~75K contabilistas + ~200K PMEs ativas.</p>
+
+    <div style="overflow-x: auto;">
+      <table class="projection-table">
+        <thead>
+          <tr>
+            <th>Metrica</th>
+            <th>Ano 1</th>
+            <th>Ano 2</th>
+            <th>Ano 3</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Utilizadores Starter (gratis)</td>
+            <td>500</td>
+            <td>2.000</td>
+            <td>5.000</td>
+          </tr>
+          <tr>
+            <td>Clientes Pro (&euro;19/mes)</td>
+            <td>80</td>
+            <td>350</td>
+            <td>900</td>
+          </tr>
+          <tr>
+            <td>Clientes Office (&euro;49/mes)</td>
+            <td>15</td>
+            <td>75</td>
+            <td>200</td>
+          </tr>
+          <tr>
+            <td>Clientes extra (acima 50)</td>
+            <td>&euro;120/mes</td>
+            <td>&euro;900/mes</td>
+            <td>&euro;3.200/mes</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 600;">MRR (Receita Mensal Recorrente)</td>
+            <td style="font-weight: 600;">&euro;2.375</td>
+            <td style="font-weight: 600;">&euro;11.225</td>
+            <td style="font-weight: 600;">&euro;30.100</td>
+          </tr>
+          <tr class="total-row">
+            <td>ARR (Receita Anual Recorrente)</td>
+            <td>&euro;28.500</td>
+            <td>&euro;134.700</td>
+            <td>&euro;361.200</td>
+          </tr>
+          <tr>
+            <td>Custos Infra (Supabase + AI + VPS)</td>
+            <td>&euro;350/mes</td>
+            <td>&euro;1.200/mes</td>
+            <td>&euro;3.500/mes</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 600;">Margem Bruta</td>
+            <td style="font-weight: 600;">~85%</td>
+            <td style="font-weight: 600;">~89%</td>
+            <td style="font-weight: 600;">~88%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid-3" style="margin-top: 32px;">
+      <div class="market-card">
+        <div class="icon" style="background: var(--emerald-light);">&#127919;</div>
+        <div class="value">&euro;361K</div>
+        <div class="label">ARR no Ano 3</div>
+      </div>
+      <div class="market-card">
+        <div class="icon" style="background: var(--blue-light);">&#128200;</div>
+        <div class="value">~88%</div>
+        <div class="label">Margem bruta SaaS</div>
+      </div>
+      <div class="market-card">
+        <div class="icon" style="background: var(--amber-light);">&#128176;</div>
+        <div class="value">~1.100</div>
+        <div class="label">Clientes pagantes (Ano 3)</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- GO-TO-MARKET -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="container">
+    <span class="section-label">Estrategia</span>
+    <h2>Go-to-Market</h2>
+    <p class="subtitle">Estrategia de lancamento em 3 fases para maximizar adocao no mercado portugues.</p>
+
+    <div class="grid-3">
+      <div class="card">
+        <div class="card-header">
+          <div style="font-size: 28px; margin-bottom: 8px;">&#127937;</div>
+          <h3 style="font-family: 'Poppins', sans-serif; font-size: 18px; font-weight: 700;">Fase 1: Seed (M1-M6)</h3>
+        </div>
+        <div class="card-body">
+          <ul style="list-style: none; font-size: 14px; color: var(--slate-700);">
+            <li style="padding: 4px 0;">&#8226; Beta gratuita para 50 contabilistas</li>
+            <li style="padding: 4px 0;">&#8226; Parcerias com 3-5 gabinetes contabilidade</li>
+            <li style="padding: 4px 0;">&#8226; Conteudo SEO: &laquo;Como classificar IVA&raquo;</li>
+            <li style="padding: 4px 0;">&#8226; Presenca em foruns OCC</li>
+            <li style="padding: 4px 0;">&#8226; Demo video no YouTube (PT)</li>
+            <li style="padding: 4px 0;">&#8226; Candidatura PRR &laquo;AI for SMEs&raquo;</li>
+          </ul>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div style="font-size: 28px; margin-bottom: 8px;">&#128640;</div>
+          <h3 style="font-family: 'Poppins', sans-serif; font-size: 18px; font-weight: 700;">Fase 2: Growth (M6-M18)</h3>
+        </div>
+        <div class="card-body">
+          <ul style="list-style: none; font-size: 14px; color: var(--slate-700);">
+            <li style="padding: 4px 0;">&#8226; Lancamento planos pagos</li>
+            <li style="padding: 4px 0;">&#8226; Programa de referral (1 mes gratis)</li>
+            <li style="padding: 4px 0;">&#8226; Webinars trimestrais sobre IVA</li>
+            <li style="padding: 4px 0;">&#8226; Integracao com Moloni/InvoiceXpress API</li>
+            <li style="padding: 4px 0;">&#8226; Certificacao SAF-T pela AT</li>
+            <li style="padding: 4px 0;">&#8226; Presenca em Accounting Summit PT</li>
+          </ul>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div style="font-size: 28px; margin-bottom: 8px;">&#127758;</div>
+          <h3 style="font-family: 'Poppins', sans-serif; font-size: 18px; font-weight: 700;">Fase 3: Scale (M18-M36)</h3>
+        </div>
+        <div class="card-body">
+          <ul style="list-style: none; font-size: 14px; color: var(--slate-700);">
+            <li style="padding: 4px 0;">&#8226; Expansao PALOP (Angola, Mocambique)</li>
+            <li style="padding: 4px 0;">&#8226; Modulo de faturacao integrada</li>
+            <li style="padding: 4px 0;">&#8226; Reconciliacao bancaria automatica</li>
+            <li style="padding: 4px 0;">&#8226; API publica para integracoes</li>
+            <li style="padding: 4px 0;">&#8226; Plano Enterprise (white-label)</li>
+            <li style="padding: 4px 0;">&#8226; Equipa de vendas dedicada</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- NEXT STEPS -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<section class="section" style="background: var(--slate-900); color: white;">
+  <div class="container" style="text-align: center; max-width: 700px;">
+    <span class="section-label" style="background: rgba(255,255,255,0.1); color: var(--rose-light);">Proximos Passos</span>
+    <h2 style="color: white; margin-bottom: 24px;">Para Comercializacao</h2>
+    <div style="text-align: left;">
+      <div style="display: flex; gap: 16px; margin-bottom: 16px; align-items: flex-start;">
+        <div style="background: var(--rose); color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0;">1</div>
+        <div>
+          <div style="font-weight: 600; margin-bottom: 4px;">Certificacao SAF-T pela AT</div>
+          <div style="font-size: 14px; opacity: 0.7;">Solicitar numero de certificacao de software a Autoridade Tributaria (obrigatorio para emissao de facturas).</div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 16px; margin-bottom: 16px; align-items: flex-start;">
+        <div style="background: var(--rose); color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0;">2</div>
+        <div>
+          <div style="font-weight: 600; margin-bottom: 4px;">Deploy AT Connector em VPS</div>
+          <div style="font-size: 14px; opacity: 0.7;">Configurar servidor com certificados mTLS para sync direto com portal e-Fatura.</div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 16px; margin-bottom: 16px; align-items: flex-start;">
+        <div style="background: var(--rose); color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0;">3</div>
+        <div>
+          <div style="font-weight: 600; margin-bottom: 4px;">Landing page publica + onboarding</div>
+          <div style="font-size: 14px; opacity: 0.7;">Ativar registo publico, planos Stripe, documentacao de ajuda, video tutorial.</div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 16px; margin-bottom: 16px; align-items: flex-start;">
+        <div style="background: var(--rose); color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0;">4</div>
+        <div>
+          <div style="font-weight: 600; margin-bottom: 4px;">Beta com 50 contabilistas</div>
+          <div style="font-size: 14px; opacity: 0.7;">Recrutar beta testers via OCC, LinkedIn, e contactos diretos. Iterar com feedback real.</div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 16px; align-items: flex-start;">
+        <div style="background: var(--rose); color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0;">5</div>
+        <div>
+          <div style="font-weight: 600; margin-bottom: 4px;">Candidatura PRR &laquo;AI for SMEs&raquo;</div>
+          <div style="font-size: 14px; opacity: 0.7;">Subsidio ate 75% dos custos elegiveis (max &euro;300K). IVAzen encaixa perfeitamente nos criterios.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- FOOTER -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<footer class="footer">
+  <p><strong>IVAzen</strong> &middot; Relatorio gerado a 3 de Marco de 2026</p>
+  <p style="margin-top: 8px; font-size: 12px;">Este documento e confidencial e destinado exclusivamente a uso interno para avaliacao de viabilidade comercial.</p>
+</footer>
+
+</body>
+</html>

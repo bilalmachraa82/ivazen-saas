@@ -16,6 +16,7 @@ interface ClientSummary {
   company_name: string | null;
   nif: string | null;
   vat_regime: string | null;
+  iva_cadence: 'monthly' | 'quarterly' | null;
   worker_type: string | null;
   taxpayer_kind: string | null;
 }
@@ -110,7 +111,7 @@ export function useClientFiscalCenter(options: UseClientFiscalCenterOptions = {}
       ] = await Promise.all([
         supabase
           .from('profiles')
-          .select('id, full_name, company_name, nif, vat_regime, worker_type, taxpayer_kind')
+          .select('id, full_name, company_name, nif, vat_regime, iva_cadence, worker_type, taxpayer_kind')
           .eq('id', effectiveClientId)
           .maybeSingle(),
         supabase

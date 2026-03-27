@@ -51,7 +51,11 @@ interface SyncEfaturaResponse {
   message?: string;
   missingConfig?: boolean;
   count?: number;
+  inserted?: number;
+  invoicesProcessed?: number;
   skipped?: number;
+  errors?: number;
+  status?: string;
 }
 
 const getErrorMessage = (error: unknown): string => {
@@ -180,14 +184,20 @@ export function EFaturaAPIConfig({
       }
 
       // Check for informational messages (e.g., missing config)
+      const importedCount =
+        responseData.count
+        ?? responseData.inserted
+        ?? responseData.invoicesProcessed
+        ?? 0;
+
       if (responseData.missingConfig) {
         toast.warning('Configuração incompleta', {
           description: responseData.message,
           duration: 8000,
         });
-      } else if ((responseData.count ?? 0) > 0) {
+      } else if (importedCount > 0) {
         toast.success('Sincronização concluída', {
-          description: `${responseData.count} facturas importadas${responseData.skipped ? ` (${responseData.skipped} duplicadas)` : ''}`,
+          description: `${importedCount} facturas importadas${responseData.skipped ? ` (${responseData.skipped} duplicadas)` : ''}${responseData.status === 'partial' && responseData.errors ? ` • ${responseData.errors} com erro` : ''}`,
         });
       } else if ((responseData.skipped ?? 0) > 0) {
         toast.info('Todas as facturas já existem', {

@@ -81,8 +81,12 @@ test.describe.serial('Sales Validation — Revenue Invoices', () => {
     const body = await page.textContent('body');
     expect(body).not.toContain('Erro ao carregar');
     // Table or empty state must be visible
-    const tableOrEmpty = page.locator('table tbody tr, text=/sem facturas|nenhuma/i');
-    await expect(tableOrEmpty.first()).toBeVisible({ timeout: 10_000 });
+    const rows = page.locator('table tbody tr');
+    if (await rows.count()) {
+      await expect(rows.first()).toBeVisible({ timeout: 10_000 });
+    } else {
+      await expect(page.getByText(/sem facturas|nenhuma/i).first()).toBeVisible({ timeout: 10_000 });
+    }
   });
 
   test('clicking a table row opens sales detail dialog', async () => {
@@ -95,7 +99,7 @@ test.describe.serial('Sales Validation — Revenue Invoices', () => {
     await page.waitForTimeout(1_500);
 
     // Dialog MUST appear — hard assertion
-    const dialog = page.locator('[role="dialog"], [data-state="open"]').first();
+    const dialog = page.getByRole('dialog').last();
     await expect(dialog).toBeVisible({ timeout: 5_000 });
 
     const dialogText = await dialog.textContent();

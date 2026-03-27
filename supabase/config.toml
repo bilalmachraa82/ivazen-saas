@@ -44,6 +44,9 @@ verify_jwt = false
 [functions.sync-efatura]
 verify_jwt = false
 
+[functions.sync-recibos-verdes]
+verify_jwt = false
+
 [functions.parse-credentials-pdf]
 verify_jwt = true
 

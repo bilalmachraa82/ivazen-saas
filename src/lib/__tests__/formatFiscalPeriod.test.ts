@@ -12,7 +12,7 @@ describe('formatFiscalPeriod()', () => {
   });
 
   it('formats YYYY-Qn periods', () => {
-    expect(formatFiscalPeriod('2026-Q3')).toBe('T3 2026');
+    expect(formatFiscalPeriod('2026-Q3')).toBe('3º Trimestre de 2026');
   });
 
   it('falls back to original value for unknown formats', () => {

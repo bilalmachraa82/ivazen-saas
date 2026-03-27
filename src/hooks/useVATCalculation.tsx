@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { applyFiscallyEffectivePurchaseFilter } from '@/lib/fiscalStatus';
 import { resolveScopedClientId } from '@/lib/clientScope';
+import { getQuarterDateRange } from '@/lib/fiscalQuarter';
 
 interface VATCalculationData {
   vatCollected: number;
@@ -26,17 +27,6 @@ export function useVATCalculation(options: UseVATCalculationOptions = {}) {
 
   const effectiveClientId = resolveScopedClientId(forClientId, user?.id);
   const effectiveYear = year || new Date().getFullYear();
-  
-  // Calculate quarter date range
-  const getQuarterDateRange = (y: number, q: number) => {
-    const startMonth = (q - 1) * 3;
-    const startDate = new Date(y, startMonth, 1);
-    const endDate = new Date(y, startMonth + 3, 0); // Last day of the quarter
-    return {
-      start: startDate.toISOString().split('T')[0],
-      end: endDate.toISOString().split('T')[0],
-    };
-  };
 
   // Get current quarter if not specified
   const currentQuarter = quarter || Math.ceil((new Date().getMonth() + 1) / 3);

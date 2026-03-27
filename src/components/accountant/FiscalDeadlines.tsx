@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { isVatExemptRegime } from '@/lib/formatVatRegime';
 import { 
   Calendar, 
   AlertTriangle, 
@@ -42,7 +43,7 @@ export function FiscalDeadlines({
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
     const currentQuarter = Math.ceil((currentMonth + 1) / 3);
-    const skipIvaDeadlines = vatRegime === 'exempt';
+    const skipIvaDeadlines = isVatExemptRegime(vatRegime);
     
     const allDeadlines: Deadline[] = [];
     

@@ -88,7 +88,7 @@ test.describe.serial('Smoke Demo', () => {
     await switchClient(page, CAAD_CLIENT_ID, 'CAAD');
     await navigateAndWait(page, '/modelo-10');
 
-    await expect(page.locator('text=/Retenções|Lista de Retenções/i').first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: /lista de retenções/i })).toBeVisible({ timeout: 30_000 });
 
     const body = await page.textContent('body');
     expect(body).toMatch(/Cat\.\s*[ABEFGHR]/i);
@@ -101,12 +101,13 @@ test.describe.serial('Smoke Demo', () => {
     await navigateAndWait(page, '/dashboard');
     await dismissOverlays(page);
 
-    const body = await page.textContent('body');
+    await expect(page.locator('[data-tour="nav-fiscal-center"]:visible').first()).toBeVisible();
 
-    // Should have key nav items
-    for (const item of ['Centro Fiscal', 'Vendas', 'Obrigações Fiscais']) {
-      expect(body).toContain(item);
-    }
+    await page.getByRole('button', { name: /^Trabalho$/ }).click();
+    await expect(page.locator('[data-tour="nav-sales"]:visible').first()).toBeVisible();
+
+    await page.getByRole('button', { name: /^Importação$/ }).click();
+    await expect(page.locator('[data-tour="nav-import-center"]:visible').first()).toBeVisible();
 
     // Should NOT have hidden items
     for (const item of ['Glossário', 'Calculadora IVA']) {

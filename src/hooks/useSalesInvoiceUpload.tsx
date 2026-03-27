@@ -299,7 +299,7 @@ export function useSalesInvoiceUpload(options: UseSalesInvoiceUploadOptions = {}
         document_number: parsedData.document_number,
         document_date: parsedData.document_date,
         atcud: parsedData.atcud,
-      });
+      }, effectiveClientId);
 
       if (duplicateCheck.isDuplicate) {
         toast.error(`Factura de venda duplicada: ${duplicateCheck.reason}`);
@@ -358,7 +358,7 @@ export function useSalesInvoiceUpload(options: UseSalesInvoiceUploadOptions = {}
         document_number: extractedData.document_number,
         document_date: extractedData.document_date,
         atcud: extractedData.atcud,
-      });
+      }, effectiveClientId);
 
       if (duplicateCheck.isDuplicate) {
         toast.error(`Factura de venda duplicada: ${duplicateCheck.reason}`);

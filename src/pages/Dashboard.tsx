@@ -85,10 +85,12 @@ export default function Dashboard() {
   const rawCadence = isAccountant
     ? (selectedClient?.iva_cadence ?? null)
     : (profile?.iva_cadence ?? null);
+  const isVatExempt = rawVatRegime?.startsWith('isento') || rawVatRegime === 'exempt';
   const ivaCadence: 'monthly' | 'quarterly' | 'both' = rawCadence
     ?? (rawVatRegime === 'normal_monthly' ? 'monthly'
       : rawVatRegime === 'normal_quarterly' ? 'quarterly'
-      : 'quarterly');
+      : isVatExempt ? 'quarterly'
+      : (rawVatRegime ? 'quarterly' : 'monthly'));
 
   const hasPendingRequest = myRequest?.status === 'pending';
   const showAccountantPromo = !isAccountant && !hasPendingRequest;

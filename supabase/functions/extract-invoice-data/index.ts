@@ -75,6 +75,8 @@ interface EdpVatComponentsResult {
   regularization?: unknown;
 }
 
+const GEMINI_DOCUMENT_MODEL = 'gemini-3-flash-preview';
+
 // ============================================================
 // ARITHMETIC VALIDATION (deterministic, post-LLM)
 // Principle: The invoice is the legal document. Never "correct" issuer values.
@@ -296,29 +298,36 @@ function normalizeVatId(value: unknown): string | null {
 async function callAI(params: {
   apiKey: string;
   prompt: string;
-  dataUrl: string;
+  base64Data: string;
+  mimeType: string;
   temperature?: number;
 }): Promise<string> {
-  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+  // Use the native Gemini generateContent API because the OpenAI-compatible
+  // image_url payload rejects PDFs and breaks invoice extraction for uploads.
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_DOCUMENT_MODEL}:generateContent`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${params.apiKey}`,
+      'x-goog-api-key': params.apiKey,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gemini-3.1-flash-lite-preview',
-      messages: [
+      contents: [
         {
-          role: 'user',
-          content: [
-            { type: 'text', text: params.prompt },
-            { type: 'image_url', image_url: { url: params.dataUrl } },
+          parts: [
+            {
+              inline_data: {
+                mime_type: params.mimeType,
+                data: params.base64Data,
+              },
+            },
+            { text: params.prompt },
           ],
         },
       ],
-      temperature: params.temperature ?? 0.1,
-      max_tokens: 4096,
-      reasoning_effort: 'high',
+      generationConfig: {
+        temperature: params.temperature ?? 0.1,
+        maxOutputTokens: 4096,
+      },
     }),
   });
 
@@ -333,7 +342,10 @@ async function callAI(params: {
   }
 
   const aiData = await response.json();
-  const content = aiData.choices?.[0]?.message?.content;
+  const content = aiData.candidates?.[0]?.content?.parts
+    ?.map((part: { text?: string }) => part.text || '')
+    .join('\n')
+    .trim();
   if (!content) throw new Error('No content in AI response');
   return content;
 }
@@ -418,7 +430,7 @@ Deno.serve(async (req) => {
 
     console.log('[extract-invoice-data] Extracting invoice data, mime:', mimeType, ', base64 size:', Math.round(base64Content.length / 1024), 'KB');
 
-    // Use OpenRouter AI Gateway
+    // Use Gemini document processing directly for PDF/image OCR.
     const AI_API_KEY = Deno.env.get('AI_API_KEY');
     if (!AI_API_KEY) {
       console.error('[extract-invoice-data] AI_API_KEY not configured');
@@ -428,18 +440,18 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('[extract-invoice-data] Calling AI Gateway...');
+    console.log('[extract-invoice-data] Calling Gemini document model...');
     
     // Prepare base64 data with correct MIME type
     const base64Data = fileData.replace(/^data:[^;]+;base64,/, '');
     const effectiveMime = mimeType || 'image/jpeg';
-    const dataUrl = `data:${effectiveMime};base64,${base64Data}`;
     let content: string;
     try {
       content = await callAI({
         apiKey: AI_API_KEY,
         prompt: EXTRACTION_PROMPT,
-        dataUrl,
+        base64Data,
+        mimeType: effectiveMime,
         temperature: 0.1,
       });
     } catch (error: unknown) {
@@ -569,7 +581,8 @@ Deno.serve(async (req) => {
         const taxContent = await callAI({
           apiKey: AI_API_KEY,
           prompt: TAX_ID_ONLY_PROMPT,
-          dataUrl,
+          base64Data,
+          mimeType: effectiveMime,
           temperature: 0.0,
         });
         const taxJson = parseJsonFromModel(taxContent) as Partial<ExtractionResult>;
@@ -648,7 +661,8 @@ Deno.serve(async (req) => {
         const edpContent = await callAI({
           apiKey: AI_API_KEY,
           prompt: EDP_VAT_COMPONENTS_PROMPT,
-          dataUrl,
+          base64Data,
+          mimeType: effectiveMime,
           temperature: 0.0,
         });
         const edpJson = parseJsonFromModel(edpContent) as EdpVatComponentsResult;
@@ -699,14 +713,18 @@ Deno.serve(async (req) => {
         arithmetic_validated: arithmeticValidated,
         arithmetic_corrected: arithmeticCorrected,
         corrected_values: Object.keys(correctedValues).length > 0 ? correctedValues : undefined,
-        model: 'gemini-3.1-flash-lite-preview'
+        model: GEMINI_DOCUMENT_MODEL
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error: unknown) {
     console.error('Error in extract-invoice-data function:', error);
-    const message = error instanceof Error ? error.message : 'Internal server error';
+    const baseMessage = error instanceof Error ? error.message : 'Internal server error';
+    const upstreamBody = typeof (error as { body?: unknown })?.body === 'string'
+      ? (error as { body: string }).body.slice(0, 500)
+      : null;
+    const message = upstreamBody ? `${baseMessage} :: ${upstreamBody}` : baseMessage;
     return new Response(
       JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

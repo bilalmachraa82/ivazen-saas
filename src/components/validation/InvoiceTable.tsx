@@ -168,7 +168,7 @@ export function InvoiceTable({ invoices, loading, onSelectInvoice, onExcludeFrom
                 <TableHead>Classificação IA</TableHead>
                 <TableHead>Confiança</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
+                <TableHead className="text-right">Ações / Contabilizar</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -311,7 +311,7 @@ export function InvoiceTable({ invoices, loading, onSelectInvoice, onExcludeFrom
                   <SortIcon field="status" />
                 </div>
               </TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead className="text-right">Ações / Contabilizar</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

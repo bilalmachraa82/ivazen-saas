@@ -103,6 +103,10 @@ export default function Validation() {
   }, [filters]);
 
   useEffect(() => {
+    setSelectedIds(new Set());
+  }, [effectiveClientId]);
+
+  useEffect(() => {
     const status = searchParams.get('status') || 'all';
     const review = searchParams.get('review') || 'all';
     const year = searchParams.get('year') || 'all';
@@ -337,7 +341,54 @@ export default function Validation() {
     final_dp_field: number | null;
     final_deductibility: number;
   }) => {
-    return await validateInvoice(invoiceId, classification);
+    const sourceInvoice = invoices.find((invoice) => invoice.id === invoiceId);
+    const supplierMatchKey = sourceInvoice
+      ? (sourceInvoice.supplier_nif?.trim() || sourceInvoice.supplier_name?.trim().toLowerCase() || null)
+      : null;
+    const siblingSelectedIds = supplierMatchKey
+      ? invoices
+          .filter((invoice) =>
+            invoice.id !== invoiceId &&
+            selectedIds.has(invoice.id) &&
+            (
+              invoice.supplier_nif?.trim() ||
+              invoice.supplier_name?.trim().toLowerCase() ||
+              null
+            ) === supplierMatchKey
+          )
+          .map((invoice) => invoice.id)
+      : [];
+
+    const validated = await validateInvoice(invoiceId, classification);
+    if (!validated || siblingSelectedIds.length === 0) return validated;
+
+    try {
+      const isPessoal = classification.final_classification === 'PESSOAL';
+      const { error } = await supabase
+        .from('invoices')
+        .update({
+          ...classification,
+          status: 'validated',
+          validated_at: new Date().toISOString(),
+          validated_by: user?.id,
+          ai_confidence: 100,
+          requires_accountant_validation: false,
+          ...(isPessoal ? { accounting_excluded: true, exclusion_reason: 'Pessoal' } : {}),
+        })
+        .in('id', siblingSelectedIds);
+
+      if (error) throw error;
+
+      toast.success(
+        `Classificação aplicada a mais ${siblingSelectedIds.length} factura(s) selecionada(s) do mesmo fornecedor`,
+      );
+      await refetch();
+    } catch (error) {
+      console.error('Error applying classification to sibling selected invoices:', error);
+      toast.error('A factura principal foi validada, mas falhou a propagação para as restantes selecionadas');
+    }
+
+    return true;
   };
 
   const handleExportSelected = async () => {
@@ -370,10 +421,16 @@ export default function Validation() {
     setIsDeleting(true);
 
     const ids = Array.from(selectedIds);
-    const { error } = await supabase
+    let deleteQuery = supabase
       .from('invoices')
       .delete()
       .in('id', ids);
+
+    if (effectiveClientId) {
+      deleteQuery = deleteQuery.eq('client_id', effectiveClientId);
+    }
+
+    const { error } = await deleteQuery;
 
     if (error) {
       toast.error(`Erro ao eliminar: ${error.message}`);

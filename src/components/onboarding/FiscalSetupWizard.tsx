@@ -38,6 +38,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CAEAutocomplete } from './CAEAutocomplete';
 import { InfoIcon } from '@/components/ui/info-tooltip';
+import { getCanonicalVatRegime, getVatCadence } from '@/lib/formatVatRegime';
 
 interface FiscalSetupWizardProps {
   onComplete: () => void;
@@ -187,8 +188,8 @@ export function FiscalSetupWizard({ onComplete, compact = false }: FiscalSetupWi
         niss: profile?.niss || '',
         cae: cae,
         activityDescription: profile?.activity_description || '',
-        vatRegime: profile?.vat_regime || 'normal',
-        ivaCadence: profile?.iva_cadence || 'quarterly',
+        vatRegime: getCanonicalVatRegime(profile?.vat_regime, profile?.iva_cadence),
+        ivaCadence: getVatCadence(profile?.vat_regime, profile?.iva_cadence),
       }, {
         onSuccess: () => {
           // Then update SS profile

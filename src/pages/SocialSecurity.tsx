@@ -322,7 +322,7 @@ export default function SocialSecurity() {
     const text = `Declaração Trimestral Segurança Social
 Período: ${getLabel(quarter)}
 Total de Rendimentos: ${totals.total.toFixed(2)}€
-Base de Incidência (70%): ${contributionBase.toFixed(2)}€
+Base de Incidência Contributiva: ${contributionBase.toFixed(2)}€
 Taxa Contributiva: ${contributionRate}%
 Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
 
@@ -654,7 +654,7 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Total Rendimentos Brutos:</span>
+                      <span className="text-muted-foreground">Total Rendimentos:</span>
                       <span className="font-medium">{totals.total.toFixed(2)}€</span>
                     </div>
                     <div className="flex justify-between text-sm">
@@ -838,7 +838,7 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">
-                      Facturas de vendas validadas são automaticamente incluídas como "Vendas de Produtos" (coeficiente 20%).
+                      Facturas de vendas validadas são incluídas automaticamente na categoria definida em cada documento; se faltar, a app infere serviços para FR/FS-FR e vendas nos restantes casos.
                     </p>
                     <Button 
                       variant="link" 

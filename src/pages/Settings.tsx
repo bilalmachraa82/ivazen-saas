@@ -31,13 +31,7 @@ import { NotificationPreferences } from '@/components/settings/NotificationPrefe
 import { DatabaseImporter } from '@/components/settings/DatabaseImporter';
 import { InfoIcon } from '@/components/ui/info-tooltip';
 import { useTheme } from 'next-themes';
-
-const VAT_REGIMES = [
-  { value: 'normal', label: 'Regime Normal' },
-  { value: 'simplified', label: 'Regime Simplificado' },
-  { value: 'exempt', label: 'Isento de IVA' },
-  { value: 'small', label: 'Pequenos Retalhistas' },
-];
+import { VAT_REGIME_OPTIONS, getCanonicalVatRegime, getVatCadence, isVatExemptRegime } from '@/lib/formatVatRegime';
 
 const IVA_CADENCES = [
   { value: 'quarterly', label: 'Trimestral' },
@@ -74,7 +68,7 @@ export default function Settings() {
     niss: '',
     cae: '',
     activityDescription: '',
-    vatRegime: 'normal',
+    vatRegime: 'normal_quarterly',
     ivaCadence: 'quarterly',
   });
 
@@ -112,8 +106,8 @@ export default function Settings() {
         niss: profile.niss || '',
         cae: profile.cae || '',
         activityDescription: profile.activity_description || '',
-        vatRegime: profile.vat_regime || 'normal',
-        ivaCadence: profile.iva_cadence || 'quarterly',
+        vatRegime: getCanonicalVatRegime(profile.vat_regime, profile.iva_cadence),
+        ivaCadence: getVatCadence(profile.vat_regime, profile.iva_cadence),
       });
       setSsContributionRate(String(profile.ss_contribution_rate || 21.4));
       setIsFirstYear(profile.is_first_year || false);
@@ -352,13 +346,17 @@ export default function Settings() {
                         <Label htmlFor="vatRegime" className="text-sm font-medium">Regime de IVA</Label>
                         <Select
                           value={formData.vatRegime}
-                          onValueChange={(value) => setFormData({ ...formData, vatRegime: value })}
+                          onValueChange={(value) => setFormData({
+                            ...formData,
+                            vatRegime: value,
+                            ivaCadence: getVatCadence(value, formData.ivaCadence),
+                          })}
                         >
                           <SelectTrigger id="vatRegime" className="bg-background/50 border-border/50 hover:border-primary/50 transition-colors">
                             <SelectValue placeholder="Seleccione o regime" />
                           </SelectTrigger>
                           <SelectContent>
-                            {VAT_REGIMES.map((regime) => (
+                            {VAT_REGIME_OPTIONS.map((regime) => (
                               <SelectItem key={regime.value} value={regime.value}>
                                 {regime.label}
                               </SelectItem>
@@ -371,6 +369,7 @@ export default function Settings() {
                         <Select
                           value={formData.ivaCadence}
                           onValueChange={(value: 'monthly' | 'quarterly') => setFormData({ ...formData, ivaCadence: value })}
+                          disabled={isVatExemptRegime(formData.vatRegime)}
                         >
                           <SelectTrigger id="ivaCadence" className="bg-background/50 border-border/50 hover:border-primary/50 transition-colors">
                             <SelectValue placeholder="Selecione a periodicidade" />

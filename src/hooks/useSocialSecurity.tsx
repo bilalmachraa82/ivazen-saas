@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useClientFiscalProfile } from '@/hooks/useClientFiscalProfile';
 import { SS_COEFFICIENTS, SS_REVENUE_CATEGORIES, getSSCoefficient, normalizeSSCategory } from '@/lib/ssCoefficients';
 import { resolveScopedClientId } from '@/lib/clientScope';
+import { getQuarterDateRange } from '@/lib/fiscalQuarter';
 
 interface RevenueEntry {
   id: string;
@@ -39,6 +40,18 @@ interface SocialSecurityProfileFields {
   taxable_profit?: number | string | null;
   ss_contribution_rate?: number | string | null;
   is_first_year?: boolean | null;
+  nif?: string | null;
+}
+
+interface SocialSecuritySalesInvoice {
+  base_reduced?: number | null;
+  base_intermediate?: number | null;
+  base_standard?: number | null;
+  base_exempt?: number | null;
+  total_amount?: number | null;
+  total_vat?: number | null;
+  document_type?: string | null;
+  revenue_category?: string | null;
 }
 
 // IAS values by year (Indexante dos Apoios Sociais)
@@ -211,6 +224,57 @@ export function isDeadlineMonth(): boolean {
   return [1, 4, 7, 10].includes(month);
 }
 
+export function getDeclarationQuarterForDate(date = new Date()): string {
+  const month = date.getMonth() + 1;
+  const currentQuarter = `${date.getFullYear()}-Q${Math.ceil(month / 3)}`;
+  return isDeadlineMonthForDate(date) ? getPreviousQuarter(currentQuarter) : currentQuarter;
+}
+
+export function isDeadlineMonthForDate(date = new Date()): boolean {
+  const month = date.getMonth() + 1;
+  return [1, 4, 7, 10].includes(month);
+}
+
+export function isQuarterInDeadlineMonth(quarter: string, date = new Date()): boolean {
+  const { month, year } = getDeadlineMonth(quarter);
+  return date.getFullYear() === year && date.getMonth() + 1 === month;
+}
+
+function getQuarterRange(quarter: string) {
+  const [year, q] = quarter.split('-Q');
+  return getQuarterDateRange(Number(year), Number(q));
+}
+
+export function getSalesInvoiceRevenueCategory(invoice: SocialSecuritySalesInvoice): string {
+  const docType = (invoice.document_type || '').toUpperCase();
+  const inferredCategory = invoice.revenue_category
+    || ((docType === 'FR' || docType === 'FS/FR') ? 'prestacao_servicos' : 'vendas');
+  return normalizeSSCategory(inferredCategory);
+}
+
+export function getSalesInvoiceRevenueAmount(invoice: SocialSecuritySalesInvoice): number {
+  const lineBases = [
+    Number(invoice.base_reduced || 0),
+    Number(invoice.base_intermediate || 0),
+    Number(invoice.base_standard || 0),
+    Number(invoice.base_exempt || 0),
+  ];
+  const summedBases = lineBases.reduce((sum, value) => sum + value, 0);
+
+  if (summedBases > 0) {
+    return summedBases;
+  }
+
+  const totalAmount = Number(invoice.total_amount || 0);
+  const totalVat = Number(invoice.total_vat || 0);
+
+  if (totalAmount > 0) {
+    return Math.max(totalAmount - totalVat, 0);
+  }
+
+  return 0;
+}
+
 // Calculate relevant income with proper coefficients
 export function calculateRelevantIncome(entries: RevenueEntry[]): number {
   return entries.reduce((sum, entry) => {
@@ -233,21 +297,20 @@ export function checkTCOExemption(
   return otherEmploymentSalary >= limits.IAS && monthlyRelevantIncome < limits.TCO_EXEMPTION_LIMIT;
 }
 
-// Helper to get quarter from date
-function getQuarterFromDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  const quarter = Math.ceil((date.getMonth() + 1) / 3);
-  return `${date.getFullYear()}-Q${quarter}`;
-}
-
 export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: string) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [quarter, setQuarter] = useState(selectedQuarter || getCurrentQuarter());
+  const [quarter, setQuarter] = useState(selectedQuarter || getDeclarationQuarterForDate());
 
   // For accountants, use selected client ID; for regular users, use their own ID
   const effectiveClientId = resolveScopedClientId(selectedClientId, user?.id);
   const { profile: activeProfile } = useClientFiscalProfile(effectiveClientId);
+
+  useEffect(() => {
+    if (selectedQuarter) {
+      setQuarter(selectedQuarter);
+    }
+  }, [selectedQuarter]);
 
   // Fetch revenue entries for quarter
   const { data: revenueEntries = [], isLoading: isLoadingRevenue } = useQuery({
@@ -274,20 +337,15 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
     queryFn: async () => {
       if (!effectiveClientId) return [];
 
-      // Get quarter date range
-      const [year, q] = quarter.split('-Q');
-      const quarterNum = parseInt(q);
-      const startMonth = (quarterNum - 1) * 3;
-      const startDate = new Date(parseInt(year), startMonth, 1);
-      const endDate = new Date(parseInt(year), startMonth + 3, 0); // Last day of quarter
+      const quarterRange = getQuarterRange(quarter);
 
       const { data, error } = await supabase
         .from('sales_invoices')
         .select('*')
         .eq('client_id', effectiveClientId)
         .eq('status', 'validated')
-        .gte('document_date', startDate.toISOString().split('T')[0])
-        .lte('document_date', endDate.toISOString().split('T')[0])
+        .gte('document_date', quarterRange.start)
+        .lte('document_date', quarterRange.end)
         .order('document_date', { ascending: true });
 
       if (error) throw error;
@@ -348,14 +406,8 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
     // producao_agricola (20%), rendas (95%), capitais (95%),
     // prop_intelectual (50%), subsidios (70%), outros (70%)
     salesInvoices.forEach(inv => {
-      const amount = Number(inv.total_amount);
-      const docType = (inv.document_type || '').toUpperCase();
-      // Use explicit revenue_category if set, otherwise infer from document_type
-      let category = inv.revenue_category;
-      if (!category) {
-        category = (docType === 'FR' || docType === 'FS/FR') ? 'prestacao_servicos' : 'vendas';
-      }
-      category = normalizeSSCategory(category);
+      const amount = getSalesInvoiceRevenueAmount(inv);
+      const category = getSalesInvoiceRevenueCategory(inv);
       byCategory[category] = (byCategory[category] || 0) + amount;
     });
 
@@ -365,13 +417,8 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
     const manualRelevantIncome = calculateRelevantIncome(revenueEntries);
     let salesRelevantIncome = 0;
     salesInvoices.forEach(inv => {
-      const amount = Number(inv.total_amount);
-      const docType = (inv.document_type || '').toUpperCase();
-      let category = inv.revenue_category;
-      if (!category) {
-        category = (docType === 'FR' || docType === 'FS/FR') ? 'prestacao_servicos' : 'vendas';
-      }
-      category = normalizeSSCategory(category);
+      const amount = getSalesInvoiceRevenueAmount(inv);
+      const category = getSalesInvoiceRevenueCategory(inv);
       salesRelevantIncome += amount * getSSCoefficient(category);
     });
     const relevantIncome = manualRelevantIncome + salesRelevantIncome;
@@ -380,7 +427,7 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
       byCategory,
       total,
       relevantIncome,
-      salesInvoicesTotal: salesInvoices.reduce((sum, inv) => sum + Number(inv.total_amount), 0),
+      salesInvoicesTotal: salesInvoices.reduce((sum, inv) => sum + getSalesInvoiceRevenueAmount(inv), 0),
       salesInvoicesCount: salesInvoices.length,
     };
   }, [revenueEntries, salesInvoices]);
@@ -556,7 +603,7 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
       atcud?: string;
       sourceSystem?: string;
     }>) => {
-      const clientNif = activeProfile?.nif || profile?.nif;
+      const clientNif = profileFieldsWithNif(activeProfile).nif;
       if (!effectiveClientId || !clientNif) throw new Error('No client selected');
 
       // First, fetch existing sales invoices to check for duplicates
@@ -750,11 +797,15 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
     isBulkImporting: bulkImportMutation.isPending,
     createSalesInvoices: createSalesInvoicesMutation.mutateAsync,
     isCreatingSalesInvoices: createSalesInvoicesMutation.isPending,
-    isDeadlineMonth: isDeadlineMonth(),
+    isDeadlineMonth: isQuarterInDeadlineMonth(quarter),
     getQuarterLabel,
     // Export constants for use in components
     IAS_2025,
     SS_LIMITS,
     REVENUE_COEFFICIENTS,
   };
+}
+
+function profileFieldsWithNif(profile: unknown): SocialSecurityProfileFields {
+  return (profile || {}) as SocialSecurityProfileFields;
 }

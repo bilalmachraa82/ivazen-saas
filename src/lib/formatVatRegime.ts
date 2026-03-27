@@ -33,10 +33,46 @@ export function formatVatRegime(
   }
 }
 
+export function getCanonicalVatRegime(
+  vatRegime: string | null | undefined,
+  ivaCadence?: string | null,
+): string {
+  switch (vatRegime) {
+    case 'normal_monthly':
+    case 'normal_quarterly':
+    case 'exempt_53':
+    case 'exempt_9':
+    case 'simplified':
+      return vatRegime;
+    case 'normal':
+      return ivaCadence === 'monthly' ? 'normal_monthly' : 'normal_quarterly';
+    case 'exempt':
+      return 'exempt_53';
+    default:
+      return 'normal_quarterly';
+  }
+}
+
+export function isVatExemptRegime(vatRegime: string | null | undefined): boolean {
+  return vatRegime === 'exempt'
+    || vatRegime === 'exempt_53'
+    || vatRegime === 'exempt_9';
+}
+
+export function getVatCadence(
+  vatRegime: string | null | undefined,
+  fallback: 'monthly' | 'quarterly' | null | undefined = 'quarterly',
+): 'monthly' | 'quarterly' {
+  if (vatRegime === 'normal_monthly') return 'monthly';
+  if (vatRegime === 'normal_quarterly') return 'quarterly';
+  return fallback === 'monthly' ? 'monthly' : 'quarterly';
+}
+
 /** All valid vat_regime options for use in form selectors */
 export const VAT_REGIME_OPTIONS = [
   { value: 'normal_monthly', label: 'Normal mensal por opção' },
   { value: 'normal_quarterly', label: 'Normal trimestral' },
   { value: 'exempt_53', label: 'Isento Art. 53º' },
   { value: 'exempt_9', label: 'Isento Art. 9º' },
+  { value: 'simplified', label: 'Regime simplificado' },
 ] as const;

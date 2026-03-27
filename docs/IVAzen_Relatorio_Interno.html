@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IVAzen — Relatório Interno Completo (Março 2026)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@600;700;800;900&display=swap');
+  :root {
+    --rose: #e11d74; --rose-light: #fce7f3; --rose-dark: #9d174d;
+    --emerald: #059669; --emerald-light: #d1fae5;
+    --amber: #d97706; --amber-light: #fef3c7;
+    --blue: #2563eb; --blue-light: #dbeafe;
+    --purple: #7c3aed; --purple-light: #ede9fe;
+    --cyan: #0891b2; --cyan-light: #cffafe;
+    --red: #dc2626; --red-light: #fee2e2;
+    --slate-50: #f8fafc; --slate-100: #f1f5f9; --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1; --slate-400: #94a3b8; --slate-600: #475569;
+    --slate-700: #334155; --slate-800: #1e293b; --slate-900: #0f172a;
+    --radius: 14px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: white; color: var(--slate-800); line-height: 1.7; -webkit-font-smoothing: antialiased; font-size: 14px; }
+  @media print { body { font-size: 10pt; } .page-break { page-break-before: always; } .hero { padding: 30px 20px; } }
+
+  .hero { background: var(--slate-900); color: white; padding: 60px 40px 50px; text-align: center; }
+  .hero h1 { font-family: 'Poppins', sans-serif; font-size: 2.2rem; font-weight: 800; }
+  .hero .sub { font-size: 1rem; font-weight: 300; margin-top: 8px; opacity: 0.8; }
+  .hero .badge { display: inline-block; background: var(--red); color: white; padding: 4px 14px; border-radius: 16px; font-size: 0.75rem; font-weight: 700; margin-top: 14px; }
+
+  .container { max-width: 920px; margin: 0 auto; padding: 0 28px; }
+  section { padding: 36px 0; border-bottom: 1px solid var(--slate-100); }
+  h2 { font-family: 'Poppins', sans-serif; font-size: 1.4rem; font-weight: 700; color: var(--slate-900); margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
+  h3 { font-size: 1rem; font-weight: 700; margin: 18px 0 8px; color: var(--slate-800); }
+  .desc { color: var(--slate-600); font-size: 0.9rem; margin-bottom: 18px; }
+
+  .tbl { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 0.82rem; }
+  .tbl thead { background: var(--slate-900); color: white; }
+  .tbl th { padding: 10px 12px; text-align: left; font-weight: 600; }
+  .tbl td { padding: 9px 12px; border-bottom: 1px solid var(--slate-100); vertical-align: top; }
+  .tbl tr:nth-child(even) td { background: var(--slate-50); }
+
+  .box { border-radius: var(--radius); padding: 18px; margin: 14px 0; }
+  .box.red { background: var(--red-light); border-left: 4px solid var(--red); }
+  .box.amber { background: var(--amber-light); border-left: 4px solid var(--amber); }
+  .box.green { background: var(--emerald-light); border-left: 4px solid var(--emerald); }
+  .box.blue { background: var(--blue-light); border-left: 4px solid var(--blue); }
+  .box.purple { background: var(--purple-light); border-left: 4px solid var(--purple); }
+  .box.rose { background: var(--rose-light); border-left: 4px solid var(--rose); }
+  .box h4 { font-weight: 700; margin-bottom: 4px; font-size: 0.9rem; }
+  .box p, .box li { font-size: 0.85rem; color: var(--slate-700); }
+  .box ul { padding-left: 16px; margin-top: 4px; }
+
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; margin: 14px 0; }
+  .card { background: white; border: 1px solid var(--slate-200); border-radius: var(--radius); padding: 18px; }
+  .card h4 { font-size: 0.9rem; font-weight: 700; margin-bottom: 4px; }
+  .card p { font-size: 0.82rem; color: var(--slate-600); }
+
+  .score { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin: 18px 0; }
+  .sc { border-radius: var(--radius); padding: 14px; text-align: center; }
+  .sc .v { font-family: 'Poppins', sans-serif; font-size: 1rem; font-weight: 800; }
+  .sc .l { font-size: 0.7rem; font-weight: 500; margin-top: 2px; }
+  .sc.pass { background: var(--emerald-light); color: var(--emerald); }
+  .sc.warn { background: var(--amber-light); color: var(--amber); }
+  .sc.fail { background: var(--red-light); color: var(--red); }
+
+  .roadmap-item { padding: 12px 16px; border-left: 3px solid var(--slate-300); margin: 8px 0; background: var(--slate-50); border-radius: 0 var(--radius) var(--radius) 0; }
+  .roadmap-item h4 { font-size: 0.88rem; font-weight: 700; }
+  .roadmap-item p { font-size: 0.82rem; color: var(--slate-600); }
+  .roadmap-item.p0 { border-left-color: var(--red); }
+  .roadmap-item.p1 { border-left-color: var(--amber); }
+  .roadmap-item.p2 { border-left-color: var(--blue); }
+  .roadmap-item.p3 { border-left-color: var(--slate-400); }
+
+  .check { color: var(--emerald); font-weight: 700; }
+  .cross { color: var(--red); font-weight: 700; }
+  .warn-t { color: var(--amber); font-weight: 700; }
+
+  .footer { background: var(--slate-900); color: var(--slate-400); text-align: center; padding: 30px; font-size: 0.8rem; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>IVAzen — Relatório Interno</h1>
+  <div class="sub">Estado do Produto, Auditoria Crítica & Roadmap para SaaS</div>
+  <div class="badge">CONFIDENCIAL — Março 2026</div>
+</div>
+
+<div class="container">
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- EXECUTIVE SUMMARY -->
+<!-- ═══════════════════════════════════════════════ -->
+<section>
+  <h2>1. Sumário Executivo</h2>
+
+  <div class="box red">
+    <h4>Veredicto: NÃO PRONTO para venda comercial autónoma</h4>
+    <p>O IVAzen tem uma base técnica genuinamente forte (96k documentos, sync AT oficial, IA funcional, 690 testes).
+       No entanto, faltam <strong>dois bloqueadores críticos</strong> para cobrar clientes: sistema de pagamentos e
+       formulário de contacto funcional. Sem estes, o software pode ser entregue como <strong>ferramenta interna</strong>
+       para a Accounting Advantage, mas NÃO pode ser vendido como SaaS público.</p>
+  </div>
+
+  <h3>Scorecard de Prontidão</h3>
+  <div class="score">
+    <div class="sc pass"><div class="v">PASS</div><div class="l">Onboarding</div></div>
+    <div class="sc pass"><div class="v">PASS</div><div class="l">Motor Fiscal</div></div>
+    <div class="sc pass"><div class="v">PASS</div><div class="l">Sync AT</div></div>
+    <div class="sc pass"><div class="v">PASS</div><div class="l">IA / Classificação</div></div>
+    <div class="sc pass"><div class="v">PASS</div><div class="l">Erro / 404</div></div>
+    <div class="sc pass"><div class="v">PASS</div><div class="l">Mobile / PWA</div></div>
+    <div class="sc pass"><div class="v">PASS</div><div class="l">Português i18n</div></div>
+    <div class="sc pass"><div class="v">PASS</div><div class="l">Config / Env</div></div>
+    <div class="sc fail"><div class="v">FALHA</div><div class="l">Pagamentos</div></div>
+    <div class="sc fail"><div class="v">FALHA</div><div class="l">Email / Contacto</div></div>
+    <div class="sc warn"><div class="v">PARCIAL</div><div class="l">Multi-tenancy</div></div>
+    <div class="sc warn"><div class="v">PARCIAL</div><div class="l">RGPD</div></div>
+    <div class="sc warn"><div class="v">PARCIAL</div><div class="l">Landing Page</div></div>
+    <div class="sc warn"><div class="v">PARCIAL</div><div class="l">Alertas</div></div>
+    <div class="sc warn"><div class="v">PARCIAL</div><div class="l">Admin Tools</div></div>
+    <div class="sc warn"><div class="v">PARCIAL</div><div class="l">Rate Limits IA</div></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- BLOCKERS -->
+<!-- ═══════════════════════════════════════════════ -->
+<section>
+  <h2>2. Bloqueadores Críticos (Must Fix)</h2>
+
+  <div class="box red">
+    <h4>BLOQUEADOR 1 — Zero sistema de pagamentos</h4>
+    <ul>
+      <li>A landing page anuncia 3 planos (Grátis €0, Pro €29/mês, Enterprise sob consulta)</li>
+      <li>Ambos os botões "Começar" levam diretamente ao <code>/auth?tab=signup</code></li>
+      <li>Não existe Stripe, PayPal, ou qualquer integração de pagamento</li>
+      <li>Não existe tabela de subscriptions na base de dados</li>
+      <li>Não existe enforcement de limites (o plano "Grátis 50 faturas/mês" nunca é verificado)</li>
+      <li><strong>Resultado: todos os utilizadores têm acesso total gratuito ilimitado</strong></li>
+    </ul>
+  </div>
+
+  <div class="box red">
+    <h4>BLOQUEADOR 2 — Formulário de contacto é falso</h4>
+    <ul>
+      <li><code>Contact.tsx handleSubmit()</code> faz <code>await new Promise(resolve => setTimeout(resolve, 1000))</code></li>
+      <li>Mostra "Mensagem Enviada!" ao utilizador — mas nenhuma mensagem é transmitida a ninguém</li>
+      <li>Não existe SendGrid, Resend, SMTP, ou qualquer serviço de email integrado</li>
+      <li>Emails de welcome não existem — o utilizador regista-se e não recebe nada</li>
+      <li>Password reset usa os templates genéricos do Supabase (email <code>noreply@mail.app.supabase.io</code>)</li>
+      <li><strong>Um cliente com um problema de suporte não consegue contactar-nos</strong></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- HIGH PRIORITY -->
+<!-- ═══════════════════════════════════════════════ -->
+<section class="page-break">
+  <h2>3. Problemas de Alta Prioridade</h2>
+
+  <div class="box amber">
+    <h4>Landing Page — Testemunhos falsos</h4>
+    <p>"Dra. Mariana Lopes (OCC nº 98XXX)", "Ricardo Mendes", "Sofia Carvalho" — estas pessoas não existem.
+       O nº OCC está explicitamente mascarado. Isto é uma prática comercial desleal sob o Decreto-Lei 57/2008 português.
+       <strong>Remover ou substituir por testemunhos reais.</strong></p>
+  </div>
+
+  <div class="box amber">
+    <h4>Multi-tenancy — Funciona apenas para 1 firma</h4>
+    <p>O modelo usa <code>profiles.accountant_id</code> (flat FK). Não existe conceito de "firma" ou "organização".
+       Se duas firmas concorrentes usarem a plataforma, há risco de fuga de informação via admin views.
+       <strong>Para SaaS público, é necessário um nível <code>organization_id</code>.</strong></p>
+  </div>
+
+  <div class="box amber">
+    <h4>RGPD — Sem eliminação de conta e sem export completo</h4>
+    <ul>
+      <li>Não existe funcionalidade "Apagar a minha conta" — a Privacy Policy promete este direito</li>
+      <li>Não existe "Exportar todos os meus dados" (data portability)</li>
+      <li>Data de atualização dos Termos/Privacidade: "Dezembro 2024" (desatualizado)</li>
+      <li>Sem entidade legal identificada (nome da empresa, NIF, morada) — obrigatório por lei</li>
+    </ul>
+  </div>
+
+  <div class="box amber">
+    <h4>Rate Limits de IA — Sem quotas por utilizador</h4>
+    <p>Um utilizador pode fazer upload de 50.000 documentos e consumir todo o budget OpenRouter/Gemini.
+       Não existe tracking de custos de IA por utilizador, nem limites de uso por plano.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- WHAT WORKS -->
+<!-- ═══════════════════════════════════════════════ -->
+<section>
+  <h2>4. O Que Funciona Bem (Pontos Fortes)</h2>
+
+  <table class="tbl">
+    <thead><tr><th>Área</th><th>Estado</th><th>Detalhes</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Sync AT (e-Fatura)</strong></td><td class="check">Excelente</td><td>SOAP/mTLS oficial, 96.842 docs, 2×/dia, retry com backoff, dead letter queue, health dashboard</td></tr>
+      <tr><td><strong>Motor Fiscal</strong></td><td class="check">Completo & Auditado</td><td>IVA 3 regiões (com Madeira 4% corrigida), SS 9 coeficientes, Modelo 10 8 categorias, prazos automáticos — tudo verificado contra legislação</td></tr>
+      <tr><td><strong>IA (Gemini)</strong></td><td class="check">Funcional</td><td>6 edge functions de IA, two-pass extraction, classificação DP, categorização SS, Modelo 10, métricas de precisão</td></tr>
+      <tr><td><strong>Onboarding</strong></td><td class="check">Self-service</td><td>Wizard fiscal, tour interativo, gamificação com badges, candidatura contabilista, importação credenciais em lote</td></tr>
+      <tr><td><strong>Exportação</strong></td><td class="check">Abrangente</td><td>Excel DP (campos 1-96), SAF-T PT v1.04, Modelo 10 PDF/Excel, relatórios trimestre/ano</td></tr>
+      <tr><td><strong>Segurança</strong></td><td class="check">Sólida</td><td>RLS, AES-256-GCM, mTLS, CORS, CSP, rate limit auth, session timeout, IDOR protection</td></tr>
+      <tr><td><strong>Testes</strong></td><td class="check">690 passam</td><td>24 ficheiros de teste, Vitest, cobertura de lógica fiscal, parsers, encriptação</td></tr>
+      <tr><td><strong>PWA / Offline</strong></td><td class="check">Funcional</td><td>Service worker, IndexedDB queue, install prompts, mobile responsive</td></tr>
+      <tr><td><strong>Error Handling</strong></td><td class="check">Produção</td><td>ErrorBoundary com Sentry, 404 page, error states em português</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- DATA INVENTORY -->
+<!-- ═══════════════════════════════════════════════ -->
+<section>
+  <h2>5. Inventário de Dados (Produção)</h2>
+
+  <table class="tbl">
+    <thead><tr><th>Tabela</th><th>Registos</th><th>Fonte</th></tr></thead>
+    <tbody>
+      <tr><td>invoices (compras)</td><td>61.456</td><td>AT SOAP + upload manual + QR</td></tr>
+      <tr><td>sales_invoices (vendas)</td><td>35.386</td><td>AT SOAP</td></tr>
+      <tr><td>at_credentials</td><td>136</td><td>Import bulk + manual</td></tr>
+      <tr><td>profiles (utilizadores)</td><td>406</td><td>Migração + registo</td></tr>
+      <tr><td>at_sync_jobs</td><td>~2.000+</td><td>Scheduler cron</td></tr>
+      <tr><td>tax_withholdings</td><td>Variável</td><td>Upload Modelo 10</td></tr>
+      <tr><td>migrations</td><td>94</td><td>Schema versioning</td></tr>
+      <tr><td>edge functions</td><td>17</td><td>Deno Deploy</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Tipos de Documento por Volume</h3>
+  <table class="tbl">
+    <thead><tr><th>Tipo</th><th>Compras</th><th>Vendas</th><th>Total</th></tr></thead>
+    <tbody>
+      <tr><td>FS (Fatura Simplificada)</td><td>13.315</td><td>34.460</td><td>47.775</td></tr>
+      <tr><td>FT (Fatura)</td><td>25.711</td><td>357</td><td>26.068</td></tr>
+      <tr><td>FR (Fatura-Recibo)</td><td>20.580</td><td>557</td><td>21.137</td></tr>
+      <tr><td>NC (Nota de Crédito)</td><td>1.650</td><td>12</td><td>1.662</td></tr>
+      <tr><td>ND (Nota de Débito)</td><td>196</td><td>—</td><td>196</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- ARCHITECTURE -->
+<!-- ═══════════════════════════════════════════════ -->
+<section class="page-break">
+  <h2>6. Arquitetura Técnica</h2>
+
+  <div class="card-grid">
+    <div class="card"><h4>Frontend</h4><p>React 18 + TypeScript + Vite (SWC). Tailwind CSS 3 + shadcn/ui. React Query. Code-split com React.lazy. PWA. Deploy: Vercel (auto-deploy de main).</p></div>
+    <div class="card"><h4>Backend</h4><p>Supabase (PostgreSQL 15 + Edge Functions Deno + Auth + Storage + RLS). pg_cron scheduler. 94 migrations versionadas. Frankfurt.</p></div>
+    <div class="card"><h4>IA</h4><p>Google Gemini via OpenRouter. 6 edge functions: extract-invoice-data, classify-invoice, classify-sales-category, extract-withholding, parse-excel-with-ai, parse-credentials-pdf.</p></div>
+    <div class="card"><h4>AT Connector</h4><p>Node.js em VPS dedicado. SOAP/mTLS. WS-Security (AES-128-ECB + RSA). Certificados digitais AT. Endpoint: /api/efatura.</p></div>
+  </div>
+
+  <h3>Fluxo de Dados Principal</h3>
+  <div class="box blue">
+    <p><strong>Upload:</strong> User → Camera/File → parse-qr (QR) OU extract-invoice-data (IA) → classify-invoice (DP) → invoices table → Validation UI</p>
+    <p style="margin-top: 6px;"><strong>AT Sync:</strong> pg_cron → run_scheduled_at_sync() → sync-queue-manager → at_sync_jobs → process-at-sync-queue → AT Connector VPS → SOAP AT → invoices/sales_invoices tables</p>
+    <p style="margin-top: 6px;"><strong>Export:</strong> invoices table → dpExcelGenerator.ts → Excel DP / saftExporter.ts → SAF-T XML</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- COMPETITORS -->
+<!-- ═══════════════════════════════════════════════ -->
+<section>
+  <h2>7. Top 10 Software de Faturação PT — APIs Disponíveis</h2>
+
+  <table class="tbl">
+    <thead><tr><th>#</th><th>Software</th><th>API</th><th>Auth</th><th>Integração Possível</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><strong>Moloni</strong></td><td>REST completa</td><td>OAuth 2.0</td><td class="check">Alta — faturas, produtos, clientes, webhooks</td></tr>
+      <tr><td>2</td><td><strong>InvoiceXpress</strong></td><td>REST</td><td>API Key</td><td class="check">Alta — faturas, clientes, impostos</td></tr>
+      <tr><td>3</td><td><strong>Vendus</strong></td><td>REST</td><td>API Key</td><td class="check">Média — POS, faturas</td></tr>
+      <tr><td>4</td><td><strong>PHC GO</strong></td><td>REST</td><td>OAuth</td><td class="check">Média — faturação, contabilidade</td></tr>
+      <tr><td>5</td><td><strong>Jasmin (Primavera)</strong></td><td>REST + Swagger</td><td>OAuth 2.0</td><td class="check">Alta — vendas, compras, financeiro</td></tr>
+      <tr><td>6</td><td><strong>Sage 50 Cloud</strong></td><td>REST</td><td>OAuth</td><td class="check">Média — via Sage Business Cloud</td></tr>
+      <tr><td>7</td><td><strong>TOCOnline</strong></td><td>Limitada</td><td>—</td><td class="warn-t">Baixa — SAF-T export apenas</td></tr>
+      <tr><td>8</td><td><strong>Colibri</strong></td><td>REST</td><td>API Key</td><td class="check">Média — POS, faturação</td></tr>
+      <tr><td>9</td><td><strong>Bill.pt</strong></td><td>REST básica</td><td>API Key</td><td class="warn-t">Baixa — faturas apenas</td></tr>
+      <tr><td>10</td><td><strong>Primavera V10</strong></td><td>SOAP + REST</td><td>Custom</td><td class="warn-t">Baixa — complexo, enterprise</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box purple">
+    <h4>Nenhum tem MCP Server</h4>
+    <p>Em Março 2026, zero dos 10 software oferece MCP (Model Context Protocol). Todos usam APIs REST tradicionais.
+       O IVAzen já importa SAF-T de qualquer um (compatibilidade universal). Conectores API diretos para Moloni e InvoiceXpress seriam os mais impactantes (cobertura ~40% do mercado).</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- DELIVERY OPTIONS -->
+<!-- ═══════════════════════════════════════════════ -->
+<section class="page-break">
+  <h2>8. Opções de Entrega — Hoje</h2>
+
+  <div class="box green">
+    <h4>OPÇÃO A — Ferramenta interna para Accounting Advantage (PRONTO HOJE)</h4>
+    <ul>
+      <li>Entrega como ferramenta interna para a Adélia e a sua equipa</li>
+      <li>Não precisa de pagamentos (custo interno absorvido)</li>
+      <li>Não precisa de landing page pública nem testemunhos</li>
+      <li>Contacto direto com a equipa (não precisa de formulário)</li>
+      <li>Multi-tenancy não é problema (uma só firma)</li>
+      <li><strong>Pode ser entregue amanhã</strong></li>
+    </ul>
+  </div>
+
+  <div class="box amber">
+    <h4>OPÇÃO B — SaaS público com planos pagos (PRECISA DE 2-4 SEMANAS)</h4>
+    <p>Para vender como SaaS a outros contabilistas e TIs, é necessário:</p>
+    <ul>
+      <li>Integrar Stripe (subscriptions + webhooks + portal de billing) — ~1 semana</li>
+      <li>Implementar enforcement de limites por plano (50 faturas free, ilimitado pro) — ~2 dias</li>
+      <li>Configurar serviço de email (Resend/SendGrid) para contacto, welcome, alertas — ~2 dias</li>
+      <li>Substituir testemunhos falsos por reais (da Accounting Advantage) — ~1 dia</li>
+      <li>Adicionar eliminação de conta e export RGPD — ~2 dias</li>
+      <li>Atualizar Termos/Privacidade com entidade legal e data atual — ~1 dia</li>
+      <li>Adicionar quotas de IA por plano — ~1 dia</li>
+      <li><strong>Estimativa total: 2-3 semanas de desenvolvimento</strong></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- ROADMAP SaaS -->
+<!-- ═══════════════════════════════════════════════ -->
+<section>
+  <h2>9. Roadmap para SaaS Multi-Empresa</h2>
+  <p class="desc">Se amanhã quiseres ter mais empresas e escalar como SaaS, estes são os passos por ordem de prioridade.</p>
+
+  <h3>P0 — Sem isto não se pode cobrar (Semana 1-2)</h3>
+  <div class="roadmap-item p0">
+    <h4>Stripe Billing</h4>
+    <p>Integrar Stripe Checkout + Customer Portal + Webhooks. Tabela <code>subscriptions</code> na BD. Middleware que verifica plano ativo antes de permitir operações. Planos: Free (50 faturas/mês, 1 cliente), Pro (ilimitado, multi-cliente), Enterprise (API access, SLA).</p>
+  </div>
+  <div class="roadmap-item p0">
+    <h4>Email Transacional</h4>
+    <p>Configurar Resend ou SendGrid. Substituir Supabase email templates por branded templates (IVAzen logo, cores). Emails: welcome, password reset, deadline reminders, contacto confirmação, recibo de pagamento.</p>
+  </div>
+  <div class="roadmap-item p0">
+    <h4>Formulário de Contacto Real</h4>
+    <p>Wire <code>Contact.tsx</code> a uma edge function que envia email via Resend. Alternativa: integrar Crisp/Intercom para chat ao vivo.</p>
+  </div>
+
+  <h3>P1 — Necessário para confiança do cliente (Semana 2-3)</h3>
+  <div class="roadmap-item p1">
+    <h4>RGPD Compliance</h4>
+    <p>Adicionar "Apagar minha conta" em Settings (soft delete + 30 dias + hard delete). Adicionar "Exportar todos os meus dados" (JSON/ZIP). Atualizar Termos/Privacidade com nome legal, NIF, data março 2026.</p>
+  </div>
+  <div class="roadmap-item p1">
+    <h4>Landing Page Honesta</h4>
+    <p>Substituir testemunhos falsos por citações reais da Adélia / Accounting Advantage (com permissão). Adicionar vídeo demo real (screen recording 2 min). Verificar claims de precisão ("98% QR" → citar fonte ou remover).</p>
+  </div>
+  <div class="roadmap-item p1">
+    <h4>Quotas de IA por Plano</h4>
+    <p>Tabela <code>ai_usage</code> (user_id, date, calls, tokens). Free: 50 classificações/mês. Pro: 5.000. Enterprise: ilimitado. Dashboard de uso em Settings.</p>
+  </div>
+
+  <h3>P2 — Escalar para múltiplas firmas (Semana 3-4)</h3>
+  <div class="roadmap-item p2">
+    <h4>Multi-tenancy: Organizações</h4>
+    <p>Nova tabela <code>organizations</code> (id, name, nif, billing_email). FK <code>organization_id</code> em profiles. RLS por organização. Admin por firma (não global). Billing por organização.</p>
+  </div>
+  <div class="roadmap-item p2">
+    <h4>Conectores de Faturação (Moloni + InvoiceXpress)</h4>
+    <p>OAuth 2.0 flow para Moloni. API Key config para InvoiceXpress. Sync automático de faturas emitidas. Mapeamento campos → invoices/sales_invoices table. Cobertura: ~40% do mercado PT.</p>
+  </div>
+
+  <h3>P3 — Diferenciação competitiva (Mês 2+)</h3>
+  <div class="roadmap-item p3">
+    <h4>Conectores adicionais</h4>
+    <p>Jasmin, PHC GO, Sage 50, Vendus, Colibri. Cada conector = ~3-5 dias. Total: 3-4 semanas para os 10.</p>
+  </div>
+  <div class="roadmap-item p3">
+    <h4>Admin Dashboard avançado</h4>
+    <p>Revenue dashboard (MRR, churn, LTV). Custos IA por utilizador. Health dashboard operacional. User impersonation para suporte. Announcements system.</p>
+  </div>
+  <div class="roadmap-item p3">
+    <h4>Uptime Monitoring</h4>
+    <p>Pingdom/UptimeRobot para frontend, edge functions, VPS connector. Alertas Slack/email quando algo cai.</p>
+  </div>
+  <div class="roadmap-item p3">
+    <h4>Marketplace de Integrações</h4>
+    <p>Página pública "Integrações" mostrando todos os software compatíveis. Badge "Compatible with IVAzen" para parceiros. API pública para third-party integrations.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- FULL FEATURE MAP -->
+<!-- ═══════════════════════════════════════════════ -->
+<section class="page-break">
+  <h2>10. Mapa Completo de Funcionalidades</h2>
+
+  <h3>31 Páginas / Rotas</h3>
+  <table class="tbl">
+    <thead><tr><th>Rota</th><th>Acesso</th><th>Funcionalidade</th></tr></thead>
+    <tbody>
+      <tr><td><code>/</code></td><td>Público</td><td>Landing page com pricing, FAQ, features</td></tr>
+      <tr><td><code>/auth</code></td><td>Público</td><td>Login, signup, Google OAuth, reset password</td></tr>
+      <tr><td><code>/dashboard</code></td><td>Autenticado</td><td>Stats, faturas recentes, widget IVA, prazos fiscais</td></tr>
+      <tr><td><code>/upload</code></td><td>Autenticado</td><td>Upload compras/vendas, QR scanner, bulk, SAF-T import</td></tr>
+      <tr><td><code>/validation</code></td><td>Autenticado</td><td>Validação faturas compras, classificação IA, bulk ops</td></tr>
+      <tr><td><code>/sales</code></td><td>Autenticado</td><td>Validação faturas vendas</td></tr>
+      <tr><td><code>/documents</code></td><td>Autenticado</td><td>Vista unificada todos documentos</td></tr>
+      <tr><td><code>/export</code></td><td>Autenticado</td><td>Excel DP, SAF-T XML, edição inline</td></tr>
+      <tr><td><code>/reports</code></td><td>Autenticado</td><td>Relatórios IVA, SS, despesas (PDF/Excel)</td></tr>
+      <tr><td><code>/modelo-10</code></td><td>Autenticado</td><td>9 tabs: manual, bulk AI, review, summary, export, dashboard, history, consolidated, multi-client</td></tr>
+      <tr><td><code>/seguranca-social</code></td><td>Autenticado</td><td>Receitas, cálculo SS, declarações, guia submissão</td></tr>
+      <tr><td><code>/iva-calculator</code></td><td>Autenticado</td><td>3 calculadoras: exemption, value, payment</td></tr>
+      <tr><td><code>/ai-metrics</code></td><td>Autenticado</td><td>Precisão IA por fornecedor</td></tr>
+      <tr><td><code>/reconciliation</code></td><td>Autenticado</td><td>Reconciliação 4 passos (upload→extract→reconcile→report)</td></tr>
+      <tr><td><code>/settings</code></td><td>Autenticado</td><td>Perfil, regime, SS, clientes, notificações, tema</td></tr>
+      <tr><td><code>/glossario</code></td><td>Autenticado</td><td>Glossário fiscal português</td></tr>
+      <tr><td><code>/accountant</code></td><td>Contabilista</td><td>Dashboard agregado, métricas, sync health, ações rápidas</td></tr>
+      <tr><td><code>/efatura</code></td><td>Contabilista</td><td>Sync AT por CSV ou API</td></tr>
+      <tr><td><code>/bulk-sync</code></td><td>Contabilista</td><td>Sync em massa todos clientes</td></tr>
+      <tr><td><code>/at-control-center</code></td><td>Contabilista</td><td>Estado operacional sync por cliente</td></tr>
+      <tr><td><code>/admin/certificates</code></td><td>Contabilista</td><td>CSR generation, PFX upload</td></tr>
+      <tr><td><code>/admin/users</code></td><td>Admin</td><td>Gestão utilizadores e roles</td></tr>
+      <tr><td><code>/admin/accountants</code></td><td>Admin</td><td>Aprovação contabilistas</td></tr>
+      <tr><td><code>/admin/partners</code></td><td>Admin</td><td>Gestão parceiros landing page</td></tr>
+      <tr><td><code>/admin/super</code></td><td>Admin</td><td>Vista global todos contabilistas/clientes</td></tr>
+    </tbody>
+  </table>
+
+  <h3>17 Edge Functions</h3>
+  <table class="tbl">
+    <thead><tr><th>Function</th><th>Tipo</th><th>Descrição</th></tr></thead>
+    <tbody>
+      <tr><td>parse-qr</td><td>IA/Parse</td><td>QR code PT (Portaria 195/2020)</td></tr>
+      <tr><td>extract-invoice-data</td><td>IA</td><td>Extração Gemini de faturas</td></tr>
+      <tr><td>classify-invoice</td><td>IA</td><td>Classificação DP (Art. 21 CIVA)</td></tr>
+      <tr><td>classify-sales-category</td><td>IA</td><td>Categorização SS vendas</td></tr>
+      <tr><td>extract-withholding</td><td>IA</td><td>Extração Modelo 10</td></tr>
+      <tr><td>parse-excel-with-ai</td><td>IA</td><td>Parse inteligente de Excel</td></tr>
+      <tr><td>parse-credentials-pdf</td><td>IA</td><td>Extração NIF+password de PDFs</td></tr>
+      <tr><td>sync-efatura</td><td>Sync</td><td>Sync AT individual (SOAP/mTLS)</td></tr>
+      <tr><td>process-at-sync-queue</td><td>Sync</td><td>Batch processor (5 clients/run)</td></tr>
+      <tr><td>sync-queue-manager</td><td>Sync</td><td>Job queue management</td></tr>
+      <tr><td>check-fiscal-deadlines</td><td>Notif</td><td>Prazos fiscais + push</td></tr>
+      <tr><td>import-client-credentials</td><td>Admin</td><td>Bulk import credenciais</td></tr>
+      <tr><td>create-client-direct</td><td>Admin</td><td>Criar cliente por contabilista</td></tr>
+      <tr><td>upload-at-certificate</td><td>Admin</td><td>Upload PFX certificate</td></tr>
+      <tr><td>send-push-notification</td><td>Notif</td><td>Web Push delivery</td></tr>
+      <tr><td>process-queue</td><td>IA</td><td>Background Modelo 10 queue</td></tr>
+      <tr><td>reencrypt-credentials</td><td>Migração</td><td>Re-encriptação credenciais</td></tr>
+    </tbody>
+  </table>
+
+  <h3>43 Custom Hooks</h3>
+  <p class="desc">useAuth, useProfile, useSelectedClient, useAccountant, useAccountantClients, useInvoices, useSalesInvoices, useAllDocuments, useWithholdings, useDashboardStats, useVATCalculation, useSocialSecurity, useExport, useSalesExport, useInvoiceUpload, useSalesInvoiceUpload, useDuplicateCheck, useUploadQueue, useOfflineSync, useAIMetrics, useATCredentials, useATControlCenter, useBulkSync, useSyncHealth, useAdminUsers, useAdminPartners, useSuperAdmin, usePartners, usePushNotifications, useSessionTimeout, useRateLimiter, useQRScanner, usePWAInstall, useCategoryPreferences, useValidationHistory, usePagination, useOnboardingProgress, useDatabaseImport, useScrollAnimation, useClientManagement, useMyAccountants, useAccountantRequest, useMobile.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- COMPETITOR COMPARISON -->
+<!-- ═══════════════════════════════════════════════ -->
+<section class="page-break">
+  <h2>11. IVAzen vs Concorrência</h2>
+
+  <h3>vs Trabalho Manual (Contabilista 100 clientes)</h3>
+  <table class="tbl">
+    <thead><tr><th>Tarefa</th><th>Manual</th><th>IVAzen</th><th>Poupança</th></tr></thead>
+    <tbody>
+      <tr><td>Sync AT (100 clientes)</td><td>25-33h/mês</td><td>0h (automático)</td><td class="check">33h/mês</td></tr>
+      <tr><td>Classificação DP</td><td>~20h/mês</td><td>~3h (validação)</td><td class="check">17h/mês</td></tr>
+      <tr><td>Modelo 10 anual</td><td>~40h</td><td>~4h</td><td class="check">36h/ano</td></tr>
+      <tr><td>SS trimestral</td><td>~8h/trimestre</td><td>~1h</td><td class="check">28h/ano</td></tr>
+    </tbody>
+  </table>
+
+  <h3>vs Software Internacional</h3>
+  <table class="tbl">
+    <thead><tr><th>Feature</th><th>IVAzen</th><th>TaxDome</th><th>Karbon</th><th>Uku</th></tr></thead>
+    <tbody>
+      <tr><td>Sync AT oficial</td><td class="check">✓</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+      <tr><td>Legislação PT</td><td class="check">✓ Completa</td><td class="cross">✗ EUA</td><td class="cross">✗ AU/NZ</td><td class="warn-t">◐ Báltico</td></tr>
+      <tr><td>IA classificação</td><td class="check">✓ Gemini</td><td class="warn-t">◐ OCR</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+      <tr><td>Billing integrado</td><td class="cross">✗ FALTA</td><td class="check">✓ Stripe</td><td class="check">✓</td><td class="check">✓</td></tr>
+      <tr><td>Email transacional</td><td class="cross">✗ FALTA</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box rose">
+    <h4>Posicionamento</h4>
+    <p>O IVAzen é tecnicamente superior aos concorrentes internacionais no mercado português (sync AT, legislação, IA fiscal).
+       Mas os concorrentes têm infraestrutura comercial madura (billing, email, suporte, onboarding, multi-org) que o IVAzen ainda não tem.
+       <strong>O gap é comercial, não técnico.</strong></p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- STRATEGY -->
+<!-- ═══════════════════════════════════════════════ -->
+<section>
+  <h2>12. Estratégia de Integração com Software de Faturação</h2>
+
+  <div class="box blue">
+    <h4>Conceito: Complementar, Não Competir</h4>
+    <p>O IVAzen NÃO fatura. Os utilizadores continuam a usar o seu software de faturação (Moloni, InvoiceXpress, etc.).
+       O IVAzen adiciona a camada de inteligência fiscal: classificação IA, cálculo IVA/SS, Modelo 10, DP, reconciliação.</p>
+    <p style="margin-top: 8px;"><strong>Argumento de venda:</strong> "Compatível com o seu software de faturação. Nós adicionamos o que ele não tem."</p>
+  </div>
+
+  <h3>Fases</h3>
+  <table class="tbl">
+    <thead><tr><th>Fase</th><th>Software</th><th>Método</th><th>Cobertura</th><th>Esforço</th></tr></thead>
+    <tbody>
+      <tr><td class="check">1 (Feito)</td><td>Todos (SAF-T universal)</td><td>Import SAF-T XML</td><td>100%</td><td>0 dias</td></tr>
+      <tr><td>2</td><td>Moloni + InvoiceXpress</td><td>API REST / OAuth</td><td>+40%</td><td>~2 semanas</td></tr>
+      <tr><td>3</td><td>Jasmin + PHC GO + Sage</td><td>API REST / OAuth</td><td>+25%</td><td>~2 semanas</td></tr>
+      <tr><td>4</td><td>Vendus, Colibri, Bill.pt, TOC, Primavera</td><td>API / SAF-T</td><td>+35%</td><td>~3 semanas</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- CONCLUSION -->
+<!-- ═══════════════════════════════════════════════ -->
+<section>
+  <h2>13. Conclusão & Recomendação</h2>
+
+  <div class="box green">
+    <h4>Para entregar HOJE à Accounting Advantage (ferramenta interna)</h4>
+    <p>O software está pronto. O motor fiscal está auditado e correto. O sync AT funciona com 136 clientes.
+       A IA classifica faturas. As exportações estão completas. Os 690 testes passam.</p>
+    <p style="margin-top: 6px;"><strong>Recomendação: Entregar como v1.0 interna.</strong></p>
+  </div>
+
+  <div class="box amber">
+    <h4>Para vender como SaaS público</h4>
+    <p>Faltam 2-3 semanas de trabalho:</p>
+    <ul>
+      <li><strong>Semana 1:</strong> Stripe + email transacional + contacto funcional</li>
+      <li><strong>Semana 2:</strong> RGPD (account deletion + export) + landing page honesta + quotas IA</li>
+      <li><strong>Semana 3:</strong> Multi-org (se necessário) + conectores Moloni/InvoiceXpress</li>
+    </ul>
+    <p style="margin-top: 6px;"><strong>Recomendação: Entregar v1.0 interna agora. Preparar v2.0 SaaS em paralelo.</strong></p>
+  </div>
+</section>
+
+</div>
+
+<div class="footer">
+  <p><strong>IVAzen — Relatório Interno Confidencial</strong></p>
+  <p style="margin-top: 4px;">Março 2026 &bull; Gerado automaticamente</p>
+</div>
+
+</body>
+</html>

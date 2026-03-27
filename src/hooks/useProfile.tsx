@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { getCanonicalVatRegime, getVatCadence } from '@/lib/formatVatRegime';
 
 export interface Profile {
   id: string;
@@ -111,6 +112,8 @@ export function useProfile() {
   const updateProfileMutation = useMutation({
     mutationFn: async (formData: ProfileFormData) => {
       if (!user?.id) throw new Error('User not authenticated');
+      const vatRegime = getCanonicalVatRegime(formData.vatRegime, formData.ivaCadence);
+      const ivaCadence = getVatCadence(vatRegime, formData.ivaCadence);
 
       const { error } = await supabase
         .from('profiles')
@@ -121,8 +124,8 @@ export function useProfile() {
           niss: formData.niss.trim() || null,
           cae: formData.cae.trim() || null,
           activity_description: formData.activityDescription.trim() || null,
-          vat_regime: formData.vatRegime || 'normal',
-          iva_cadence: formData.ivaCadence || 'quarterly',
+          vat_regime: vatRegime,
+          iva_cadence: ivaCadence,
         })
         .eq('id', user.id);
 
@@ -143,7 +146,7 @@ export function useProfile() {
     mutationFn: async (data: Partial<SSProfileData>) => {
       if (!user?.id) throw new Error('User not authenticated');
 
-      const updateData: Record<string, any> = {};
+      const updateData: Record<string, string | number | boolean> = {};
       
       if (data.workerType !== undefined) updateData.worker_type = data.workerType;
       if (data.accountingRegime !== undefined) updateData.accounting_regime = data.accountingRegime;

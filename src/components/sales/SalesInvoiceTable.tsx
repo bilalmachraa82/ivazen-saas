@@ -206,7 +206,11 @@ export function SalesInvoiceTable({ invoices, loading, onSelectInvoice }: SalesI
               const category = categoryConfig[(invoice as any).revenue_category] || categoryConfig.prestacao_servicos;
               
               return (
-                <TableRow key={invoice.id} className="cursor-pointer hover:bg-muted/50">
+                <TableRow
+                  key={invoice.id}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => onSelectInvoice(invoice)}
+                >
                   <TableCell>
                     <div className="flex flex-col gap-1">
                       <span>
@@ -243,7 +247,10 @@ export function SalesInvoiceTable({ invoices, loading, onSelectInvoice }: SalesI
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => onSelectInvoice(invoice)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onSelectInvoice(invoice);
+                      }}
                       aria-label="Ver detalhes da factura"
                     >
                       <Eye className="h-4 w-4" />

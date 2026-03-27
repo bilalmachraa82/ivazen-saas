@@ -598,12 +598,13 @@ export function useInvoices(externalClientId?: string | null) {
   const getFiscalPeriods = () => allFiscalPeriods;
 
   // Reset page to 0 when filters change (not when page itself changes)
-  const setFiltersAndResetPage = (
-    value: InvoiceFilters | ((prev: InvoiceFilters) => InvoiceFilters),
-  ) => {
-    setPage(0);
-    setFilters(value);
-  };
+  const setFiltersAndResetPage = useCallback(
+    (value: InvoiceFilters | ((prev: InvoiceFilters) => InvoiceFilters)) => {
+      setPage(0);
+      setFilters(value);
+    },
+    [setPage, setFilters],
+  );
 
   // Single fetch effect — includes search to avoid double-fetch
   useEffect(() => {

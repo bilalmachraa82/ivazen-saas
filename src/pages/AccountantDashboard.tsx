@@ -830,7 +830,7 @@ export default function AccountantDashboard() {
                   <Button
                     variant="outline"
                     className="h-24 flex-col gap-2"
-                    onClick={() => navigate('/modelo10')}
+                    onClick={() => navigate('/modelo-10')}
                   >
                     <FileText className="h-6 w-6" />
                     <span>Modelo 10</span>

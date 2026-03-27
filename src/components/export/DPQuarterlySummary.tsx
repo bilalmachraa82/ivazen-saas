@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle, CheckCircle2, Copy, ExternalLink, ClipboardCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatVatRegime } from '@/lib/formatVatRegime';
 
 interface DPFieldSummary {
   field: number;
@@ -89,7 +90,7 @@ export function DPQuarterlySummary({
       {vatRegime && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <CheckCircle2 className="h-4 w-4 text-green-500" />
-          Regime IVA: <Badge variant="outline">{vatRegime === 'monthly' ? 'Mensal' : 'Trimestral'}</Badge>
+          Regime IVA: <Badge variant="outline">{formatVatRegime(vatRegime)}</Badge>
           {period && <span>| Período: <strong>{period}</strong></span>}
         </div>
       )}

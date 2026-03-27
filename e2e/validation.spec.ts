@@ -73,8 +73,12 @@ test.describe.serial('Validation — Purchase Invoices', () => {
     const body = await page.textContent('body');
     expect(body).not.toContain('Erro ao carregar');
     // Validate that table or empty state is still visible (no crash)
-    const tableOrEmpty = page.locator('table tbody tr, text=/sem facturas|nenhuma/i');
-    await expect(tableOrEmpty.first()).toBeVisible({ timeout: 10_000 });
+    const rows = page.locator('table tbody tr');
+    if (await rows.count()) {
+      await expect(rows.first()).toBeVisible({ timeout: 10_000 });
+    } else {
+      await expect(page.getByText(/sem facturas|nenhuma/i).first()).toBeVisible({ timeout: 10_000 });
+    }
   });
 
   test('clicking a table row opens invoice detail dialog', async () => {
@@ -97,7 +101,7 @@ test.describe.serial('Validation — Purchase Invoices', () => {
     await page.waitForTimeout(1_500);
 
     // Detail dialog MUST appear — hard assertion
-    const dialog = page.locator('[role="dialog"], [data-state="open"]').first();
+    const dialog = page.getByRole('dialog').last();
     await expect(dialog).toBeVisible({ timeout: 5_000 });
 
     const dialogText = await dialog.textContent();
@@ -110,7 +114,9 @@ test.describe.serial('Validation — Purchase Invoices', () => {
   });
 
   test('fiscal period filter is present', async () => {
-    await expect(page.locator('text=/Período|Fiscal/i').first()).toBeVisible({ timeout: 5_000 });
+    await expect(
+      page.getByRole('combobox').filter({ hasText: /Todos os períodos|Período/i }).first(),
+    ).toBeVisible({ timeout: 5_000 });
   });
 
   test('no error toasts or broken states', async () => {

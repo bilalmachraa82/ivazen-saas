@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IVAzen — O Que Mudou</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@600;700;800;900&display=swap');
+
+  :root {
+    --pink: #e11d73;
+    --pink-dark: #be185d;
+    --pink-glow: rgba(225,29,115,0.15);
+    --green: #059669;
+    --green-light: #d1fae5;
+    --orange: #d97706;
+    --orange-light: #fef3c7;
+    --red: #dc2626;
+    --red-light: #fee2e2;
+    --text: #0f172a;
+    --text-2: #334155;
+    --text-3: #64748b;
+    --bg: #ffffff;
+    --bg-2: #f8fafc;
+    --border: #e2e8f0;
+    --radius: 16px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Inter', sans-serif; color: var(--text); background: var(--bg); line-height: 1.7; overflow-x: hidden; }
+
+  /* ═══ NAV ═══ */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    transition: box-shadow 0.3s;
+  }
+  nav.scrolled { box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+  .nav-inner { max-width: 1100px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .nav-logo { font-family: 'Poppins'; font-weight: 900; font-size: 1.3em; color: var(--pink); text-decoration: none; }
+  .nav-links { display: flex; gap: 6px; }
+  .nav-links a {
+    font-size: 0.82em; font-weight: 500; color: var(--text-3); text-decoration: none;
+    padding: 6px 14px; border-radius: 8px; transition: all 0.2s;
+  }
+  .nav-links a:hover { background: var(--pink-glow); color: var(--pink); }
+  .nav-cta {
+    background: var(--pink); color: white; font-weight: 600; font-size: 0.82em;
+    padding: 8px 20px; border-radius: 10px; text-decoration: none; transition: all 0.2s;
+  }
+  .nav-cta:hover { background: var(--pink-dark); transform: translateY(-1px); }
+
+  /* ═══ HERO ═══ */
+  .hero {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(160deg, #fdf2f8 0%, #fff1f2 30%, #fce7f3 60%, #fdf2f8 100%);
+    position: relative; overflow: hidden; padding: 120px 24px 80px;
+  }
+  .hero::before {
+    content: ''; position: absolute; top: -40%; right: -20%; width: 800px; height: 800px;
+    background: radial-gradient(circle, var(--pink-glow) 0%, transparent 70%);
+    border-radius: 50%; animation: pulse 8s ease-in-out infinite;
+  }
+  .hero::after {
+    content: ''; position: absolute; bottom: -30%; left: -15%; width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(225,29,115,0.08) 0%, transparent 70%);
+    border-radius: 50%; animation: pulse 10s ease-in-out infinite reverse;
+  }
+  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+  .hero-content { text-align: center; position: relative; z-index: 1; max-width: 720px; }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: white; border: 1px solid var(--border); padding: 8px 20px;
+    border-radius: 30px; font-size: 0.85em; font-weight: 600; color: var(--green);
+    margin-bottom: 28px; box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    animation: fadeUp 0.6s ease-out;
+  }
+  .hero-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: blink 2s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .hero h1 {
+    font-family: 'Poppins'; font-size: clamp(2.2em, 5vw, 3.8em); font-weight: 900;
+    line-height: 1.1; margin-bottom: 20px; letter-spacing: -1.5px;
+    animation: fadeUp 0.8s ease-out;
+  }
+  .hero h1 span { color: var(--pink); }
+  .hero p { font-size: 1.15em; color: var(--text-2); max-width: 540px; margin: 0 auto 36px; animation: fadeUp 1s ease-out; }
+
+  .hero-metrics {
+    display: flex; justify-content: center; gap: 40px; margin-bottom: 40px;
+    animation: fadeUp 1.2s ease-out;
+  }
+  .hero-metric { text-align: center; }
+  .hero-metric .val { font-family: 'Poppins'; font-size: 2.4em; font-weight: 900; color: var(--pink); line-height: 1; }
+  .hero-metric .lab { font-size: 0.8em; color: var(--text-3); margin-top: 4px; }
+
+  .hero-cta {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--pink); color: white; font-weight: 700; font-size: 1.05em;
+    padding: 16px 36px; border-radius: 14px; text-decoration: none;
+    transition: all 0.3s; box-shadow: 0 8px 30px rgba(225,29,115,0.3);
+    animation: fadeUp 1.4s ease-out;
+  }
+  .hero-cta:hover { background: var(--pink-dark); transform: translateY(-2px); box-shadow: 0 12px 40px rgba(225,29,115,0.35); }
+
+  /* ═══ SECTIONS ═══ */
+  section { padding: 80px 24px; }
+  section:nth-child(even) { background: var(--bg-2); }
+  .container { max-width: 900px; margin: 0 auto; }
+
+  .section-label {
+    display: inline-block; font-size: 0.75em; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 2px; color: var(--pink); background: var(--pink-glow);
+    padding: 6px 16px; border-radius: 6px; margin-bottom: 12px;
+  }
+  .section-title {
+    font-family: 'Poppins'; font-size: clamp(1.6em, 3vw, 2.2em); font-weight: 800;
+    line-height: 1.2; margin-bottom: 16px; letter-spacing: -0.5px;
+  }
+  .section-desc { font-size: 1.05em; color: var(--text-2); max-width: 600px; margin-bottom: 40px; }
+
+  /* ═══ COMPARISON CARDS ═══ */
+  .compare-grid { display: grid; gap: 20px; }
+  .compare-card {
+    display: grid; grid-template-columns: 1fr 40px 1fr; gap: 0; align-items: stretch;
+    background: white; border-radius: var(--radius); overflow: hidden;
+    border: 1px solid var(--border); transition: all 0.3s;
+  }
+  .compare-card:hover { box-shadow: 0 8px 30px rgba(0,0,0,0.06); transform: translateY(-2px); }
+  .compare-before, .compare-after { padding: 24px; }
+  .compare-before { background: #fff5f5; }
+  .compare-after { background: #f0fdf4; }
+  .compare-arrow {
+    display: flex; align-items: center; justify-content: center;
+    background: white; font-size: 1.4em; color: var(--pink); font-weight: 700;
+    border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+  }
+  .compare-label {
+    font-size: 0.7em; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px;
+    margin-bottom: 8px; display: block;
+  }
+  .compare-before .compare-label { color: var(--red); }
+  .compare-after .compare-label { color: var(--green); }
+  .compare-text { font-size: 0.92em; color: var(--text-2); }
+  .compare-text strong { color: var(--text); }
+
+  /* ═══ FEATURE CARDS ═══ */
+  .feature-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; }
+  .feature-card {
+    background: white; border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 28px; transition: all 0.3s; position: relative; overflow: hidden;
+  }
+  .feature-card:hover { border-color: var(--pink); box-shadow: 0 8px 30px var(--pink-glow); transform: translateY(-3px); }
+  .feature-icon { font-size: 2em; margin-bottom: 14px; display: block; }
+  .feature-title { font-weight: 700; font-size: 1.05em; margin-bottom: 6px; }
+  .feature-desc { font-size: 0.88em; color: var(--text-3); }
+  .feature-tag {
+    position: absolute; top: 16px; right: 16px; font-size: 0.65em; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px; padding: 3px 10px; border-radius: 6px;
+  }
+  .feature-tag.new { background: var(--pink-glow); color: var(--pink); }
+
+  /* ═══ STEPS ═══ */
+  .steps { counter-reset: step; }
+  .step-item {
+    display: grid; grid-template-columns: 60px 1fr; gap: 24px;
+    margin-bottom: 40px; position: relative;
+  }
+  .step-item::before {
+    content: ''; position: absolute; left: 29px; top: 60px; bottom: -40px;
+    width: 2px; background: var(--border);
+  }
+  .step-item:last-child::before { display: none; }
+  .step-num {
+    counter-increment: step;
+    width: 60px; height: 60px; border-radius: 50%;
+    background: var(--pink); color: white; display: flex; align-items: center; justify-content: center;
+    font-family: 'Poppins'; font-weight: 800; font-size: 1.3em;
+    box-shadow: 0 4px 16px rgba(225,29,115,0.25); position: relative; z-index: 1;
+  }
+  .step-num::before { content: counter(step); }
+  .step-content h3 { font-family: 'Poppins'; font-size: 1.25em; font-weight: 700; margin-bottom: 8px; }
+  .step-content p { color: var(--text-2); margin-bottom: 12px; }
+
+  .step-card {
+    background: white; border: 2px solid var(--pink); border-radius: 14px;
+    padding: 20px 24px; margin: 12px 0;
+  }
+  .step-card ol { padding-left: 20px; }
+  .step-card li { margin-bottom: 6px; font-size: 0.95em; }
+
+  /* ═══ CALLOUT ═══ */
+  .callout {
+    border-radius: 12px; padding: 16px 20px; margin: 14px 0;
+    font-size: 0.92em; display: flex; gap: 12px; align-items: flex-start;
+  }
+  .callout-icon { font-size: 1.3em; flex-shrink: 0; margin-top: 2px; }
+  .callout-tip { background: var(--green-light); border: 1px solid #86efac; }
+  .callout-warn { background: var(--orange-light); border: 1px solid #fcd34d; }
+  .callout-danger { background: var(--red-light); border: 1px solid #fca5a5; }
+  .callout-info { background: #eff6ff; border: 1px solid #93c5fd; }
+
+  /* ═══ SCREENSHOT ═══ */
+  .screenshot-wrap { margin: 20px 0; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+  .screenshot-bar { background: #f1f5f9; padding: 10px 16px; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid var(--border); }
+  .screenshot-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .screenshot-dot:nth-child(1) { background: #ef4444; }
+  .screenshot-dot:nth-child(2) { background: #f59e0b; }
+  .screenshot-dot:nth-child(3) { background: #22c55e; }
+  .screenshot-url { margin-left: 12px; font-size: 0.75em; color: var(--text-3); background: white; padding: 4px 12px; border-radius: 6px; border: 1px solid var(--border); }
+  .screenshot-wrap img { width: 100%; display: block; }
+  .screenshot-caption { text-align: center; font-size: 0.82em; color: var(--text-3); padding: 10px; font-style: italic; background: var(--bg-2); }
+
+  /* ═══ TABLE ═══ */
+  .table-wrap { border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); margin: 20px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+  th { background: var(--pink); color: white; font-weight: 600; padding: 14px 18px; text-align: left; }
+  td { padding: 12px 18px; border-top: 1px solid var(--border); }
+  tr:hover td { background: #fdf2f8; }
+  .badge { display: inline-block; padding: 3px 12px; border-radius: 20px; font-weight: 700; font-size: 0.78em; }
+  .badge-ok { background: var(--green-light); color: var(--green); }
+  .badge-info { background: var(--orange-light); color: var(--orange); }
+
+  /* ═══ CHECKLIST ═══ */
+  .checklist {
+    background: linear-gradient(135deg, #fdf2f8, #fff1f2);
+    border: 2px solid var(--pink); border-radius: var(--radius);
+    padding: 32px; margin: 20px 0;
+  }
+  .checklist h3 { font-family: 'Poppins'; color: var(--pink); margin-bottom: 16px; }
+  .check-item {
+    display: flex; align-items: flex-start; gap: 12px; padding: 10px 0;
+    border-bottom: 1px solid rgba(225,29,115,0.1);
+  }
+  .check-item:last-child { border: none; }
+  .check-box {
+    width: 22px; height: 22px; border: 2px solid var(--pink); border-radius: 6px;
+    flex-shrink: 0; margin-top: 2px; cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; font-size: 0.8em; color: white;
+  }
+  .check-box.checked { background: var(--pink); }
+  .check-text { font-size: 0.95em; }
+
+  /* ═══ CTA SECTION ═══ */
+  .cta-section {
+    background: linear-gradient(160deg, var(--pink) 0%, var(--pink-dark) 100%);
+    color: white; text-align: center; padding: 80px 24px;
+  }
+  .cta-section h2 { font-family: 'Poppins'; font-size: 2em; font-weight: 800; margin-bottom: 16px; }
+  .cta-section p { font-size: 1.1em; opacity: 0.9; margin-bottom: 32px; }
+  .cta-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: white; color: var(--pink); font-weight: 700; font-size: 1.05em;
+    padding: 16px 36px; border-radius: 14px; text-decoration: none;
+    transition: all 0.3s;
+  }
+  .cta-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
+
+  /* ═══ FOOTER ═══ */
+  footer { padding: 40px 24px; text-align: center; font-size: 0.82em; color: var(--text-3); border-top: 1px solid var(--border); }
+
+  /* ═══ RESPONSIVE ═══ */
+  @media (max-width: 768px) {
+    .nav-links { display: none; }
+    .hero-metrics { gap: 20px; }
+    .hero-metric .val { font-size: 1.8em; }
+    .compare-card { grid-template-columns: 1fr; }
+    .compare-arrow { padding: 8px; border: none; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .feature-grid { grid-template-columns: 1fr; }
+    .step-item { grid-template-columns: 44px 1fr; gap: 16px; }
+    .step-num { width: 44px; height: 44px; font-size: 1em; }
+  }
+
+  /* ═══ ANIMATIONS ═══ */
+  .reveal { opacity: 0; transform: translateY(24px); transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1); }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- ═══ NAV ═══ -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">IVAzen</a>
+    <div class="nav-links">
+      <a href="#melhorias">Melhorias</a>
+      <a href="#como-usar">Como Usar</a>
+      <a href="#funcionalidades">Funcionalidades</a>
+      <a href="#entrega">Entrega</a>
+      <a href="#validar">Validar</a>
+    </div>
+    <a href="https://ivazen-saas.vercel.app" target="_blank" class="nav-cta">Abrir App &rarr;</a>
+  </div>
+</nav>
+
+<!-- ═══ HERO ═══ -->
+<section class="hero">
+  <div class="hero-content">
+    <div class="hero-badge"><span class="dot"></span> Produção Validada — Zero Erros</div>
+    <h1>Tudo o que pediu,<br><span>já está resolvido.</span></h1>
+    <p>Corrigimos todos os problemas da reunião de 20 de Março. Aqui está o que mudou e como usar as novas funcionalidades.</p>
+
+    <div class="hero-metrics">
+      <div class="hero-metric"><div class="val">15</div><div class="lab">Problemas corrigidos</div></div>
+      <div class="hero-metric"><div class="val">860</div><div class="lab">Testes automáticos</div></div>
+      <div class="hero-metric"><div class="val">0</div><div class="lab">Erros em produção</div></div>
+    </div>
+
+    <a href="#melhorias" class="hero-cta">Ver o que mudou &darr;</a>
+  </div>
+</section>
+
+<!-- ═══ ANTES vs AGORA ═══ -->
+<section id="melhorias">
+  <div class="container">
+    <span class="section-label reveal">Antes vs Agora</span>
+    <h2 class="section-title reveal">O que não funcionava<br>e o que fizemos</h2>
+    <p class="section-desc reveal">Cada problema que identificou na reunião, resolvido ponto por ponto.</p>
+
+    <div class="compare-grid">
+
+      <div class="compare-card reveal">
+        <div class="compare-before">
+          <span class="compare-label">Antes (manual)</span>
+          <p class="compare-text">Para excluir facturas não dedutíveis do IVA, tinha que abrir <strong>uma a uma</strong> e clicar excluir. Com 50+ facturas por cliente, demorava horas.</p>
+        </div>
+        <div class="compare-arrow">&rarr;</div>
+        <div class="compare-after">
+          <span class="compare-label">Agora com IVAzen</span>
+          <p class="compare-text">Clica em <strong>"Selecionar"</strong>, escolhe todas as facturas que quer, e aplica <strong>"Não contabilizar" em massa</strong>. 2 cliques em vez de 50.</p>
+        </div>
+      </div>
+
+      <div class="compare-card reveal">
+        <div class="compare-before">
+          <span class="compare-label">Antes (manual)</span>
+          <p class="compare-text">Ao importar facturas novas, o sistema <strong>misturava tudo</strong>. Tinha que procurar manualmente entre centenas de facturas antigas para encontrar as que o cliente acabou de enviar.</p>
+        </div>
+        <div class="compare-arrow">&rarr;</div>
+        <div class="compare-after">
+          <span class="compare-label">Agora com IVAzen</span>
+          <p class="compare-text">Novo filtro <strong>"Últimas 24h"</strong> ou <strong>"Últimos 7 dias"</strong>. Vê apenas as facturas acabadas de importar — as que têm prioridade para o IVA.</p>
+        </div>
+      </div>
+
+      <div class="compare-card reveal">
+        <div class="compare-before">
+          <span class="compare-label">Antes (manual)</span>
+          <p class="compare-text">O sistema mostrava alertas de <strong>IVA mensal e trimestral ao mesmo tempo</strong>. Não havia forma de configurar o regime do cliente.</p>
+        </div>
+        <div class="compare-arrow">&rarr;</div>
+        <div class="compare-after">
+          <span class="compare-label">Agora com IVAzen</span>
+          <p class="compare-text">Em Definições → Editar Cliente, escolhe <strong>"Mensal" ou "Trimestral"</strong>. Os alertas mostram apenas o regime correcto.</p>
+        </div>
+      </div>
+
+      <div class="compare-card reveal">
+        <div class="compare-before">
+          <span class="compare-label">Antes (manual)</span>
+          <p class="compare-text">Na carteira, os números de clientes eram <strong>estáticos</strong>. Para ver quais clientes precisavam de atenção, tinha que abrir cada um individualmente.</p>
+        </div>
+        <div class="compare-arrow">&rarr;</div>
+        <div class="compare-after">
+          <span class="compare-label">Agora com IVAzen</span>
+          <p class="compare-text">Badges <strong>clicáveis</strong>: clique em "Parcial" e vê a lista de clientes nesse estado. Clique num cliente → abre o Centro Fiscal directamente.</p>
+        </div>
+      </div>
+
+      <div class="compare-card reveal">
+        <div class="compare-before">
+          <span class="compare-label">Antes (manual)</span>
+          <p class="compare-text">Facturas mostravam <strong>apenas o NIF</strong> do fornecedor. Para saber o nome da empresa, tinha que procurar manualmente.</p>
+        </div>
+        <div class="compare-arrow">&rarr;</div>
+        <div class="compare-after">
+          <span class="compare-label">Agora com IVAzen</span>
+          <p class="compare-text">O sistema <strong>resolve automaticamente</strong> o NIF para o nome da empresa, incluindo na reconciliação AT.</p>
+        </div>
+      </div>
+
+      <div class="compare-card reveal">
+        <div class="compare-before">
+          <span class="compare-label">Antes (Excel)</span>
+          <p class="compare-text">Calcular a Segurança Social exigia abrir o Excel, somar vendas do trimestre, aplicar o coeficiente, calcular 21,4%... <strong>para cada cliente ENI</strong>.</p>
+        </div>
+        <div class="compare-arrow">&rarr;</div>
+        <div class="compare-after">
+          <span class="compare-label">Agora com IVAzen</span>
+          <p class="compare-text">Tudo <strong>automático</strong>: seleccione o trimestre e veja rendimento, coeficiente, base tributável e contribuição calculados. Zero Excel.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══ COMO USAR — STEPS ═══ -->
+<section id="como-usar">
+  <div class="container">
+    <span class="section-label reveal">Passo a Passo</span>
+    <h2 class="section-title reveal">Como usar as novas funcionalidades</h2>
+    <p class="section-desc reveal">Siga estes passos pela ordem recomendada. Cada passo tem link directo para a página da aplicação.</p>
+
+    <div class="steps">
+
+      <div class="step-item reveal">
+        <div class="step-num"></div>
+        <div class="step-content">
+          <h3>Entrar na aplicação</h3>
+          <div class="step-card">
+            <ol>
+              <li>Abrir: <a href="https://ivazen-saas.vercel.app" target="_blank"><strong>ivazen-saas.vercel.app</strong></a></li>
+              <li>Email: <strong>adelia.gaspar@accountingadvantage.pt</strong></li>
+              <li>Introduzir a password e clicar <strong>"Entrar"</strong></li>
+            </ol>
+          </div>
+          <div class="callout callout-tip"><span class="callout-icon">💡</span><div>Se a página parecer "presa", limpe os cookies: <strong>Ctrl+Shift+Delete</strong> → seleccionar cookies → limpar → voltar a entrar.</div></div>
+        </div>
+      </div>
+
+      <div class="step-item reveal">
+        <div class="step-num"></div>
+        <div class="step-content">
+          <h3>Ver a carteira de clientes</h3>
+          <p>No Dashboard, o card <strong>"Estado da Carteira"</strong> mostra quantos clientes tem em cada situação. Clique nos badges para filtrar.</p>
+          <div class="screenshot-wrap">
+            <div class="screenshot-bar"><span class="screenshot-dot"></span><span class="screenshot-dot"></span><span class="screenshot-dot"></span><span class="screenshot-url">ivazen-saas.vercel.app/dashboard</span></div>
+            <img src="file:///tmp/guide-01-portfolio.png" alt="Dashboard">
+          </div>
+          <div class="callout callout-info"><span class="callout-icon">🆕</span><div>Clique num badge (Parcial, Pronto, etc.) → aparece a lista de clientes. Clique num cliente → abre o Centro Fiscal.</div></div>
+        </div>
+      </div>
+
+      <div class="step-item reveal">
+        <div class="step-num"></div>
+        <div class="step-content">
+          <h3>Configurar o regime IVA</h3>
+          <p>Para cada cliente, defina se o IVA é mensal ou trimestral.</p>
+          <div class="step-card">
+            <ol>
+              <li>Ir a <a href="https://ivazen-saas.vercel.app/settings" target="_blank"><strong>Definições</strong></a></li>
+              <li>Encontrar o cliente → clicar <strong>"Editar"</strong></li>
+              <li>No campo <strong>"Cadência IVA"</strong>, escolher Mensal ou Trimestral</li>
+              <li>Gravar</li>
+            </ol>
+          </div>
+          <div class="callout callout-warn"><span class="callout-icon">⚠️</span><div>Clientes isentos (Art. 53) → configurar como <strong>trimestral</strong>. Os alertas passam a mostrar apenas o regime correcto.</div></div>
+        </div>
+      </div>
+
+      <div class="step-item reveal">
+        <div class="step-num"></div>
+        <div class="step-content">
+          <h3>Validar compras — com os novos filtros</h3>
+          <div class="screenshot-wrap">
+            <div class="screenshot-bar"><span class="screenshot-dot"></span><span class="screenshot-dot"></span><span class="screenshot-dot"></span><span class="screenshot-url">ivazen-saas.vercel.app/validation</span></div>
+            <img src="file:///tmp/guide-04-compras.png" alt="Compras">
+          </div>
+          <p><strong>Para ver só as recém-importadas:</strong> usar o filtro <strong>"Últimas 24h"</strong> ou <strong>"Últimos 7 dias"</strong>.</p>
+          <p><strong>Para excluir em massa:</strong> Selecionar → escolher facturas → <strong>"Não contabilizar"</strong>.</p>
+          <div class="callout callout-warn"><span class="callout-icon">⚠️</span><div><strong>"Não contabilizar"</strong> = mantém no sistema, exclui do IVA.<br><strong>"Eliminar"</strong> = apaga do sistema por completo.<br>Para facturas não dedutíveis, usar sempre <strong>"Não contabilizar"</strong>.</div></div>
+        </div>
+      </div>
+
+      <div class="step-item reveal">
+        <div class="step-num"></div>
+        <div class="step-content">
+          <h3>Importar vendas (recibos verdes)</h3>
+          <div class="callout callout-danger"><span class="callout-icon">🔴</span><div>As vendas <strong>NÃO são importadas automaticamente</strong>. A AT não fornece esta informação por sistema. É necessário descarregar o Excel manualmente.</div></div>
+          <div class="step-card">
+            <ol>
+              <li>Abrir o <a href="https://irs.portaldasfinancas.gov.pt" target="_blank"><strong>Portal das Finanças</strong></a></li>
+              <li>Login com o NIF e password do <strong>cliente</strong></li>
+              <li>Ir a <strong>Cidadãos → Emitir → Recibos Verdes → Emitidos</strong></li>
+              <li>Escolher o ano e <strong>descarregar o Excel</strong></li>
+              <li>No IVAzen, ir ao <a href="https://ivazen-saas.vercel.app/centro-importacao" target="_blank"><strong>Centro de Importação</strong></a></li>
+              <li>Escolher <strong>"Importar Recibos Verdes"</strong> → carregar o Excel</li>
+            </ol>
+          </div>
+          <div class="screenshot-wrap">
+            <div class="screenshot-bar"><span class="screenshot-dot"></span><span class="screenshot-dot"></span><span class="screenshot-dot"></span><span class="screenshot-url">ivazen-saas.vercel.app/sales</span></div>
+            <img src="file:///tmp/guide-05-vendas.png" alt="Vendas">
+            <div class="screenshot-caption">Depois de importar, as vendas aparecem com nomes, valores e categorias de receita</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-item reveal">
+        <div class="step-num"></div>
+        <div class="step-content">
+          <h3>Segurança Social (clientes ENI)</h3>
+          <p>Para trabalhadores independentes, a SS calcula tudo automaticamente.</p>
+          <div class="screenshot-wrap">
+            <div class="screenshot-bar"><span class="screenshot-dot"></span><span class="screenshot-dot"></span><span class="screenshot-dot"></span><span class="screenshot-url">ivazen-saas.vercel.app/seguranca-social</span></div>
+            <img src="file:///tmp/guide-06-ss.png" alt="Segurança Social">
+          </div>
+          <div class="step-card">
+            <ol>
+              <li>Ir a <a href="https://ivazen-saas.vercel.app/seguranca-social" target="_blank"><strong>Segurança Social</strong></a></li>
+              <li>Seleccionar o trimestre</li>
+              <li>Ver: rendimento bruto → coeficiente → base tributável → contribuição (21,4%)</li>
+            </ol>
+          </div>
+          <div class="callout callout-info"><span class="callout-icon">ℹ️</span><div><strong>Requisito:</strong> as vendas/recibos verdes precisam de estar importados primeiro. Se os valores aparecem a zeros, importar primeiro as vendas (Passo 5).</div></div>
+
+          <div class="table-wrap" style="margin-top:16px">
+            <table>
+              <tr><th>Rendimentos de...</th><th>Determinam contribuições de...</th></tr>
+              <tr><td>Jan–Mar (Q1)</td><td>Jul–Set</td></tr>
+              <tr><td>Abr–Jun (Q2)</td><td>Out–Dez</td></tr>
+              <tr><td>Jul–Set (Q3)</td><td>Jan–Mar do ano seguinte</td></tr>
+              <tr><td>Out–Dez (Q4)</td><td>Abr–Jun do ano seguinte</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FUNCIONALIDADES NOVAS ═══ -->
+<section id="funcionalidades">
+  <div class="container">
+    <span class="section-label reveal">Novas Funcionalidades</span>
+    <h2 class="section-title reveal">O que ganhou vs trabalho manual</h2>
+
+    <div class="feature-grid">
+      <div class="feature-card reveal">
+        <span class="feature-tag new">Novo</span>
+        <span class="feature-icon">🎯</span>
+        <div class="feature-title">Carteira interactiva</div>
+        <div class="feature-desc">Ver num clique quantos clientes estão prontos ou por fazer. Antes: verificar um a um.</div>
+      </div>
+      <div class="feature-card reveal">
+        <span class="feature-tag new">Novo</span>
+        <span class="feature-icon">⚡</span>
+        <div class="feature-title">Filtro "Últimas 24h"</div>
+        <div class="feature-desc">Ver só as facturas acabadas de importar. Antes: procurar no meio de centenas.</div>
+      </div>
+      <div class="feature-card reveal">
+        <span class="feature-tag new">Novo</span>
+        <span class="feature-icon">📋</span>
+        <div class="feature-title">Excluir em massa</div>
+        <div class="feature-desc">Marcar várias facturas não dedutíveis de uma vez. Antes: uma a uma.</div>
+      </div>
+      <div class="feature-card reveal">
+        <span class="feature-tag new">Novo</span>
+        <span class="feature-icon">🏢</span>
+        <div class="feature-title">Nomes automáticos</div>
+        <div class="feature-desc">NIF convertido no nome da empresa automaticamente. Antes: ver só números.</div>
+      </div>
+      <div class="feature-card reveal">
+        <span class="feature-tag new">Novo</span>
+        <span class="feature-icon">📅</span>
+        <div class="feature-title">Regime IVA por cliente</div>
+        <div class="feature-desc">Alertas mostram só o regime correcto. Antes: ignorar alertas errados.</div>
+      </div>
+      <div class="feature-card reveal">
+        <span class="feature-tag new">Novo</span>
+        <span class="feature-icon">🧮</span>
+        <div class="feature-title">Cálculo SS automático</div>
+        <div class="feature-desc">Rendimento × coeficiente × 21,4% — tudo automático. Antes: fazer no Excel.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ CHECKLIST ═══ -->
+<section id="validar">
+  <div class="container">
+    <span class="section-label reveal">Validação</span>
+    <h2 class="section-title reveal">Checklist de teste</h2>
+    <p class="section-desc reveal">Raquel, por favor teste estes pontos e diga-nos se está tudo a funcionar:</p>
+
+    <div class="checklist reveal">
+      <h3>Lista de Verificação</h3>
+      <div class="check-item"><div class="check-box" onclick="this.classList.toggle('checked');this.innerHTML=this.classList.contains('checked')?'✓':''"></div><div class="check-text">Entrar com a conta da Adélia e ver a carteira</div></div>
+      <div class="check-item"><div class="check-box" onclick="this.classList.toggle('checked');this.innerHTML=this.classList.contains('checked')?'✓':''"></div><div class="check-text">Clicar nos badges da carteira — aparece a lista de clientes?</div></div>
+      <div class="check-item"><div class="check-box" onclick="this.classList.toggle('checked');this.innerHTML=this.classList.contains('checked')?'✓':''"></div><div class="check-text">Escolher um cliente mensal → Definições → confirmar regime "Mensal"</div></div>
+      <div class="check-item"><div class="check-box" onclick="this.classList.toggle('checked');this.innerHTML=this.classList.contains('checked')?'✓':''"></div><div class="check-text">Ir a Compras → usar filtro "Últimas 24h" depois de importar</div></div>
+      <div class="check-item"><div class="check-box" onclick="this.classList.toggle('checked');this.innerHTML=this.classList.contains('checked')?'✓':''"></div><div class="check-text">Seleccionar facturas → "Não contabilizar" → ficam excluídas?</div></div>
+      <div class="check-item"><div class="check-box" onclick="this.classList.toggle('checked');this.innerHTML=this.classList.contains('checked')?'✓':''"></div><div class="check-text">Ir a Vendas → os recibos verdes aparecem correctamente?</div></div>
+      <div class="check-item"><div class="check-box" onclick="this.classList.toggle('checked');this.innerHTML=this.classList.contains('checked')?'✓':''"></div><div class="check-text">Cliente ENI → Segurança Social → os cálculos fazem sentido?</div></div>
+      <div class="check-item"><div class="check-box" onclick="this.classList.toggle('checked');this.innerHTML=this.classList.contains('checked')?'✓':''"></div><div class="check-text">Reconciliação → nomes dos fornecedores aparecem?</div></div>
+      <div class="check-item"><div class="check-box" onclick="this.classList.toggle('checked');this.innerHTML=this.classList.contains('checked')?'✓':''"></div><div class="check-text">Alertas de IVA mostram só o regime correcto?</div></div>
+    </div>
+
+    <div class="callout callout-tip reveal"><span class="callout-icon">📱</span><div><strong>Se encontrar algum problema:</strong> Envie mensagem no WhatsApp com screenshot, nome/NIF do cliente, e o que esperava ver.</div></div>
+  </div>
+</section>
+
+<!-- ═══ DELIVERY HELPERS ═══ -->
+<section id="entrega">
+  <div class="container">
+    <span class="section-label reveal">Facilitar a Entrega</span>
+    <h2 class="section-title reveal">Do IVAzen directo para o Portal</h2>
+    <p class="section-desc reveal">Cada obrigação fiscal tem agora botões que copiam os dados e abrem o portal certo. Menos copy-paste, menos erros.</p>
+
+    <div class="feature-grid">
+      <div class="feature-card reveal">
+        <span class="feature-tag new">Novo</span>
+        <span class="feature-icon">📊</span>
+        <div class="feature-title">IVA — Copiar Campos DP</div>
+        <div class="feature-desc">Cada campo da Declaração Periódica tem um botão de copiar. Há também "Copiar todos os campos" e link directo para a página de entrega da DP no portal AT.</div>
+      </div>
+      <div class="feature-card reveal">
+        <span class="feature-tag new">Novo</span>
+        <span class="feature-icon">🏛️</span>
+        <div class="feature-title">SS — Abrir SS Directa</div>
+        <div class="feature-desc">Botão "Copiar Dados" formata o resumo trimestral (rendimento, coeficiente, base, contribuição) + botão "Abrir SS Directa" que abre o portal para submissão.</div>
+      </div>
+      <div class="feature-card reveal">
+        <span class="feature-tag new">Novo</span>
+        <span class="feature-icon">📑</span>
+        <div class="feature-title">Modelo 10 — CSV + Portal</div>
+        <div class="feature-desc">Exporta CSV no formato AT (Portaria 4/2024) para importação directa no portal. Botão "Abrir Portal das Finanças" + guia de submissão passo a passo.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip reveal" style="margin-top:24px"><span class="callout-icon">💡</span><div><strong>Fluxo recomendado:</strong> Gerar os dados no IVAzen → Copiar/Exportar → Abrir o portal com o botão → Colar/Importar os dados → Submeter. Sem Excel intermédio.</div></div>
+  </div>
+</section>
+
+<!-- ═══ CTA ═══ -->
+<div class="cta-section">
+  <h2>Pronta para testar?</h2>
+  <p>Tudo está corrigido e validado. É só abrir a aplicação e seguir os passos acima.</p>
+  <a href="https://ivazen-saas.vercel.app" target="_blank" class="cta-btn">Abrir IVAzen &rarr;</a>
+</div>
+
+<!-- ═══ FOOTER ═══ -->
+<footer>
+  <p><strong>IVAzen</strong> · Accounting Advantage · 22 de Março de 2026</p>
+  <p>860 testes automáticos · Zero erros em produção · 12 páginas validadas</p>
+</footer>
+
+<!-- ═══ SCRIPTS ═══ -->
+<script>
+  // Nav scroll effect
+  window.addEventListener('scroll', () => {
+    document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 20);
+  });
+
+  // Reveal on scroll
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+
+</body>
+</html>
