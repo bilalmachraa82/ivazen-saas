@@ -435,7 +435,7 @@ export function mergeAggregations(
   const byNIF = new Map<string, AggregatedNIF>();
   const byCategoria = new Map<ATCategoria, CategoryTotal>();
 
-  let ano = options.ano || new Date().getFullYear();
+  const ano = options.ano || new Date().getFullYear();
 
   for (const result of results) {
     errors.push(...result.errors);

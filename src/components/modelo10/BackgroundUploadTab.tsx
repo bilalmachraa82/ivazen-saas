@@ -110,24 +110,8 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
     }
   };
 
-  // Handle file drop
-  const handleDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files);
-    validateAndAddFiles(files);
-  }, []);
-
-  // Handle file input
-  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-      validateAndAddFiles(files);
-    }
-  }, []);
-
   // Validate and add files to selection
-  const validateAndAddFiles = (files: File[]) => {
+  const validateAndAddFiles = useCallback((files: File[]) => {
     const totalFiles = selectedFiles.length + files.length;
     if (totalFiles > MAX_FILES_PER_UPLOAD) {
       toast.error('Demasiados ficheiros', {
@@ -163,7 +147,24 @@ export function BackgroundUploadTab({ selectedClientId, selectedYear, isAccounta
     }
 
     setSelectedFiles(prev => [...prev, ...validFiles]);
-  };
+  }, [selectedFiles.length]);
+
+  // Handle file drop
+  const handleDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files);
+    validateAndAddFiles(files);
+  }, [validateAndAddFiles]);
+
+  // Handle file input
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      validateAndAddFiles(files);
+    }
+  }, [validateAndAddFiles]);
+
 
   // Start upload
   const handleUpload = async () => {

@@ -302,7 +302,7 @@ export function parseNumericValue(value: any): { valid: boolean; number?: number
   }
   
   // Clean the value
-  let cleanValue = String(value)
+  const cleanValue = String(value)
     .replace(/\s/g, '')
     .replace(/€/g, '')
     .replace(/[.]/g, '') // Remove thousand separators (Portuguese format)
