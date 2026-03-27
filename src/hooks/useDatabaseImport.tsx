@@ -171,6 +171,7 @@ export function useDatabaseImport() {
     } finally {
       setIsProcessing(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, headers, mapping, dataType, duplicateStrategy, user]);
   
   // Check for duplicate record

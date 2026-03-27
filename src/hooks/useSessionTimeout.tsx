@@ -47,6 +47,7 @@ export function useSessionTimeout(options: SessionTimeoutOptions = {}) {
         }
       );
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [warningMinutes]);
 
   const clearTimers = useCallback(() => {

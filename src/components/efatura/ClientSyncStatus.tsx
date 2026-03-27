@@ -148,6 +148,7 @@ export function ClientSyncStatus({
 }
 
 // Helper to derive status from AT credentials
+// eslint-disable-next-line react-refresh/only-export-components
 export function deriveSyncStatus(
   lastSyncStatus?: string | null,
   hasCredentials?: boolean

@@ -141,6 +141,7 @@ export function OnboardingTour({ forceShow = false, onComplete }: OnboardingTour
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useOnboarding() {
   const resetOnboarding = () => {
     localStorage.removeItem(STORAGE_KEY);

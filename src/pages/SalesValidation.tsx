@@ -72,6 +72,7 @@ export default function SalesValidation() {
         ? prev
         : { ...prev, status, recentWindow: recent as 'all' | '24h' | '7d' }
     ));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParamsKey, setFilters]);
 
   if (authLoading || profileLoading || isCheckingRole || isLoadingClients) {

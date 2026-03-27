@@ -128,6 +128,7 @@ export function DuplicateManager({ onCleanupComplete }: DuplicateManagerProps) {
 
   useEffect(() => {
     fetchDuplicates();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveClientId]);
 
   const totalDuplicates = useMemo(

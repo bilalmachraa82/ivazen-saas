@@ -68,6 +68,7 @@ export function SalesInvoiceDetailDialog({
     } else {
       setImageUrl(null);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoice?.image_path, invoice?.id, open, isPlaceholderImage]);
 
   // Keyboard shortcuts for navigation

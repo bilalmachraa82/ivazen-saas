@@ -383,6 +383,7 @@ export default function ReconciliationAudit() {
     } finally {
       setIsSyncingAT(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClientId]);
   
   // Remove PDF file

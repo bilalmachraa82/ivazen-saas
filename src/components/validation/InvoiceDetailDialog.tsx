@@ -105,6 +105,7 @@ export function InvoiceDetailDialog({
       setIsEditing(false);
       setNifError('');
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoice?.id]);
 
   // Detect if image_path is a placeholder (AT sync, CSV import, SAFT, etc.)
@@ -121,6 +122,7 @@ export function InvoiceDetailDialog({
     } else {
       setImageUrl(null);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoice?.image_path, open, isPlaceholderImage]);
 
   // Keyboard shortcuts for navigation

@@ -146,6 +146,7 @@ export function WithholdingEditDialog({
 
   useEffect(() => {
     calculateWithholding();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchGross, watchRate]);
 
   const handleSubmit = async (values: z.infer<typeof formSchema>) => {

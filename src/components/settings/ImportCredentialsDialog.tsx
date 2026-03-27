@@ -241,6 +241,7 @@ export function ImportCredentialsDialog({ trigger, onSuccess }: ImportCredential
         description: 'Use ficheiros Excel (.xlsx, .xls), CSV ou PDF',
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {

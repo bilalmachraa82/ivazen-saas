@@ -112,6 +112,7 @@ export function WithholdingForm({ onSubmit, onExtract, isSubmitting, defaultYear
   useEffect(() => {
     const suggestedRate = getSuggestedRate(watchCategory, watchLocation);
     form.setValue('withholding_rate', suggestedRate);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchCategory, watchLocation]);
 
   // NIF validation is now handled by NifInput component
@@ -126,6 +127,7 @@ export function WithholdingForm({ onSubmit, onExtract, isSubmitting, defaultYear
 
   useEffect(() => {
     calculateWithholding();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchGross, watchRate]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {

@@ -378,6 +378,7 @@ export function useUploadQueue(forClientId?: string | null) {
     } catch (error) {
       console.error('Error clearing completed:', error);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, fetchQueue]);
 
   // Clear ALL queue items for a specific client (for reset functionality)

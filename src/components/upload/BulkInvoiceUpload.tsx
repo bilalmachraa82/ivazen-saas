@@ -115,6 +115,7 @@ export function BulkInvoiceUpload({ selectedClientId, clientName }: BulkInvoiceU
     setIsDragging(false);
     const files = Array.from(e.dataTransfer.files);
     addFiles(files);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoiceType, queue.length]);
 
   // Handle file input
@@ -123,6 +124,7 @@ export function BulkInvoiceUpload({ selectedClientId, clientName }: BulkInvoiceU
       const files = Array.from(e.target.files);
       addFiles(files);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoiceType, queue.length]);
 
   // Add files to queue

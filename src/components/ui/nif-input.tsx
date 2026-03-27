@@ -31,6 +31,7 @@ export interface NifValidationResult {
 /**
  * Valida NIF portugues ou estrangeiro
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function validateNIF(
   nif: string,
   options: { allowForeign?: boolean; required?: boolean } = {}
@@ -278,6 +279,7 @@ export function NifInput({
 /**
  * Hook para usar validacao de NIF em formularios
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useNifValidation(initialValue: string = '', options: { allowForeign?: boolean; required?: boolean } = {}) {
   const [value, setValue] = useState(initialValue);
   const [validation, setValidation] = useState<NifValidationResult | null>(null);

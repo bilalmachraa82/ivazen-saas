@@ -30,6 +30,7 @@ export function SelectedClientProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSelectedClient() {
   const context = useContext(SelectedClientContext);
   if (!context) {

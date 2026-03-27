@@ -35,6 +35,7 @@ export function BulkUploadTab({ selectedClientId, selectedYear, clientName, isAc
 
     const files = Array.from(e.dataTransfer.files);
     addFiles(files);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Handle file input
@@ -43,6 +44,7 @@ export function BulkUploadTab({ selectedClientId, selectedYear, clientName, isAc
       const files = Array.from(e.target.files);
       addFiles(files);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Add files to queue

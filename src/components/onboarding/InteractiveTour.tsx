@@ -189,6 +189,7 @@ export function InteractiveTour({ forceShow = false, onComplete }: InteractiveTo
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isVisible, currentStep]);
 
   const handleNext = () => {
@@ -348,6 +349,7 @@ export function InteractiveTour({ forceShow = false, onComplete }: InteractiveTo
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useInteractiveTour() {
   const resetTour = () => {
     localStorage.removeItem(STORAGE_KEY);

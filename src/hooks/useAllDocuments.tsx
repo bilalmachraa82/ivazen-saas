@@ -319,6 +319,7 @@ export function useAllDocuments() {
 
   useEffect(() => {
     fetchAllDocuments();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   return {

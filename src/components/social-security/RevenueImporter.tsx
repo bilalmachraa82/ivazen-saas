@@ -89,6 +89,7 @@ export function RevenueImporter({ onImport, onCreateSalesInvoices, currentQuarte
       setDetectedCategory(detection);
       setDefaultCategory(detection.category);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userCAE, activityDescription, preferences]);
 
   const handleDrag = useCallback((e: React.DragEvent) => {

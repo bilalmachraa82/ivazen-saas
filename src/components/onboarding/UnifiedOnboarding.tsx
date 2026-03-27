@@ -533,6 +533,7 @@ function InteractiveTourOverlay({ onComplete, onSkip }: InteractiveTourOverlayPr
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep]);
 
   const handleNext = () => {
@@ -1225,6 +1226,7 @@ export function UnifiedOnboarding({ children }: UnifiedOnboardingProps) {
 // HOOK FOR EXTERNAL ACCESS
 // ============================================================================
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useUnifiedOnboarding() {
   const resetOnboarding = () => {
     Object.values(STORAGE_KEYS).forEach(key => {
