@@ -99,7 +99,7 @@ function extractNifFromEmitente(emitente: string): { nif: string; nome: string }
   const nifMatch = emitente.match(/(\d{9})/);
   if (nifMatch) {
     const nif = nifMatch[1];
-    const nome = emitente.replace(nif, '').replace(/^[\s\-]+|[\s\-]+$/g, '').trim();
+    const nome = emitente.replace(nif, '').replace(/^[\s-]+|[\s-]+$/g, '').trim();
     return { nif, nome };
   }
   
@@ -131,7 +131,7 @@ function parseDate(dateStr: string): Date | null {
   const cleaned = dateStr.trim();
 
   // DD/MM/YYYY or DD-MM-YYYY (with optional time component)
-  const dmyMatch = cleaned.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s|$)/);
+  const dmyMatch = cleaned.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:\s|$)/);
   if (dmyMatch) {
     const [, day, month, year] = dmyMatch;
     const d = parseInt(day);
@@ -144,7 +144,7 @@ function parseDate(dateStr: string): Date | null {
   }
 
   // YYYY-MM-DD or YYYY/MM/DD (with optional time component)
-  const isoMatch = cleaned.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:\s|$)/);
+  const isoMatch = cleaned.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:\s|$)/);
   if (isoMatch) {
     const [, year, month, day] = isoMatch;
     const y = parseInt(year);

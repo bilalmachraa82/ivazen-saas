@@ -13,6 +13,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
 import { isServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
 import { isWithinATWindow } from "../_shared/atWindow.ts";
+import { resolveActiveAccountantConfig } from "../_shared/resolveAccountantConfig.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://ivazen-saas.vercel.app",
@@ -88,6 +89,17 @@ type ConnectorResponse = {
   vendas?: ConnectorQuery;
   timingMs?: number;
   error?: string;
+};
+
+type RecibosFallbackResponse = {
+  success?: boolean;
+  reasonCode?: string;
+  message?: string;
+  error?: string;
+  inserted?: number;
+  skipped?: number;
+  errors?: number;
+  totalRecords?: number;
 };
 
 const CONNECTOR_REQUEST_TIMEOUT_MS = Math.max(
@@ -538,6 +550,60 @@ async function callAtConnector(params: {
   }
 
   return { success: false, error: "AT connector retries exhausted" };
+}
+
+async function callRecibosVerdesFallback(params: {
+  supabaseUrl: string;
+  serviceRoleKey: string;
+  clientId: string;
+  startDate: string;
+  endDate: string;
+  source: "queue" | "manual";
+  force: boolean;
+}): Promise<RecibosFallbackResponse> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(
+    () => controller.abort("sync-recibos-verdes timeout"),
+    CONNECTOR_REQUEST_TIMEOUT_MS + 15000,
+  );
+
+  try {
+    const response = await fetch(
+      `${params.supabaseUrl}/functions/v1/sync-recibos-verdes`,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${params.serviceRoleKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          clientId: params.clientId,
+          startDate: params.startDate,
+          endDate: params.endDate,
+          source: params.source,
+          force: params.force,
+        }),
+        signal: controller.signal,
+      },
+    );
+
+    const responseText = await response.text();
+    try {
+      return JSON.parse(responseText) as RecibosFallbackResponse;
+    } catch {
+      return {
+        success: false,
+        error: `sync-recibos-verdes returned non-JSON: ${responseText.slice(0, 200)}`,
+      };
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error?.message || String(error),
+    };
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 async function insertPurchaseInvoicesFromAT(
@@ -1174,18 +1240,12 @@ Deno.serve(async (req: Request) => {
         Boolean(v)
       );
 
-      let resolvedAccountantId: string | null = accountantId ||
-        cred?.accountant_id || null;
-      if (!resolvedAccountantId) {
-        const { data: associations } = await supabase
-          .from("client_accountants")
-          .select("accountant_id, is_primary, created_at")
-          .eq("client_id", clientId)
-          .order("is_primary", { ascending: false })
-          .order("created_at", { ascending: true })
-          .limit(1);
-        resolvedAccountantId = associations?.[0]?.accountant_id || null;
-      }
+      const resolvedAccountant = await resolveActiveAccountantConfig(
+        supabase,
+        clientId,
+        [accountantId, cred?.accountant_id],
+      );
+      const resolvedAccountantId = resolvedAccountant.accountantId;
 
       const rowUsername =
         (cred?.subuser_id ? String(cred.subuser_id).trim() : "") ||
@@ -1212,15 +1272,8 @@ Deno.serve(async (req: Request) => {
       let cfgUsername: string | null = null;
       let cfgPassword: string | null = null;
 
-      if (resolvedAccountantId) {
-        const { data: accountantConfig } = await supabase
-          .from("accountant_at_config")
-          .select("subuser_id, subuser_password_encrypted")
-          .eq("accountant_id", resolvedAccountantId)
-          .eq("is_active", true)
-          .limit(1);
-
-        const cfg = accountantConfig?.[0];
+      if (resolvedAccountantId && resolvedAccountant.config) {
+        const cfg = resolvedAccountant.config;
         cfgUsername = cfg?.subuser_id ? String(cfg.subuser_id).trim() : null;
         if (cfg?.subuser_password_encrypted) {
           cfgPassword = await decodeStoredSecret(
@@ -1305,6 +1358,10 @@ Deno.serve(async (req: Request) => {
               fallback_attempted: false,
               fallbackResult: "not_attempted",
               fallback_result: "not_attempted",
+              resolvedAccountantId,
+              resolved_accountant_id: resolvedAccountantId,
+              accountantConfigCandidates: resolvedAccountant.candidateIds,
+              accountant_config_candidates: resolvedAccountant.candidateIds,
               request: requestMeta,
             },
           }).eq("id", syncId);
@@ -1336,6 +1393,7 @@ Deno.serve(async (req: Request) => {
       let fallbackResult: "not_attempted" | "success" | "failed" =
         "not_attempted";
 
+      const primaryCredentials = usedCredentials;
       let connectorResp = await callAtConnector({
         environment,
         clientNif,
@@ -1347,11 +1405,12 @@ Deno.serve(async (req: Request) => {
       });
 
       const fallbackAttempt = attempts[1];
+      const primaryConnectorResp = connectorResp;
       const retryWithFallback = fallbackAttempt &&
         (
-          isConnectorAuthFailure(connectorResp, type) ||
+          isConnectorAuthFailure(primaryConnectorResp, type) ||
           shouldRetryVendasWithFallback(
-            connectorResp,
+            primaryConnectorResp,
             type,
             usedCredentials.username,
             fallbackAttempt.username,
@@ -1364,17 +1423,36 @@ Deno.serve(async (req: Request) => {
           `[sync-efatura] Retrying connector with ${fallbackAttempt.source} ` +
             `(previous source=${usedCredentials.source}, type=${type})`,
         );
-        usedCredentials = fallbackAttempt;
-        connectorResp = await callAtConnector({
+        const fallbackConnectorResp = await callAtConnector({
           environment,
           clientNif,
-          username: usedCredentials.username,
-          password: usedCredentials.password,
+          username: fallbackAttempt.username,
+          password: fallbackAttempt.password,
           type,
           startDate: effectiveStartDate,
           endDate: effectiveEndDate,
         });
-        fallbackResult = connectorResp.success ? "success" : "failed";
+        fallbackResult = fallbackConnectorResp.success ? "success" : "failed";
+
+        const fallbackRecoveredVendas = (type === "vendas" || type === "ambos") &&
+          Boolean(fallbackConnectorResp.vendas?.success) &&
+          (fallbackConnectorResp.vendas?.totalRecords || 0) > 0;
+        const primaryWasAuthFailure = isConnectorAuthFailure(
+          primaryConnectorResp,
+          type,
+        );
+
+        if (primaryWasAuthFailure || fallbackRecoveredVendas) {
+          usedCredentials = fallbackAttempt;
+          connectorResp = fallbackConnectorResp;
+        } else {
+          usedCredentials = primaryCredentials;
+          connectorResp = primaryConnectorResp;
+          console.warn(
+            `[sync-efatura] Preserving ${primaryCredentials.source} response ` +
+              `because fallback ${fallbackAttempt.source} returned no additional vendas`,
+          );
+        }
       }
 
       if (!connectorResp.success) {
@@ -1408,6 +1486,10 @@ Deno.serve(async (req: Request) => {
               fallback_attempted: fallbackAttempted,
               fallbackResult,
               fallback_result: fallbackResult,
+              resolvedAccountantId,
+              resolved_accountant_id: resolvedAccountantId,
+              accountantConfigCandidates: resolvedAccountant.candidateIds,
+              accountant_config_candidates: resolvedAccountant.candidateIds,
               timingMs: connectorResp.timingMs,
               request: requestMeta,
             },
@@ -1494,6 +1576,34 @@ Deno.serve(async (req: Request) => {
       if (wantVendas) {
         const q = connectorResp.vendas;
         const emptyList = !q?.success && isAtEmptyListMessage(q?.errorMessage);
+        const vendasError = q?.errorMessage || connectorResp.error ||
+          "Consulta vendas falhou";
+        const vendasReasonCode = classifyReasonCode(vendasError);
+        const shouldTryRecibosFallback =
+          emptyList ||
+          (q?.success && (q.totalRecords || 0) === 0) ||
+          vendasReasonCode === "AT_SCHEMA_RESPONSE_ERROR";
+        const recibosFallback = shouldTryRecibosFallback
+          ? await callRecibosVerdesFallback({
+            supabaseUrl,
+            serviceRoleKey: supabaseServiceKey,
+            clientId,
+            startDate: effectiveStartDate,
+            endDate: effectiveEndDate,
+            source,
+            force: forceSync && isServiceRole,
+          })
+          : null;
+        const fallbackInserted = recibosFallback?.success
+          ? (recibosFallback.inserted || 0)
+          : 0;
+        const fallbackSkipped = recibosFallback?.success
+          ? (recibosFallback.skipped || 0)
+          : 0;
+        const fallbackErrors = recibosFallback?.success
+          ? (recibosFallback.errors || 0)
+          : 0;
+        const recoveredViaRecibos = fallbackInserted > 0 || fallbackSkipped > 0;
 
         if (q?.success || emptyList) {
           const r = q?.success
@@ -1507,6 +1617,9 @@ Deno.serve(async (req: Request) => {
           inserted += r.inserted;
           skipped += r.skipped;
           errors += r.errors;
+          inserted += fallbackInserted;
+          skipped += fallbackSkipped;
+          errors += fallbackErrors;
           hasSuccesses = true;
           if (emptyList) reasonCodes.push("AT_EMPTY_LIST");
           directionMetadata.vendas = {
@@ -1517,20 +1630,59 @@ Deno.serve(async (req: Request) => {
             skipped: r.skipped,
             errors: r.errors,
             errorMessage: emptyList ? q?.errorMessage || null : null,
+            recibosFallback: recibosFallback
+              ? {
+                success: Boolean(recibosFallback.success),
+                reasonCode: recibosFallback.reasonCode || null,
+                inserted: fallbackInserted,
+                skipped: fallbackSkipped,
+                errors: fallbackErrors,
+                message: recibosFallback.message || recibosFallback.error || null,
+              }
+              : null,
           };
         } else {
-          hasErrors = true;
-          const err = q?.errorMessage || connectorResp.error ||
-            "Consulta vendas falhou";
-          const rc = classifyReasonCode(err);
-          reasonCodes.push(rc);
-          errorMessages.push(err);
-          directionMetadata.vendas = {
-            success: false,
-            totalRecords: q?.totalRecords || 0,
-            errorMessage: err,
-            reasonCode: rc,
-          };
+          if (recoveredViaRecibos) {
+            inserted += fallbackInserted;
+            skipped += fallbackSkipped;
+            errors += fallbackErrors;
+            hasSuccesses = true;
+            directionMetadata.vendas = {
+              success: true,
+              totalRecords: q?.totalRecords || 0,
+              errorMessage: vendasError,
+              reasonCode: vendasReasonCode,
+              recoveredViaRecibos: true,
+              recibosFallback: {
+                success: true,
+                reasonCode: recibosFallback?.reasonCode || null,
+                inserted: fallbackInserted,
+                skipped: fallbackSkipped,
+                errors: fallbackErrors,
+                message: recibosFallback?.message || null,
+              },
+            };
+          } else {
+            hasErrors = true;
+            reasonCodes.push(vendasReasonCode);
+            errorMessages.push(vendasError);
+            directionMetadata.vendas = {
+              success: false,
+              totalRecords: q?.totalRecords || 0,
+              errorMessage: vendasError,
+              reasonCode: vendasReasonCode,
+              recibosFallback: recibosFallback
+                ? {
+                  success: Boolean(recibosFallback.success),
+                  reasonCode: recibosFallback.reasonCode || null,
+                  inserted: fallbackInserted,
+                  skipped: fallbackSkipped,
+                  errors: fallbackErrors,
+                  message: recibosFallback.message || recibosFallback.error || null,
+                }
+                : null,
+            };
+          }
         }
       }
 
@@ -1581,6 +1733,10 @@ Deno.serve(async (req: Request) => {
             fallback_attempted: fallbackAttempted,
             fallbackResult,
             fallback_result: fallbackResult,
+            resolvedAccountantId,
+            resolved_accountant_id: resolvedAccountantId,
+            accountantConfigCandidates: resolvedAccountant.candidateIds,
+            accountant_config_candidates: resolvedAccountant.candidateIds,
             timingMs: connectorResp.timingMs,
             request: requestMeta,
             totals: {

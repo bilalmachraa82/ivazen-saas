@@ -754,7 +754,7 @@ function parseDate(value: string | Date | undefined): Date | null {
   }
 
   // Try Portuguese format (DD-MM-YYYY or DD/MM/YYYY)
-  const ptMatch = str.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+  const ptMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
   if (ptMatch) {
     const [, day, month, year] = ptMatch;
     const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));

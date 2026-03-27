@@ -948,7 +948,7 @@ function parseDate(value: string | Date | undefined): Date | null {
   }
 
   // Try Portuguese format (DD-MM-YYYY or DD/MM/YYYY)
-  const ptMatch = str.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+  const ptMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
   if (ptMatch) {
     const [, day, month, year] = ptMatch;
     const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
@@ -956,7 +956,7 @@ function parseDate(value: string | Date | undefined): Date | null {
   }
 
   // Some CSV readers coerce ISO dates to M/D/YY
-  const shortYearMatch = str.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2})$/);
+  const shortYearMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2})$/);
   if (shortYearMatch) {
     const [, first, second, shortYear] = shortYearMatch;
     const year = 2000 + parseInt(shortYear, 10);

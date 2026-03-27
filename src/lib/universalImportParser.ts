@@ -262,7 +262,7 @@ export function parseDate(value: any): { valid: boolean; date?: string; error?: 
   const strValue = String(value).trim();
   
   // Try DD/MM/YYYY
-  const ddmmyyyy = strValue.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  const ddmmyyyy = strValue.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
   if (ddmmyyyy) {
     const [, day, month, year] = ddmmyyyy;
     const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
@@ -272,7 +272,7 @@ export function parseDate(value: any): { valid: boolean; date?: string; error?: 
   }
   
   // Try YYYY-MM-DD
-  const yyyymmdd = strValue.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  const yyyymmdd = strValue.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
   if (yyyymmdd) {
     const [, year, month, day] = yyyymmdd;
     const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));

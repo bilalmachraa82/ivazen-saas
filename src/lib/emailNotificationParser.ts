@@ -455,8 +455,8 @@ function extractDataFromBody(body: string, type: EmailType): {
 
   // Extract date
   const datePatterns = [
-    /(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/,        // DD-MM-YYYY or DD/MM/YYYY
-    /(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/,        // YYYY-MM-DD
+    /(\d{1,2})[-/](\d{1,2})[-/](\d{4})/,        // DD-MM-YYYY or DD/MM/YYYY
+    /(\d{4})[-/](\d{1,2})[-/](\d{1,2})/,        // YYYY-MM-DD
     /(\d{1,2})\s+de\s+(\w+)\s+de\s+(\d{4})/i,     // 15 de Janeiro de 2025
   ];
 

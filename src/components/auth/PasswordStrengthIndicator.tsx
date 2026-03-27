@@ -18,7 +18,7 @@ export function PasswordStrengthIndicator({ password, className }: PasswordStren
     { label: 'Letra maiúscula', met: /[A-Z]/.test(password) },
     { label: 'Letra minúscula', met: /[a-z]/.test(password) },
     { label: 'Número', met: /[0-9]/.test(password) },
-    { label: 'Caractere especial (!@#$...)', met: /[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\/'`~;]/.test(password) },
+    { label: 'Caractere especial (!@#$...)', met: /[^A-Za-z0-9]/.test(password) },
   ], [password]);
 
   const strength = useMemo(() => {

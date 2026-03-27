@@ -15,6 +15,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
 import { isServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
 import { isWithinATWindow } from "../_shared/atWindow.ts";
+import { resolveActiveAccountantConfig } from "../_shared/resolveAccountantConfig.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://ivazen-saas.vercel.app",
@@ -507,30 +508,18 @@ Deno.serve(async (req: Request) => {
       "encrypted_password",
     )) || portalPassword;
 
-    let resolvedAccountantId: string | null = cred.accountant_id || null;
-    if (!resolvedAccountantId) {
-      const { data: associations } = await supabase
-        .from("client_accountants")
-        .select("accountant_id, is_primary, created_at")
-        .eq("client_id", clientId)
-        .order("is_primary", { ascending: false })
-        .order("created_at", { ascending: true })
-        .limit(1);
-      resolvedAccountantId = associations?.[0]?.accountant_id || null;
-    }
+    const resolvedAccountant = await resolveActiveAccountantConfig(
+      supabase,
+      clientId,
+      [cred.accountant_id],
+    );
+    const resolvedAccountantId = resolvedAccountant.accountantId;
 
     let cfgUsername: string | null = null;
     let cfgPassword: string | null = null;
 
-    if (resolvedAccountantId) {
-      const { data: accountantConfig } = await supabase
-        .from("accountant_at_config")
-        .select("subuser_id, subuser_password_encrypted")
-        .eq("accountant_id", resolvedAccountantId)
-        .eq("is_active", true)
-        .limit(1);
-
-      const cfg = accountantConfig?.[0];
+    if (resolvedAccountantId && resolvedAccountant.config) {
+      const cfg = resolvedAccountant.config;
       cfgUsername = cfg?.subuser_id ? String(cfg.subuser_id).trim() : null;
       if (cfg?.subuser_password_encrypted) {
         cfgPassword = await decodeStoredSecret(

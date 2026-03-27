@@ -246,7 +246,7 @@ function parseExcelDate(value: any): Date | undefined {
   // String date
   if (typeof value === 'string') {
     // Try DD/MM/YYYY or DD-MM-YYYY
-    const ptMatch = value.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    const ptMatch = value.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
     if (ptMatch) {
       const [, day, month, year] = ptMatch;
       return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
