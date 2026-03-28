@@ -31,7 +31,7 @@ const CookieBanner = () => {
 
     return (
         <div
-            className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom-5 duration-500"
+            className="fixed bottom-0 left-0 right-0 z-30 animate-in slide-in-from-bottom-5 duration-500"
             role="dialog"
             aria-label="Consentimento de cookies"
         >

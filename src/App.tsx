@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { SelectedClientProvider } from "@/hooks/useSelectedClient";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import CookieBanner from "@/components/CookieBanner";
+import WhatsAppButton from "@/components/WhatsAppButton";
 import PageLoader from "@/components/ui/PageLoader";
 import PageRoute from "@/components/PageRoute";
 import { featureFlags } from "@/lib/featureFlags";
@@ -210,6 +211,7 @@ const App = () => (
                   </Routes>
                 </Suspense>
                 <CookieBanner />
+                <WhatsAppButton />
               </BrowserRouter>
             </SelectedClientProvider>
           </AuthProvider>

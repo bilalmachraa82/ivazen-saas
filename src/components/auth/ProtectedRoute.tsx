@@ -23,7 +23,11 @@ export function ProtectedRoute({ children, requireRole }: ProtectedRouteProps) {
     return <Navigate to="/auth" replace />;
   }
 
-  if (requireRole && roles.length > 0 && !hasRole(requireRole)) {
+  // If a specific role is required, check that the user has it.
+  // Previously `roles.length > 0` allowed users with an empty roles array
+  // (e.g. freshly signed-up users whose role hasn't propagated yet) to bypass
+  // the check and access role-gated pages. Now we always enforce the check.
+  if (requireRole && !hasRole(requireRole)) {
     return <Navigate to="/dashboard" replace />;
   }
 

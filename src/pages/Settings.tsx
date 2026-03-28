@@ -665,8 +665,8 @@ export default function Settings() {
                     compact
                     onComplete={() => {
                       setShowFiscalWizard(false);
-                      // Reload profile data
-                      window.location.reload();
+                      queryClient.invalidateQueries({ queryKey: ['profile'] });
+                      toast.success('Configurações fiscais guardadas com sucesso!');
                     }}
                   />
                 </DialogContent>
