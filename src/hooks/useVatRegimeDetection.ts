@@ -13,6 +13,33 @@ interface VatDetectionResult {
 const VIES_API = 'https://ec.europa.eu/taxation_customs/vies/rest-api/ms/PT/vat';
 const ART53_THRESHOLD_2026 = 14500; // €14.500 threshold for Art. 53º exemption in 2026
 
+interface SalesTurnoverRow {
+  total_amount: number | null;
+  total_vat: number | null;
+  base_reduced: number | null;
+  base_intermediate: number | null;
+  base_standard: number | null;
+  base_exempt: number | null;
+}
+
+function getNetTurnover(row: SalesTurnoverRow): number {
+  const lineBases = [
+    Number(row.base_reduced || 0),
+    Number(row.base_intermediate || 0),
+    Number(row.base_standard || 0),
+    Number(row.base_exempt || 0),
+  ];
+  const summedBases = lineBases.reduce((sum, value) => sum + value, 0);
+
+  if (summedBases > 0) {
+    return summedBases;
+  }
+
+  const totalAmount = Number(row.total_amount || 0);
+  const totalVat = Number(row.total_vat || 0);
+  return Math.max(totalAmount - totalVat, 0);
+}
+
 /**
  * Hook to auto-detect VAT regime based on NIF (VIES check) and annual revenue.
  * Returns a suggestion — user always has final say.
@@ -23,7 +50,7 @@ export function useVatRegimeDetection() {
 
   const detectRegime = useCallback(async (
     nif: string,
-    userId: string,
+    clientId: string,
   ): Promise<VatDetectionResult | null> => {
     if (!nif || nif.length !== 9) {
       toast.error('NIF inválido — deve ter 9 dígitos');
@@ -49,22 +76,26 @@ export function useVatRegimeDetection() {
         console.warn('VIES API unavailable, skipping check');
       }
 
-      // Step 2: Calculate annual revenue from invoices
+      // Step 2: Calculate annual revenue from validated sales invoices
       let annualRevenue: number | null = null;
       const currentYear = new Date().getFullYear();
       const previousYear = currentYear - 1;
 
-      const { data: revenueData } = await supabase
-        .from('invoices')
-        .select('total_amount')
-        .eq('user_id', userId)
-        .eq('type', 'income')
-        .gte('date', `${previousYear}-01-01`)
-        .lte('date', `${previousYear}-12-31`);
+      const { data: revenueData, error: revenueError } = await supabase
+        .from('sales_invoices')
+        .select('total_amount, total_vat, base_reduced, base_intermediate, base_standard, base_exempt')
+        .eq('client_id', clientId)
+        .eq('status', 'validated')
+        .gte('document_date', `${previousYear}-01-01`)
+        .lte('document_date', `${previousYear}-12-31`);
+
+      if (revenueError) {
+        console.warn('VAT regime detection revenue query failed:', revenueError);
+      }
 
       if (revenueData && revenueData.length > 0) {
         annualRevenue = revenueData.reduce(
-          (sum, inv) => sum + (Number(inv.total_amount) || 0),
+          (sum, inv) => sum + getNetTurnover(inv as SalesTurnoverRow),
           0,
         );
       }
@@ -83,19 +114,19 @@ export function useVatRegimeDetection() {
         if (annualRevenue > ART53_THRESHOLD_2026) {
           suggestedRegime = 'normal_quarterly';
           confidence = 'medium';
-          reason = `Facturação ${previousYear}: €${annualRevenue.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} — acima do limite Art. 53º (€${ART53_THRESHOLD_2026.toLocaleString('pt-PT')}). Regime Normal sugerido.`;
+          reason = `Volume de negócios ${previousYear}: €${annualRevenue.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} — acima do limite Art. 53º (€${ART53_THRESHOLD_2026.toLocaleString('pt-PT')}). Regime Normal sugerido.`;
         } else {
           suggestedRegime = 'exempt_53';
           confidence = 'medium';
-          reason = `Facturação ${previousYear}: €${annualRevenue.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} — abaixo do limite Art. 53º (€${ART53_THRESHOLD_2026.toLocaleString('pt-PT')}). Isenção Art. 53º sugerida.`;
+          reason = `Volume de negócios ${previousYear}: €${annualRevenue.toLocaleString('pt-PT', { minimumFractionDigits: 2 })} — abaixo do limite Art. 53º (€${ART53_THRESHOLD_2026.toLocaleString('pt-PT')}). Isenção Art. 53º sugerida.`;
         }
       } else if (isViesRegistered === false) {
         suggestedRegime = 'exempt_53';
         confidence = 'low';
-        reason = 'NIF não registado no VIES e sem facturação registada. Isenção Art. 53º sugerida (reveja manualmente).';
+        reason = 'NIF não registado no VIES e sem vendas validadas registadas. Isenção Art. 53º sugerida (reveja manualmente).';
       } else {
         confidence = 'low';
-        reason = 'Não foi possível determinar o regime — VIES indisponível e sem facturação registada. Configure manualmente.';
+        reason = 'Não foi possível determinar o regime — VIES indisponível e sem vendas validadas registadas. Configure manualmente.';
       }
 
       const detection: VatDetectionResult = {

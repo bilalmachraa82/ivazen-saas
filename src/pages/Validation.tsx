@@ -26,14 +26,15 @@ import { Clock, CheckCircle, FileText, AlertCircle, Copy, AlertTriangle, Refresh
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { matchesRecentImportWindow } from '@/lib/recentImports';
 import { StepNavigator } from '@/components/dashboard/StepNavigator';
 import type { Tables } from '@/integrations/supabase/types';
+import { useQueryClient } from '@tanstack/react-query';
 
 type Invoice = Tables<'invoices'>;
 
 export default function Validation() {
   const { user, loading: authLoading } = useAuth();
+  const queryClient = useQueryClient();
   const { needsFiscalSetup, isLoading: profileLoading } = useProfile();
   const { isAccountant, isCheckingRole } = useAccountant();
   const { clients } = useClientManagement();
@@ -47,6 +48,7 @@ export default function Validation() {
     : (isAccountant ? (selectedClientId || null) : undefined);
   const { 
     invoices, 
+    statsSummary,
     loading, 
     filters, 
     setFilters, 
@@ -216,6 +218,43 @@ export default function Validation() {
     setSearchParams(next);
   }, [filters.reviewFilter, filters.recentWindow, filters.status, filters.year, searchParams, setSearchParams]);
 
+  const handleFiltersChange = useCallback((nextFilters: typeof filters) => {
+    setFilters(nextFilters);
+    syncFilterParams({
+      status: nextFilters.status,
+      review: nextFilters.reviewFilter || 'all',
+      year: nextFilters.year,
+      recent: nextFilters.recentWindow || 'all',
+    });
+  }, [setFilters, syncFilterParams]);
+
+  const refreshReconciliation = useCallback(async () => {
+    const reconciliationClientId = effectiveClientId || user?.id;
+    if (!reconciliationClientId) return;
+
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: ['reconciliation-invoices', reconciliationClientId],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ['reconciliation-summary', reconciliationClientId],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ['ss-reconciliation', reconciliationClientId],
+      }),
+    ]);
+  }, [effectiveClientId, queryClient, user?.id]);
+
+  const handleInvoiceDataUpdated = useCallback(async () => {
+    await refetch();
+    await refreshReconciliation();
+  }, [refetch, refreshReconciliation]);
+
+  const handleReconciliationCleanup = useCallback(async () => {
+    await refetch();
+    await refreshReconciliation();
+  }, [refetch, refreshReconciliation]);
+
   if (authLoading || profileLoading) {
     return <ZenLoader fullScreen text="A carregar..." />;
   }
@@ -314,11 +353,6 @@ export default function Validation() {
     refetch();
   };
 
-  const pendingCount = invoices.filter(inv => inv.status === 'pending').length;
-  const classifiedCount = invoices.filter(inv => inv.status === 'classified').length;
-  const validatedCount = invoices.filter(inv => inv.status === 'validated').length;
-  const needsReviewCount = invoices.filter(inv => inv.requires_accountant_validation === true).length;
-  const autoApprovedCount = invoices.filter(inv => inv.requires_accountant_validation === false).length;
   const selectedClient = clients.find((client) => client.id === selectedClientId);
 
   const handleSelectInvoice = (invoice: Invoice) => {
@@ -477,9 +511,6 @@ export default function Validation() {
   const selectedInvoices = invoices.filter((invoice) => selectedIds.has(invoice.id));
   const allSelectedAccountingExcluded = selectedInvoices.length > 0
     && selectedInvoices.every((invoice) => invoice.accounting_excluded);
-  const recentImportsCount = invoices.filter((invoice) =>
-    matchesRecentImportWindow(invoice.created_at, '24h'),
-  ).length;
 
   return (
     <DashboardLayout>
@@ -538,24 +569,24 @@ export default function Validation() {
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
           <ZenStatsCard
             icon={Clock}
-            value={pendingCount}
+            value={statsSummary.pendingCount}
             label="Pendentes"
             variant="default"
             animationDelay="0ms"
             onClick={() => {
-              setFilters((prev) => ({ ...prev, status: 'pending', reviewFilter: 'all' }));
-              syncFilterParams({ status: 'pending', review: 'all' });
+              setFilters((prev) => ({ ...prev, status: 'pending', reviewFilter: 'all', recentWindow: 'all' }));
+              syncFilterParams({ status: 'pending', review: 'all', recent: 'all' });
             }}
           />
           <ZenStatsCard
             icon={AlertTriangle}
-            value={needsReviewCount}
+            value={statsSummary.needsReviewCount}
             label="Requer revisão"
             variant="warning"
             animationDelay="50ms"
             onClick={() => {
-              setFilters((prev) => ({ ...prev, status: 'all', reviewFilter: 'needs_review' }));
-              syncFilterParams({ status: 'all', review: 'needs_review' });
+              setFilters((prev) => ({ ...prev, status: 'classified', reviewFilter: 'needs_review', recentWindow: 'all' }));
+              syncFilterParams({ status: 'classified', review: 'needs_review', recent: 'all' });
             }}
           />
           <Tooltip>
@@ -563,13 +594,13 @@ export default function Validation() {
               <div>
                 <ZenStatsCard
                   icon={CheckCircle}
-                  value={autoApprovedCount}
+                  value={statsSummary.autoApprovedCount}
                   label="Auto-aprovadas"
                   variant="success"
                   animationDelay="100ms"
                   onClick={() => {
-                    setFilters((prev) => ({ ...prev, status: 'all', reviewFilter: 'auto_approved' }));
-                    syncFilterParams({ status: 'all', review: 'auto_approved' });
+                    setFilters((prev) => ({ ...prev, status: 'classified', reviewFilter: 'auto_approved', recentWindow: 'all' }));
+                    syncFilterParams({ status: 'classified', review: 'auto_approved', recent: 'all' });
                   }}
                 />
               </div>
@@ -580,13 +611,13 @@ export default function Validation() {
           </Tooltip>
           <ZenStatsCard
             icon={CheckCircle}
-            value={validatedCount}
+            value={statsSummary.validatedCount}
             label="Validadas"
             variant="success"
             animationDelay="150ms"
             onClick={() => {
-              setFilters((prev) => ({ ...prev, status: 'validated', reviewFilter: 'all' }));
-              syncFilterParams({ status: 'validated', review: 'all' });
+              setFilters((prev) => ({ ...prev, status: 'validated', reviewFilter: 'all', recentWindow: 'all' }));
+              syncFilterParams({ status: 'validated', review: 'all', recent: 'all' });
             }}
           />
           <ZenStatsCard
@@ -596,13 +627,13 @@ export default function Validation() {
             variant="default"
             animationDelay="175ms"
             onClick={() => {
-              setFilters((prev) => ({ ...prev, status: 'accounting_excluded', reviewFilter: 'all' }));
-              syncFilterParams({ status: 'accounting_excluded', review: 'all' });
+              setFilters((prev) => ({ ...prev, status: 'accounting_excluded', reviewFilter: 'all', recentWindow: 'all' }));
+              syncFilterParams({ status: 'accounting_excluded', review: 'all', recent: 'all' });
             }}
           />
           <ZenStatsCard
             icon={UploadIcon}
-            value={recentImportsCount}
+            value={statsSummary.recentImportsCount}
             label="Importadas 24h"
             variant="default"
             animationDelay="200ms"
@@ -743,7 +774,7 @@ export default function Validation() {
               <CardContent className="space-y-6">
                 <InvoiceFilters
                   filters={filters}
-                  onFiltersChange={setFilters}
+                  onFiltersChange={handleFiltersChange}
                   fiscalPeriods={getFiscalPeriods()}
                 />
                 
@@ -776,7 +807,7 @@ export default function Validation() {
                 {(effectiveClientId || (!isAccountant && user?.id)) ? (
                   <ReconciliationTab
                     clientId={(effectiveClientId || user?.id)!}
-                    onCleanupComplete={() => refetch()}
+                    onCleanupComplete={handleReconciliationCleanup}
                     onOpenInvoice={handleSelectInvoiceById}
                   />
                 ) : (
@@ -804,7 +835,7 @@ export default function Validation() {
         onNavigate={handleNavigate}
         canNavigatePrev={selectedIndex > 0}
         canNavigateNext={selectedIndex < invoices.length - 1}
-        onDataUpdated={refetch}
+        onDataUpdated={handleInvoiceDataUpdated}
       />
 
       <OnboardingTour />

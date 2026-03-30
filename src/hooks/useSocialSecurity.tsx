@@ -4,9 +4,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useClientFiscalProfile } from '@/hooks/useClientFiscalProfile';
-import { SS_COEFFICIENTS, SS_REVENUE_CATEGORIES, getSSCoefficient, normalizeSSCategory } from '@/lib/ssCoefficients';
+import { SS_COEFFICIENTS, SS_REVENUE_CATEGORIES, getSSCoefficient } from '@/lib/ssCoefficients';
 import { resolveScopedClientId } from '@/lib/clientScope';
 import { getQuarterDateRange } from '@/lib/fiscalQuarter';
+import {
+  getSalesInvoiceRevenueAmount,
+  getSalesInvoiceRevenueCategory,
+} from '@/lib/socialSecurityRevenue';
+export {
+  getSalesInvoiceRevenueAmount,
+  getSalesInvoiceRevenueCategory,
+} from '@/lib/socialSecurityRevenue';
 
 interface RevenueEntry {
   id: string;
@@ -41,17 +49,6 @@ interface SocialSecurityProfileFields {
   ss_contribution_rate?: number | string | null;
   is_first_year?: boolean | null;
   nif?: string | null;
-}
-
-interface SocialSecuritySalesInvoice {
-  base_reduced?: number | null;
-  base_intermediate?: number | null;
-  base_standard?: number | null;
-  base_exempt?: number | null;
-  total_amount?: number | null;
-  total_vat?: number | null;
-  document_type?: string | null;
-  revenue_category?: string | null;
 }
 
 // IAS values by year (Indexante dos Apoios Sociais)
@@ -245,36 +242,6 @@ function getQuarterRange(quarter: string) {
   return getQuarterDateRange(Number(year), Number(q));
 }
 
-export function getSalesInvoiceRevenueCategory(invoice: SocialSecuritySalesInvoice): string {
-  const docType = (invoice.document_type || '').toUpperCase();
-  const inferredCategory = invoice.revenue_category
-    || ((docType === 'FR' || docType === 'FS/FR') ? 'prestacao_servicos' : 'vendas');
-  return normalizeSSCategory(inferredCategory);
-}
-
-export function getSalesInvoiceRevenueAmount(invoice: SocialSecuritySalesInvoice): number {
-  const lineBases = [
-    Number(invoice.base_reduced || 0),
-    Number(invoice.base_intermediate || 0),
-    Number(invoice.base_standard || 0),
-    Number(invoice.base_exempt || 0),
-  ];
-  const summedBases = lineBases.reduce((sum, value) => sum + value, 0);
-
-  if (summedBases > 0) {
-    return summedBases;
-  }
-
-  const totalAmount = Number(invoice.total_amount || 0);
-  const totalVat = Number(invoice.total_vat || 0);
-
-  if (totalAmount > 0) {
-    return Math.max(totalAmount - totalVat, 0);
-  }
-
-  return 0;
-}
-
 // Calculate relevant income with proper coefficients
 export function calculateRelevantIncome(entries: RevenueEntry[]): number {
   return entries.reduce((sum, entry) => {
@@ -372,6 +339,14 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
     },
     enabled: !!effectiveClientId,
   });
+  const isSubmittedQuarterLocked = declaration?.status === 'submitted';
+
+  const ensureQuarterEditable = (actionLabel: string) => {
+    if (!isSubmittedQuarterLocked) return;
+    throw new Error(
+      `O trimestre ${quarter} já foi marcado como submetido e está bloqueado para ${actionLabel}.`,
+    );
+  };
 
   // Fetch all declarations history
   const { data: declarationsHistory = [] } = useQuery({
@@ -492,6 +467,7 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
   const addRevenueMutation = useMutation({
     mutationFn: async (data: { category: string; amount: number; notes?: string; source?: string }) => {
       if (!effectiveClientId) throw new Error('No client selected');
+      ensureQuarterEditable('novos rendimentos');
 
       const { error } = await supabase
         .from('revenue_entries')
@@ -520,6 +496,7 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
   const bulkImportMutation = useMutation({
     mutationFn: async (entries: { quarter: string; amount: number; category: string }[]) => {
       if (!effectiveClientId) throw new Error('No client selected');
+      ensureQuarterEditable('importações');
 
       const insertData = entries.map(entry => ({
         client_id: effectiveClientId,
@@ -549,6 +526,8 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
   // Update revenue entry
   const updateRevenueMutation = useMutation({
     mutationFn: async (data: { id: string; amount: number; notes?: string }) => {
+      ensureQuarterEditable('edições');
+
       const { error } = await supabase
         .from('revenue_entries')
         .update({ amount: data.amount, notes: data.notes || null })
@@ -569,6 +548,8 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
   // Delete revenue entry
   const deleteRevenueMutation = useMutation({
     mutationFn: async (id: string) => {
+      ensureQuarterEditable('remoções');
+
       const { error } = await supabase
         .from('revenue_entries')
         .delete()
@@ -605,6 +586,7 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
     }>) => {
       const clientNif = profileFieldsWithNif(activeProfile).nif;
       if (!effectiveClientId || !clientNif) throw new Error('No client selected');
+      ensureQuarterEditable('importações de vendas');
 
       // First, fetch existing sales invoices to check for duplicates
       const { data: existingSales, error: fetchError } = await supabase
@@ -712,6 +694,7 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
       notes?: string;
     }) => {
       if (!effectiveClientId) throw new Error('No client selected');
+      ensureQuarterEditable('alterações');
 
       const declarationData = {
         client_id: effectiveClientId,
@@ -785,6 +768,7 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
     calculatedContribution,
     availableQuarters,
     isLoading: isLoadingRevenue || isLoadingDeclaration || isLoadingSales,
+    isSubmittedQuarterLocked,
     addRevenue: addRevenueMutation.mutate,
     isAddingRevenue: addRevenueMutation.isPending,
     updateRevenue: updateRevenueMutation.mutate,

@@ -27,9 +27,10 @@ interface WithholdingListProps {
   isDeletingAll?: boolean;
   isUpdating: boolean;
   fiscalYear: number;
+  isReadOnly?: boolean;
 }
 
-export function WithholdingList({ withholdings, onDelete, onDeleteAll, onUpdate, isDeleting, isDeletingAll, isUpdating, fiscalYear }: WithholdingListProps) {
+export function WithholdingList({ withholdings, onDelete, onDeleteAll, onUpdate, isDeleting, isDeletingAll, isUpdating, fiscalYear, isReadOnly = false }: WithholdingListProps) {
   const navigate = useNavigate();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingWithholding, setEditingWithholding] = useState<TaxWithholding | null>(null);
@@ -207,7 +208,7 @@ export function WithholdingList({ withholdings, onDelete, onDeleteAll, onUpdate,
                 <Button
                   variant="destructive"
                   size="sm"
-                  disabled={isDeletingAll}
+                  disabled={isDeletingAll || isReadOnly}
                   className="flex items-center gap-2"
                 >
                   {isDeletingAll ? (
@@ -310,6 +311,7 @@ export function WithholdingList({ withholdings, onDelete, onDeleteAll, onUpdate,
                       variant="ghost"
                       size="icon"
                       onClick={() => setEditingWithholding(w)}
+                      disabled={isReadOnly}
                       title="Editar"
                     >
                       <Pencil className="h-4 w-4 text-muted-foreground" />
@@ -327,7 +329,7 @@ export function WithholdingList({ withholdings, onDelete, onDeleteAll, onUpdate,
                         <Button
                           variant="ghost"
                           size="icon"
-                          disabled={isDeleting && deletingId === w.id}
+                          disabled={isReadOnly || (isDeleting && deletingId === w.id)}
                         >
                           {isDeleting && deletingId === w.id ? (
                             <Loader2 className="h-4 w-4 animate-spin" />

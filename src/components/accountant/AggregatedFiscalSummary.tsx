@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { 
+import {
   TrendingUp, 
   TrendingDown,
   Receipt,
@@ -11,6 +11,7 @@ import {
   Building2
 } from 'lucide-react';
 import { isFiscallyEffectivePurchase } from '@/lib/fiscalStatus';
+import { getPurchaseDeductibleVat } from '@/lib/purchaseDeductibility';
 
 interface ClientWithStats {
   id: string;
@@ -34,6 +35,7 @@ interface ClientInvoice {
   status: string | null;
   final_classification: string | null;
   final_deductibility: number | null;
+  ai_deductibility?: number | null;
   fiscal_period: string | null;
   requires_accountant_validation?: boolean | null;
 }
@@ -91,8 +93,7 @@ export function AggregatedFiscalSummary({ clients, invoices }: AggregatedFiscalS
       
       if (isFiscallyEffectivePurchase(inv)) {
         periods[period].validatedCount++;
-        const deductibility = (inv.final_deductibility || 0) / 100;
-        periods[period].totalDeductible += (inv.total_vat || 0) * deductibility;
+        periods[period].totalDeductible += getPurchaseDeductibleVat(inv);
       }
     });
 
@@ -143,10 +144,7 @@ export function AggregatedFiscalSummary({ clients, invoices }: AggregatedFiscalS
     const totalVat = qInvoices.reduce((sum, inv) => sum + (inv.total_vat || 0), 0);
     const totalDeductible = qInvoices
       .filter(isFiscallyEffectivePurchase)
-      .reduce((sum, inv) => {
-        const deductibility = (inv.final_deductibility || 0) / 100;
-        return sum + (inv.total_vat || 0) * deductibility;
-      }, 0);
+      .reduce((sum, inv) => sum + getPurchaseDeductibleVat(inv), 0);
 
     const totalSS = clients.reduce((sum, c) => sum + (c.ssContribution || 0), 0);
 

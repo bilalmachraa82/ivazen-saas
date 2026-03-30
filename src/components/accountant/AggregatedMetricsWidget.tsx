@@ -18,6 +18,7 @@ import {
   isFiscallyEffectivePurchase,
   isPurchasePendingReview,
 } from '@/lib/fiscalStatus';
+import { getPurchaseDeductibleVat } from '@/lib/purchaseDeductibility';
 
 interface Client {
   id: string;
@@ -37,6 +38,7 @@ interface Invoice {
   total_amount: number;
   total_vat?: number | null;
   final_deductibility?: number | null;
+  ai_deductibility?: number | null;
   document_date: string;
   requires_accountant_validation?: boolean | null;
 }
@@ -56,11 +58,10 @@ export function AggregatedMetricsWidget({
     // Total VAT calculation from validated invoices
     const fiscallyEffectiveInvoices = invoices.filter(isFiscallyEffectivePurchase);
     const validatedInvoices = invoices.filter(inv => inv.status === 'validated');
-    const totalVatDeductible = fiscallyEffectiveInvoices.reduce((sum, inv) => {
-      const vat = inv.total_vat || 0;
-      const deductibility = (inv.final_deductibility || 0) / 100;
-      return sum + (vat * deductibility);
-    }, 0);
+    const totalVatDeductible = fiscallyEffectiveInvoices.reduce(
+      (sum, inv) => sum + getPurchaseDeductibleVat(inv),
+      0,
+    );
 
     // Total invoice amounts
     const totalInvoiceAmount = invoices.reduce((sum, inv) => sum + inv.total_amount, 0);

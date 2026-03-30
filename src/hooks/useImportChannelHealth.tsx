@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { resolveScopedClientId } from '@/lib/clientScope';
+import { hasAnyUsableATConnectorAccess, resolveATEnvironment } from '@/lib/atConnectorAccess';
 
 export type ChannelId = 'at_soap' | 'csv_excel' | 'pdf_ocr' | 'saft' | 'modelo10';
 
@@ -32,16 +33,18 @@ interface UseImportChannelHealthOptions {
 }
 
 export function useImportChannelHealth(options: UseImportChannelHealthOptions = {}) {
-  const { user } = useAuth();
+  const { user, roles } = useAuth();
   const effectiveClientId = resolveScopedClientId(options.clientId, user?.id);
+  const isAccountant = roles.includes('accountant');
 
   const query = useQuery({
-    queryKey: ['import-channel-health', effectiveClientId],
+    queryKey: ['import-channel-health', effectiveClientId, user?.id, isAccountant],
     queryFn: async (): Promise<ImportChannelHealthData | null> => {
       if (!effectiveClientId) return null;
 
       const [
         atCredentialsRes,
+        accountantConfigRes,
         syncHistoryRes,
         purchaseCountRes,
         salesCountRes,
@@ -49,10 +52,19 @@ export function useImportChannelHealth(options: UseImportChannelHealthOptions = 
       ] = await Promise.all([
         supabase
           .from('at_credentials')
-          .select('last_sync_status, last_sync_at, last_sync_error, environment')
+          .select('subuser_id, encrypted_username, portal_nif, encrypted_password, portal_password_encrypted, last_sync_status, last_sync_at, last_sync_error, environment')
           .eq('client_id', effectiveClientId)
           .limit(1)
           .maybeSingle(),
+        isAccountant && user?.id
+          ? supabase
+            .from('accountant_at_config')
+            .select('is_active, subuser_id, subuser_password_encrypted, environment')
+            .eq('accountant_id', user.id)
+            .eq('is_active', true)
+            .limit(1)
+            .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
         supabase
           .from('at_sync_history')
           .select('created_at, sync_type, sync_method, status, records_imported, records_errors')
@@ -74,8 +86,14 @@ export function useImportChannelHealth(options: UseImportChannelHealthOptions = 
       ]);
 
       const syncHistory = syncHistoryRes.data || [];
-      const hasATCredentials = !!atCredentialsRes.data;
-      const atEnvironment = atCredentialsRes.data?.environment ?? null;
+      const hasATCredentials = hasAnyUsableATConnectorAccess({
+        credential: atCredentialsRes.data,
+        sharedConfig: accountantConfigRes.data,
+      });
+      const atEnvironment = resolveATEnvironment({
+        credential: atCredentialsRes.data,
+        sharedConfig: accountantConfigRes.data,
+      });
 
       // ── AT SOAP channel ──
       // Only sync-efatura writes to at_sync_history, always with sync_method='api'.

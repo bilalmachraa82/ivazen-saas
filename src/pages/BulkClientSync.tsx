@@ -60,6 +60,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { Link, useNavigate } from 'react-router-dom';
 import { featureFlags } from '@/lib/featureFlags';
+import { hasAnyUsableATConnectorAccess, resolveATEnvironment } from '@/lib/atConnectorAccess';
 
 interface ClientWithCredentials {
   id: string;
@@ -86,8 +87,10 @@ interface AccountantClientRpcRow {
 
 interface SyncHistoryRow {
   client_id: string;
+  status: string | null;
   reason_code: string | null;
   error_message: string | null;
+  created_at: string;
 }
 
 type FilterStatus = 'all' | 'configured' | 'pending' | 'error' | 'never';
@@ -149,7 +152,7 @@ export default function BulkClientSync() {
       if (!user?.id) return null;
       const { data } = await supabase
         .from('accountant_at_config')
-        .select('id, certificate_cn, subuser_id, is_active, at_public_key_base64, certificate_pfx_base64')
+        .select('id, certificate_cn, subuser_id, subuser_password_encrypted, is_active, environment, at_public_key_base64, certificate_pfx_base64')
         .eq('accountant_id', user.id)
         .maybeSingle();
       return data;
@@ -159,7 +162,14 @@ export default function BulkClientSync() {
 
   // Get accountant's clients with credential status
   const { data: clients, isLoading: isLoadingClients, refetch: refetchClients } = useQuery({
-    queryKey: ['bulk-sync-clients', user?.id],
+    queryKey: [
+      'bulk-sync-clients',
+      user?.id,
+      Boolean(accountantConfig?.is_active),
+      Boolean(accountantConfig?.subuser_id),
+      Boolean(accountantConfig?.subuser_password_encrypted),
+      accountantConfig?.environment || null,
+    ],
     queryFn: async () => {
       if (!user?.id) return [];
       
@@ -176,25 +186,27 @@ export default function BulkClientSync() {
       const clientIds = typedClientsData.map((c) => c.id);
       const { data: credentials } = await supabase
         .from('at_credentials')
-        .select('client_id, last_sync_at, last_sync_status, last_sync_error, environment')
+        .select('client_id, subuser_id, encrypted_username, portal_nif, encrypted_password, portal_password_encrypted, last_sync_at, last_sync_status, last_sync_error, environment')
         .in('client_id', clientIds);
 
       const { data: latestHistory } = await supabase
         .from('at_sync_history')
-        .select('client_id, reason_code, error_message, created_at')
+        .select('client_id, status, reason_code, error_message, created_at')
         .in('client_id', clientIds)
         .order('created_at', { ascending: false });
 
       const credentialsMap = new Map(
         (credentials || []).map(c => [c.client_id, c])
       );
-      const historyMap = new Map<string, { reason_code: string | null; error_message: string | null }>();
+      const historyMap = new Map<string, { status: string | null; reason_code: string | null; error_message: string | null; created_at: string }>();
       const historyRows = (latestHistory ?? []) as SyncHistoryRow[];
       historyRows.forEach((row) => {
         if (!historyMap.has(row.client_id)) {
           historyMap.set(row.client_id, {
+            status: row.status || null,
             reason_code: row.reason_code || null,
             error_message: row.error_message || null,
+            created_at: row.created_at,
           });
         }
       });
@@ -208,13 +220,21 @@ export default function BulkClientSync() {
           company_name: client.company_name,
           nif: client.nif,
           email: client.email,
-          hasCredentials: !!cred,
-          lastSyncAt: cred?.last_sync_at || null,
-          lastSyncStatus: cred?.last_sync_status || 'never',
-          lastSyncError: cred?.last_sync_error || null,
+          hasCredentials: hasAnyUsableATConnectorAccess({
+            credential: cred,
+            sharedConfig: accountantConfig,
+            clientNif: client.nif,
+          }),
+          lastSyncAt: cred?.last_sync_at || latest?.created_at || null,
+          lastSyncStatus: cred?.last_sync_status || latest?.status || 'never',
+          lastSyncError: cred?.last_sync_error || latest?.error_message || null,
           latestReasonCode: latest?.reason_code || null,
           latestReasonMessage: latest?.error_message || null,
-          environment: cred?.environment,
+          environment: resolveATEnvironment({
+            credential: cred,
+            sharedConfig: accountantConfig,
+            fallback: 'production',
+          }) || 'production',
         };
       });
     },
@@ -244,7 +264,7 @@ export default function BulkClientSync() {
     if (!client.hasCredentials) {
       return {
         label: 'Sem credenciais',
-        description: 'Importe ou configure credenciais AT para este cliente.',
+        description: 'Configure acesso AT do cliente ou o conector central do contabilista.',
         ctaLabel: 'Configurar',
         ctaPath: '/settings',
         tone: 'warning',
@@ -390,7 +410,7 @@ export default function BulkClientSync() {
       .filter(c => c && c.hasCredentials) as ClientWithCredentials[];
 
     if (clientsToSync.length === 0) {
-      toast.error('Seleccione clientes com credenciais configuradas');
+      toast.error('Seleccione clientes com acesso AT configurado');
       return;
     }
 
@@ -406,7 +426,7 @@ export default function BulkClientSync() {
         try {
           await syncMutation.mutateAsync({
             clientId: client.id,
-            environment: (client.environment as 'test' | 'production') || 'test',
+            environment: (client.environment as 'test' | 'production') || 'production',
             type: 'ambos',
           });
         } catch (err: unknown) {
@@ -522,7 +542,7 @@ export default function BulkClientSync() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">{clients?.filter(c => c.hasCredentials).length || 0}</Badge>
-                    <span>Clientes com credenciais</span>
+                    <span>Clientes com acesso AT</span>
                   </div>
                 </div>
               </div>
@@ -557,7 +577,7 @@ export default function BulkClientSync() {
                       .map(c => c.id) || [];
                     
                     if (configuredClientIds.length === 0) {
-                      toast.error('Nenhum cliente com credenciais configuradas');
+                      toast.error('Nenhum cliente com acesso AT configurado');
                       return;
                     }
                     
@@ -928,7 +948,7 @@ export default function BulkClientSync() {
                                   onClick={() => {
                                     syncMutation.mutate({
                                       clientId: client.id,
-                                      environment: (client.environment as 'test' | 'production') || 'test',
+                                      environment: (client.environment as 'test' | 'production') || 'production',
                                       type: 'ambos',
                                     });
                                   }}

@@ -100,6 +100,7 @@ export default function SocialSecurity() {
     totals,
     availableQuarters,
     isLoading,
+    isSubmittedQuarterLocked,
     addRevenue,
     isAddingRevenue,
     deleteRevenue,
@@ -118,6 +119,7 @@ export default function SocialSecurity() {
   const [newNotes, setNewNotes] = useState('');
   const [declarationNotes, setDeclarationNotes] = useState('');
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const readOnlyQuarterMessage = `O trimestre ${getLabel(quarter)} já foi marcado como submetido e está em modo só leitura.`;
 
   // Redirect if not logged in
   if (!authLoading && !user) {
@@ -283,6 +285,11 @@ export default function SocialSecurity() {
   const contributionAmount = calculatedContribution.amount;
 
   const handleAddRevenue = () => {
+    if (isSubmittedQuarterLocked) {
+      toast.error(readOnlyQuarterMessage);
+      return;
+    }
+
     const amount = parseFloat(newAmount);
     if (isNaN(amount) || amount <= 0) {
       toast.error('Introduza um valor válido');
@@ -301,6 +308,11 @@ export default function SocialSecurity() {
   };
 
   const handleSaveDeclaration = (status: 'draft' | 'submitted') => {
+    if (isSubmittedQuarterLocked) {
+      toast.error(readOnlyQuarterMessage);
+      return;
+    }
+
     saveDeclaration({
       contributionRate,
       status,
@@ -342,6 +354,17 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
               <p className="text-muted-foreground">Declaração trimestral de rendimentos</p>
             </div>
           </div>
+
+        {isSubmittedQuarterLocked && (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="pt-4">
+              <p className="font-medium">Trimestre fechado</p>
+              <p className="text-sm text-muted-foreground">
+                {readOnlyQuarterMessage}
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Client Selector for Accountants */}
         {isAccountant && clients.length > 0 && (
@@ -691,9 +714,18 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                     Adicione os seus rendimentos do trimestre
                   </CardDescription>
                 </div>
-                <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+                <Dialog
+                  open={addDialogOpen}
+                  onOpenChange={(nextOpen) => {
+                    if (nextOpen && isSubmittedQuarterLocked) {
+                      toast.error(readOnlyQuarterMessage);
+                      return;
+                    }
+                    setAddDialogOpen(nextOpen);
+                  }}
+                >
                   <DialogTrigger asChild>
-                    <Button size="sm" className="gap-2">
+                    <Button size="sm" className="gap-2" disabled={isSubmittedQuarterLocked}>
                       <Plus className="h-4 w-4" />
                       Adicionar
                     </Button>
@@ -742,10 +774,10 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                       </div>
                     </div>
                     <DialogFooter>
-                      <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
-                        Cancelar
-                      </Button>
-                      <Button onClick={handleAddRevenue} disabled={isAddingRevenue}>
+                        <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
+                          Cancelar
+                        </Button>
+                      <Button onClick={handleAddRevenue} disabled={isAddingRevenue || isSubmittedQuarterLocked}>
                         {isAddingRevenue && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Adicionar
                       </Button>
@@ -789,6 +821,7 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8 text-destructive hover:text-destructive"
+                                  disabled={isSubmittedQuarterLocked}
                                   aria-label="Eliminar rendimento"
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -894,6 +927,7 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                     placeholder="Notas opcionais..."
                     value={declarationNotes}
                     onChange={(e) => setDeclarationNotes(e.target.value)}
+                    disabled={isSubmittedQuarterLocked}
                   />
                 </div>
 
@@ -910,7 +944,7 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                   <Button
                     variant="outline"
                     onClick={() => handleSaveDeclaration('draft')}
-                    disabled={isSavingDeclaration}
+                    disabled={isSavingDeclaration || isSubmittedQuarterLocked}
                   >
                     {isSavingDeclaration && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Guardar Rascunho
@@ -918,7 +952,7 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
 
                   <Button
                     onClick={() => handleSaveDeclaration('submitted')}
-                    disabled={isSavingDeclaration || totals.total === 0}
+                    disabled={isSavingDeclaration || totals.total === 0 || isSubmittedQuarterLocked}
                     className="gap-2"
                   >
                     {isSavingDeclaration && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -970,6 +1004,7 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                   </div>
                   <Button 
                     onClick={() => navigate('/upload?type=sales')} 
+                    disabled={isSubmittedQuarterLocked}
                     className="gap-2 bg-green-600 hover:bg-green-700"
                   >
                     <Upload className="h-4 w-4" />
@@ -986,13 +1021,21 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
             </Card>
 
             <PortalLinks />
-            <RevenueImporter 
-              onImport={bulkImport} 
-              onCreateSalesInvoices={createSalesInvoices}
-              currentQuarter={quarter}
-              userCAE={profile?.cae}
-              activityDescription={profile?.activity_description}
-            />
+            {isSubmittedQuarterLocked ? (
+              <Card className="border-primary/20 bg-primary/5">
+                <CardContent className="pt-6 text-sm text-muted-foreground">
+                  {readOnlyQuarterMessage}
+                </CardContent>
+              </Card>
+            ) : (
+              <RevenueImporter 
+                onImport={bulkImport} 
+                onCreateSalesInvoices={createSalesInvoices}
+                currentQuarter={quarter}
+                userCAE={profile?.cae}
+                activityDescription={profile?.activity_description}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="submit" className="space-y-6">

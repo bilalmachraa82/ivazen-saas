@@ -24,6 +24,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { getSSCoefficient } from '@/lib/ssCoefficients';
 import { applyFiscallyEffectivePurchaseFilter } from '@/lib/fiscalStatus';
+import {
+  getSalesInvoiceRevenueAmount,
+  getSalesInvoiceRevenueCategory,
+} from '@/lib/socialSecurityRevenue';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -135,7 +139,7 @@ export function FiscalSummary({ clientId, year, compact = false }: FiscalSummary
       // Get revenue for SS calculation
       const { data: salesData } = await supabase
         .from('sales_invoices')
-        .select('total_amount, revenue_category')
+        .select('base_reduced, base_intermediate, base_standard, base_exempt, total_amount, total_vat, revenue_category, document_type')
         .eq('client_id', effectiveClientId)
         .eq('status', 'validated')
         .gte('document_date', `${fiscalYear}-01-01`)
@@ -144,8 +148,8 @@ export function FiscalSummary({ clientId, year, compact = false }: FiscalSummary
       // Calculate base with coefficients from centralized source
       let base = 0;
       salesData?.forEach(sale => {
-        const amount = Number(sale.total_amount) || 0;
-        const coefficient = getSSCoefficient(sale.revenue_category || 'prestacao_servicos');
+        const amount = getSalesInvoiceRevenueAmount(sale);
+        const coefficient = getSSCoefficient(getSalesInvoiceRevenueCategory(sale));
         base += amount * coefficient;
       });
 

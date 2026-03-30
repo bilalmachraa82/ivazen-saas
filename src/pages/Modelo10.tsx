@@ -45,6 +45,8 @@ export default function Modelo10() {
     isLoading,
     selectedYear,
     setSelectedYear,
+    isSubmittedYearLocked,
+    submittedEntriesCount,
     addWithholding,
     updateWithholding,
     deleteWithholding,
@@ -65,6 +67,7 @@ export default function Modelo10() {
   // Get selected client name
   const selectedClient = clients.find(c => c.id === selectedClientId);
   const effectiveClientId = isAccountant ? (selectedClientId || null) : user?.id;
+  const readOnlyYearMessage = `O ano fiscal ${selectedYear} já tem ${submittedEntriesCount} retenção(ões) submetida(s). O período está em modo só leitura.`;
 
   const { data: pendingCandidates = 0 } = useQuery({
     queryKey: ['withholding-candidates-pending', effectiveClientId, selectedYear],
@@ -206,15 +209,28 @@ export default function Modelo10() {
                   Existem candidatos importados automaticamente que ainda não foram promovidos para o Modelo 10.
                 </p>
               </div>
-              {isAccountant ? (
+              {!isSubmittedYearLocked && isAccountant ? (
+                <Button size="sm" variant="outline" onClick={() => setActiveTab('candidates')}>
+                  Rever candidatos
+                </Button>
+              ) : !isSubmittedYearLocked ? (
                 <Button size="sm" variant="outline" onClick={() => setActiveTab('candidates')}>
                   Rever candidatos
                 </Button>
               ) : (
-                <Button size="sm" variant="outline" onClick={() => setActiveTab('candidates')}>
-                  Rever candidatos
-                </Button>
+                <Badge variant="outline">Ano fechado</Badge>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {isSubmittedYearLocked && (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="py-3 px-4">
+              <p className="text-sm font-medium text-foreground">Ano fiscal fechado</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {readOnlyYearMessage}
+              </p>
             </CardContent>
           </Card>
         )}
@@ -234,15 +250,15 @@ export default function Modelo10() {
                 <List className="h-4 w-4" />
                 <span className="hidden sm:inline">Retenções</span>
               </TabsTrigger>
-              <TabsTrigger value="add" className="flex items-center gap-2">
+              <TabsTrigger value="add" className="flex items-center gap-2" disabled={isSubmittedYearLocked}>
                 <FileText className="h-4 w-4" />
                 <span className="hidden sm:inline">Adicionar</span>
               </TabsTrigger>
-               <TabsTrigger value="import" className="flex items-center gap-2">
+               <TabsTrigger value="import" className="flex items-center gap-2" disabled={isSubmittedYearLocked}>
                 <Upload className="h-4 w-4" />
                  <span className="hidden sm:inline">Importar</span>
               </TabsTrigger>
-              <TabsTrigger value="candidates" className="flex items-center gap-2">
+              <TabsTrigger value="candidates" className="flex items-center gap-2" disabled={isSubmittedYearLocked}>
                 <FileSearch className="h-4 w-4" />
                 <span className="hidden sm:inline">Candidatos</span>
                 {pendingCandidates > 0 && (
@@ -275,44 +291,69 @@ export default function Modelo10() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="list">
-              <WithholdingList
-                withholdings={withholdings}
-                onDelete={async (id) => { await deleteWithholding({ id }); }}
-                onDeleteAll={async () => { await deleteAllForYear(selectedYear); }}
-                onUpdate={async (id, data, previousData) => { await updateWithholding({ id, data, previousData }); }}
-                isDeleting={isDeleting}
-                isDeletingAll={isDeletingAll}
-                isUpdating={isUpdating}
-                fiscalYear={selectedYear}
-              />
-            </TabsContent>
+              <TabsContent value="list">
+                <WithholdingList
+                  withholdings={withholdings}
+                  onDelete={async (id) => { await deleteWithholding({ id }); }}
+                  onDeleteAll={async () => { await deleteAllForYear(selectedYear); }}
+                  onUpdate={async (id, data, previousData) => { await updateWithholding({ id, data, previousData }); }}
+                  isDeleting={isDeleting}
+                  isDeletingAll={isDeletingAll}
+                  isUpdating={isUpdating}
+                  fiscalYear={selectedYear}
+                  isReadOnly={isSubmittedYearLocked}
+                />
+              </TabsContent>
 
-            <TabsContent value="add">
-              <WithholdingForm
-                onSubmit={async (data) => { await addWithholding(data); }}
-                onExtract={extractFromImage}
-                isSubmitting={isAdding}
-                defaultYear={selectedYear}
-              />
-            </TabsContent>
+              <TabsContent value="add">
+                {isSubmittedYearLocked ? (
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardContent className="py-6 px-4 text-sm text-muted-foreground">
+                      {readOnlyYearMessage}
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <WithholdingForm
+                    onSubmit={async (data) => { await addWithholding(data); }}
+                    onExtract={extractFromImage}
+                    isSubmitting={isAdding}
+                    defaultYear={selectedYear}
+                  />
+                )}
+              </TabsContent>
 
-             <TabsContent value="import">
-               <ImportConsolidated
-                selectedClientId={isAccountant ? selectedClientId : user?.id}
-                selectedYear={selectedYear}
-                clientName={isAccountant ? selectedClient?.full_name || selectedClient?.company_name : null}
-                onImportComplete={() => setActiveTab('list')}
-                isAccountantOwnAccount={false}
-              />
-            </TabsContent>
+	             <TabsContent value="import">
+                {isSubmittedYearLocked ? (
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardContent className="py-6 px-4 text-sm text-muted-foreground">
+                      {readOnlyYearMessage}
+                    </CardContent>
+                  </Card>
+                ) : (
+  	               <ImportConsolidated
+  	                selectedClientId={isAccountant ? selectedClientId : user?.id}
+  	                selectedYear={selectedYear}
+  	                clientName={isAccountant ? selectedClient?.full_name || selectedClient?.company_name : null}
+  	                onImportComplete={() => setActiveTab('list')}
+  	                isAccountantOwnAccount={false}
+  	              />
+                )}
+	            </TabsContent>
 
-            <TabsContent value="candidates">
-              <WithholdingCandidatesReview
-                clientId={effectiveClientId}
-                fiscalYear={selectedYear}
-              />
-            </TabsContent>
+	            <TabsContent value="candidates">
+                {isSubmittedYearLocked ? (
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardContent className="py-6 px-4 text-sm text-muted-foreground">
+                      {readOnlyYearMessage}
+                    </CardContent>
+                  </Card>
+                ) : (
+	                <WithholdingCandidatesReview
+	                  clientId={effectiveClientId}
+	                  fiscalYear={selectedYear}
+	                />
+                )}
+	            </TabsContent>
 
             <TabsContent value="summary">
               <WithholdingSummary

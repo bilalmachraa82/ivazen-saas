@@ -237,12 +237,22 @@ export function useWithholdings(
     categoryE: withholdings.filter(w => w.income_category === 'E').length,
     categoryF: withholdings.filter(w => w.income_category === 'F').length,
   };
+  const isSubmittedYearLocked = withholdings.some((w) => w.status === 'submitted');
+  const submittedEntriesCount = withholdings.filter((w) => w.status === 'submitted').length;
+
+  const assertYearEditable = (actionLabel: string) => {
+    if (!isSubmittedYearLocked) return;
+    throw new Error(
+      `O ano fiscal ${effectiveYear} já tem retenções submetidas e está bloqueado para ${actionLabel}.`,
+    );
+  };
 
   // Add withholding mutation
   const addMutation = useMutation({
     mutationFn: async (data: WithholdingFormData) => {
       if (!user?.id) throw new Error('Utilizador não autenticado');
       if (!effectiveClientId) throw new Error('Cliente não seleccionado');
+      assertYearEditable('novos registos');
 
       const { data: result, error } = await supabase
         .from('tax_withholdings')
@@ -278,6 +288,8 @@ export function useWithholdings(
       data: Partial<WithholdingFormData>;
       previousData?: Partial<TaxWithholding>;
     }) => {
+      assertYearEditable('edições');
+
       const { data: result, error } = await supabase
         .from('tax_withholdings')
         .update(data)
@@ -320,6 +332,8 @@ export function useWithholdings(
   // Delete withholding mutation
   const deleteMutation = useMutation({
     mutationFn: async ({ id, previousData }: { id: string; previousData?: TaxWithholding }) => {
+      assertYearEditable('eliminação');
+
       const { error } = await supabase
         .from('tax_withholdings')
         .delete()
@@ -345,6 +359,7 @@ export function useWithholdings(
       if (!yearToDelete || yearToDelete < 2000 || yearToDelete > 2100) {
         throw new Error('Ano fiscal inválido');
       }
+      assertYearEditable('eliminação total');
 
       const { error } = await supabase
         .from('tax_withholdings')
@@ -396,6 +411,8 @@ export function useWithholdings(
     logs,
     summary,
     totals,
+    isSubmittedYearLocked,
+    submittedEntriesCount,
     isLoading,
     selectedYear,
     setSelectedYear,

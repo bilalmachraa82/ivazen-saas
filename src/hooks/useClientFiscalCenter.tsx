@@ -6,6 +6,7 @@ import { resolveScopedClientId } from '@/lib/clientScope';
 import { applyFiscallyEffectivePurchaseFilter } from '@/lib/fiscalStatus';
 import { useTaxpayerKind } from '@/hooks/useTaxpayerKind';
 import { getQuarterDateRange, getQuarterLabel } from '@/lib/fiscalQuarter';
+import { hasAnyUsableATConnectorAccess } from '@/lib/atConnectorAccess';
 
 const PENDING_PURCHASE_FILTER =
   'status.eq.pending,and(status.eq.classified,requires_accountant_validation.is.true),and(status.eq.classified,requires_accountant_validation.is.null)';
@@ -28,6 +29,8 @@ interface SyncEntry {
   status: 'pending' | 'running' | 'success' | 'partial' | 'error';
   records_imported: number;
   records_errors: number;
+  error_message?: string | null;
+  reason_code?: string | null;
 }
 
 interface UseClientFiscalCenterOptions {
@@ -77,8 +80,9 @@ export interface ClientFiscalCenterData {
 }
 
 export function useClientFiscalCenter(options: UseClientFiscalCenterOptions = {}) {
-  const { user } = useAuth();
+  const { user, roles } = useAuth();
   const effectiveClientId = resolveScopedClientId(options.clientId, user?.id);
+  const isAccountant = roles.includes('accountant');
   const { taxpayerKind, isLoading: isLoadingTaxpayerKind } = useTaxpayerKind(options.clientId);
   const currentYear = new Date().getFullYear();
   const currentQuarter = Math.ceil((new Date().getMonth() + 1) / 3);
@@ -88,7 +92,7 @@ export function useClientFiscalCenter(options: UseClientFiscalCenterOptions = {}
   const quarterLabel = getQuarterLabel(fiscalYear, quarter);
 
   const query = useQuery({
-    queryKey: ['client-fiscal-center', effectiveClientId, fiscalYear, quarter],
+    queryKey: ['client-fiscal-center', effectiveClientId, fiscalYear, quarter, user?.id, isAccountant],
     queryFn: async (): Promise<ClientFiscalCenterData | null> => {
       if (!effectiveClientId) return null;
       const previousYear = fiscalYear - 1;
@@ -96,6 +100,7 @@ export function useClientFiscalCenter(options: UseClientFiscalCenterOptions = {}
       const [
         clientRes,
         atCredentialsRes,
+        accountantConfigRes,
         syncHistoryRes,
         purchasesTotalRes,
         purchasesPendingRes,
@@ -116,13 +121,22 @@ export function useClientFiscalCenter(options: UseClientFiscalCenterOptions = {}
           .maybeSingle(),
         supabase
           .from('at_credentials')
-          .select('last_sync_status, last_sync_at, last_sync_error')
+          .select('subuser_id, encrypted_username, portal_nif, encrypted_password, portal_password_encrypted, last_sync_status, last_sync_at, last_sync_error')
           .eq('client_id', effectiveClientId)
           .limit(1)
           .maybeSingle(),
+        isAccountant && user?.id
+          ? supabase
+            .from('accountant_at_config')
+            .select('is_active, subuser_id, subuser_password_encrypted')
+            .eq('accountant_id', user.id)
+            .eq('is_active', true)
+            .limit(1)
+            .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
         supabase
           .from('at_sync_history')
-          .select('created_at, sync_type, sync_method, status, records_imported, records_errors')
+          .select('created_at, sync_type, sync_method, status, records_imported, records_errors, error_message, reason_code')
           .eq('client_id', effectiveClientId)
           .order('created_at', { ascending: false })
           .limit(3),
@@ -225,6 +239,9 @@ export function useClientFiscalCenter(options: UseClientFiscalCenterOptions = {}
       const salesReadyRows = salesRows.filter((row) => row.status === 'validated' || row.status === 'classified');
       const salesReady = salesReadyRows.length;
       const readyRevenue = salesReadyRows.reduce((sum, row) => sum + Number(row.total_amount || 0), 0);
+      const recentSyncs = (syncHistoryRes.data || []) as SyncEntry[];
+      const latestSync = recentSyncs[0] ?? null;
+      const clientNif = clientRes.data?.nif ?? null;
 
       return {
         period: {
@@ -236,11 +253,15 @@ export function useClientFiscalCenter(options: UseClientFiscalCenterOptions = {}
         },
         client: (clientRes.data || null) as ClientSummary | null,
         at: {
-          hasCredentials: !!atCredentialsRes.data,
-          lastSyncStatus: atCredentialsRes.data?.last_sync_status ?? null,
-          lastSyncAt: atCredentialsRes.data?.last_sync_at ?? null,
-          lastSyncError: atCredentialsRes.data?.last_sync_error ?? null,
-          recentSyncs: (syncHistoryRes.data || []) as SyncEntry[],
+          hasCredentials: hasAnyUsableATConnectorAccess({
+            credential: atCredentialsRes.data,
+            sharedConfig: accountantConfigRes.data,
+            clientNif,
+          }),
+          lastSyncStatus: atCredentialsRes.data?.last_sync_status || latestSync?.status || null,
+          lastSyncAt: atCredentialsRes.data?.last_sync_at || latestSync?.created_at || null,
+          lastSyncError: atCredentialsRes.data?.last_sync_error || latestSync?.error_message || null,
+          recentSyncs,
         },
         purchases: {
           total: purchasesTotalRes.count ?? 0,

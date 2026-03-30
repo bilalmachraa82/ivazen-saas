@@ -628,6 +628,16 @@ async function insertPurchaseInvoicesFromAT(
     let supplierName = inv.supplierName || null;
     let supplierCae = inv.supplierCae || inv.sector || null;
     const customerNif = inv.customerNif || clientNif;
+    const isSuspiciousPurchaseSupplier =
+      supplierNif === "999999990" || supplierNif === clientNif;
+
+    if (isSuspiciousPurchaseSupplier) {
+      skipped++;
+      console.warn(
+        `[sync-efatura] Skipping suspicious purchase invoice for client ${clientId}: supplier_nif=${supplierNif}, document=${inv.documentNumber || "unknown"}`,
+      );
+      continue;
+    }
 
     // If AT returned name/CAE, upsert into supplier_directory
     if (supplierNif !== "AT" && /^\d{9}$/.test(supplierNif)) {
@@ -1174,31 +1184,10 @@ Deno.serve(async (req: Request) => {
         .eq("client_id", clientId)
         .limit(1);
 
-      const cred = credentials?.[0];
-
+      const cred = credentials?.[0] || null;
       if (!cred) {
-        const noRowError = `Nenhuma credencial AT encontrada para o cliente ${clientId}`;
-        console.warn(`[sync-efatura] ${noRowError}`);
-        if (syncId) {
-          await supabase.from("at_sync_history").update({
-            status: "error",
-            sync_method: "api",
-            reason_code: "AT_AUTH_FAILED" as SyncReasonCode,
-            error_message: noRowError,
-            completed_at: new Date().toISOString(),
-          }).eq("id", syncId);
-        }
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: noRowError,
-            reasonCode: "AT_AUTH_FAILED",
-            syncId,
-          }),
-          {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
+        console.warn(
+          `[sync-efatura] No at_credentials row for client ${clientId}; trying accountant fallback if available.`,
         );
       }
 
@@ -1255,6 +1244,7 @@ Deno.serve(async (req: Request) => {
           "at_credentials.encrypted_username",
         ))?.trim() ||
         (cred?.portal_nif ? String(cred.portal_nif).trim() : "") ||
+        clientNif ||
         null;
 
       const rowPassword = (await decodeStoredSecret(
@@ -1284,10 +1274,12 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      const allowAccountantFallback = ["1", "true", "yes"].includes(
-        String(Deno.env.get("AT_ALLOW_ACCOUNTANT_FALLBACK") || "")
-          .toLowerCase(),
-      );
+      const accountantFallbackFlag = Deno.env.get("AT_ALLOW_ACCOUNTANT_FALLBACK");
+      const allowAccountantFallback = accountantFallbackFlag == null
+        ? true
+        : ["1", "true", "yes"].includes(
+          String(accountantFallbackFlag).toLowerCase(),
+        );
 
       const attempts: Array<
         {

@@ -3,7 +3,8 @@
  *
  * Data sources:
  * - useAccountantClients → pending_invoices + validated_invoices (compras)
- * - at_credentials → credential existence + last sync status/error
+ * - at_credentials + accountant_at_config → AT access readiness
+ * - at_sync_health_view → latest sync status/error when no client row exists
  * - sales_invoices → count per client_id (vendas)
  * - tax_withholdings → count per client_id (retenções)
  *
@@ -21,11 +22,23 @@ import {
   readinessOrder,
   type ClientReadiness,
 } from '@/lib/clientReadiness';
+import { hasAnyUsableATConnectorAccess } from '@/lib/atConnectorAccess';
 
 interface CredentialRow {
   client_id: string;
+  subuser_id: string | null;
+  encrypted_username: string | null;
+  portal_nif: string | null;
+  encrypted_password: string | null;
+  portal_password_encrypted: string | null;
   last_sync_status: string | null;
   last_sync_error: string | null;
+}
+
+interface SyncHealthRow {
+  client_id: string;
+  status: string | null;
+  error_message: string | null;
 }
 
 /**
@@ -69,7 +82,7 @@ export function useClientReadiness() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('at_credentials')
-        .select('client_id, last_sync_status, last_sync_error');
+        .select('client_id, subuser_id, encrypted_username, portal_nif, encrypted_password, portal_password_encrypted, last_sync_status, last_sync_error');
 
       if (error) {
         console.error('[useClientReadiness] at_credentials query failed:', error);
@@ -78,6 +91,51 @@ export function useClientReadiness() {
       return (data || []) as CredentialRow[];
     },
     enabled: isAccountant && !!user?.id,
+    staleTime: 30_000,
+  });
+
+  const { data: accountantConfig, isLoading: isLoadingConfig } = useQuery({
+    queryKey: ['client-readiness-accountant-config', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+
+      const { data, error } = await supabase
+        .from('accountant_at_config')
+        .select('is_active, subuser_id, subuser_password_encrypted')
+        .eq('accountant_id', user.id)
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error('[useClientReadiness] accountant_at_config query failed:', error);
+        return null;
+      }
+
+      return data;
+    },
+    enabled: isAccountant && !!user?.id,
+    staleTime: 30_000,
+  });
+
+  const { data: syncHealthRows, isLoading: isLoadingSyncHealth } = useQuery({
+    queryKey: ['client-readiness-sync-health', user?.id, clientIds],
+    queryFn: async () => {
+      if (!clientIds.length) return [] as SyncHealthRow[];
+
+      const { data, error } = await supabase
+        .from('at_sync_health_view')
+        .select('client_id, status, error_message')
+        .in('client_id', clientIds);
+
+      if (error) {
+        console.error('[useClientReadiness] at_sync_health_view query failed:', error);
+        return [] as SyncHealthRow[];
+      }
+
+      return (data || []) as SyncHealthRow[];
+    },
+    enabled: isAccountant && clientIds.length > 0,
     staleTime: 30_000,
   });
 
@@ -105,27 +163,35 @@ export function useClientReadiness() {
     const credMap = new Map(
       (credentials || []).map((c) => [c.client_id, c])
     );
+    const syncHealthMap = new Map(
+      (syncHealthRows || []).map((row) => [row.client_id, row])
+    );
 
     for (const client of clients) {
       const cred = credMap.get(client.id);
+      const syncHealth = syncHealthMap.get(client.id);
       const invoiceCount =
         (client.pending_invoices || 0) + (client.validated_invoices || 0);
 
       map.set(
         client.id,
         computeClientReadiness({
-          hasCredentials: !!cred,
+          hasCredentials: hasAnyUsableATConnectorAccess({
+            credential: cred,
+            sharedConfig: accountantConfig,
+            clientNif: client.nif,
+          }),
           invoiceCount,
           salesCount: salesCounts?.[client.id] || 0,
           withholdingsCount: withholdingCounts?.[client.id] || 0,
-          lastSyncStatus: cred?.last_sync_status ?? null,
-          lastSyncError: cred?.last_sync_error ?? null,
+          lastSyncStatus: cred?.last_sync_status || syncHealth?.status || null,
+          lastSyncError: cred?.last_sync_error || syncHealth?.error_message || null,
         })
       );
     }
 
     return map;
-  }, [clients, credentials, salesCounts, withholdingCounts]);
+  }, [accountantConfig, clients, credentials, salesCounts, syncHealthRows, withholdingCounts]);
 
   // ── Aggregate counts for portfolio summary ──
   const summary = useMemo(() => {
@@ -149,7 +215,13 @@ export function useClientReadiness() {
     clients,
     readinessMap,
     summary,
-    isLoading: isLoadingClients || isLoadingCreds || isLoadingSales || isLoadingWithholdings,
+    isLoading:
+      isLoadingClients ||
+      isLoadingCreds ||
+      isLoadingConfig ||
+      isLoadingSyncHealth ||
+      isLoadingSales ||
+      isLoadingWithholdings,
     totalClients: clients.length,
   };
 }

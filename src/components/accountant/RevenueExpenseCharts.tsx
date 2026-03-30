@@ -20,6 +20,7 @@ import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { isFiscallyEffectivePurchase } from '@/lib/fiscalStatus';
+import { getPurchaseDeductibleVat } from '@/lib/purchaseDeductibility';
 
 interface Invoice {
   id: string;
@@ -28,6 +29,7 @@ interface Invoice {
   total_vat?: number | null;
   status?: string | null;
   final_deductibility?: number | null;
+  ai_deductibility?: number | null;
   client_id: string;
   requires_accountant_validation?: boolean | null;
 }
@@ -82,9 +84,7 @@ export function RevenueExpenseCharts({
       const key = inv.document_date.slice(0, 7);
       if (monthsData[key]) {
         monthsData[key].expenses += Number(inv.total_amount) || 0;
-        const vat = Number(inv.total_vat) || 0;
-        const deductibility = (inv.final_deductibility || 100) / 100;
-        monthsData[key].vatDeductible += vat * deductibility;
+        monthsData[key].vatDeductible += getPurchaseDeductibleVat(inv);
       }
     });
 

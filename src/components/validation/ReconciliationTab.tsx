@@ -15,7 +15,7 @@ interface ReconciliationTabProps {
   clientId: string;
   rangeStart?: string;
   rangeEnd?: string;
-  onCleanupComplete?: () => void;
+  onCleanupComplete?: () => void | Promise<void>;
   onOpenInvoice?: (invoiceId: string) => void;
 }
 
@@ -32,8 +32,208 @@ interface InvoiceMatch {
 }
 
 type ReconciliationCategory = 'duplicates' | 'at_only' | 'upload_only' | 'divergent';
+type MatchedPair = { upload: InvoiceMatch; at: InvoiceMatch };
 
 const fmt = (n: number) => `€${Number(n).toFixed(2)}`;
+const normalizeMatchText = (value: string | null | undefined) =>
+  (value || '').trim().toUpperCase();
+const normalizeDocumentNumber = (value: string | null | undefined) =>
+  normalizeMatchText(value).replace(/\s+/g, '');
+const getWeakMatchIdentity = (invoice: InvoiceMatch) =>
+  normalizeMatchText(invoice.supplier_nif) || normalizeMatchText(invoice.supplier_name);
+const getSupplierSortKey = (invoice: InvoiceMatch) =>
+  getSupplierDisplayName(invoice.supplier_name, invoice.supplier_nif).toLocaleLowerCase('pt-PT');
+const getAmountValue = (invoice: InvoiceMatch) => Number(invoice.total_amount || 0);
+
+function compareInvoices(a: InvoiceMatch, b: InvoiceMatch): number {
+  return (
+    getSupplierSortKey(a).localeCompare(getSupplierSortKey(b), 'pt-PT')
+    || (a.document_date || '').localeCompare(b.document_date || '')
+    || normalizeDocumentNumber(a.document_number).localeCompare(normalizeDocumentNumber(b.document_number), 'pt-PT')
+    || getAmountValue(a) - getAmountValue(b)
+  );
+}
+
+function getStrongMatchKey(invoice: InvoiceMatch, kind: 'atcud' | 'document'): string | null {
+  if (kind === 'atcud') {
+    const atcud = normalizeMatchText(invoice.atcud);
+    return atcud ? `ATCUD|${atcud}` : null;
+  }
+
+  const identity = getWeakMatchIdentity(invoice);
+  const documentNumber = normalizeDocumentNumber(invoice.document_number);
+  if (!identity || !documentNumber) return null;
+
+  return `DOC|${identity}|${documentNumber}`;
+}
+
+function pairByStrongKey(
+  uploads: InvoiceMatch[],
+  atInvoices: InvoiceMatch[],
+  kind: 'atcud' | 'document',
+): { pairs: MatchedPair[]; uploads: InvoiceMatch[]; atInvoices: InvoiceMatch[] } {
+  const atBuckets = new Map<string, InvoiceMatch[]>();
+  const atWithoutKey: InvoiceMatch[] = [];
+
+  atInvoices.forEach((invoice) => {
+    const key = getStrongMatchKey(invoice, kind);
+    if (!key) {
+      atWithoutKey.push(invoice);
+      return;
+    }
+
+    const bucket = atBuckets.get(key) || [];
+    bucket.push(invoice);
+    atBuckets.set(key, bucket);
+  });
+
+  const pairs: MatchedPair[] = [];
+  const unmatchedUploads: InvoiceMatch[] = [];
+
+  uploads.forEach((invoice) => {
+    const key = getStrongMatchKey(invoice, kind);
+    if (!key) {
+      unmatchedUploads.push(invoice);
+      return;
+    }
+
+    const bucket = atBuckets.get(key);
+    if (bucket && bucket.length > 0) {
+      const [matchedAt, ...rest] = bucket.sort(compareInvoices);
+      pairs.push({ upload: invoice, at: matchedAt });
+
+      if (rest.length > 0) {
+        atBuckets.set(key, rest);
+      } else {
+        atBuckets.delete(key);
+      }
+      return;
+    }
+
+    unmatchedUploads.push(invoice);
+  });
+
+  const unmatchedAt = [
+    ...atWithoutKey,
+    ...Array.from(atBuckets.values()).flat(),
+  ];
+
+  return {
+    pairs,
+    uploads: unmatchedUploads,
+    atInvoices: unmatchedAt,
+  };
+}
+
+function getWeakMatchGroupKey(invoice: InvoiceMatch): string | null {
+  const identity = getWeakMatchIdentity(invoice);
+  const documentDate = invoice.document_date || '';
+  return identity && documentDate ? `${identity}|${documentDate}` : null;
+}
+
+function selectClosestAtMatch(upload: InvoiceMatch, candidates: InvoiceMatch[]): number {
+  if (candidates.length === 0) return -1;
+
+  const uploadAtcud = normalizeMatchText(upload.atcud);
+  if (uploadAtcud) {
+    const atcudIndex = candidates.findIndex(
+      (candidate) => normalizeMatchText(candidate.atcud) === uploadAtcud,
+    );
+    if (atcudIndex >= 0) return atcudIndex;
+  }
+
+  const uploadDocumentNumber = normalizeDocumentNumber(upload.document_number);
+  if (uploadDocumentNumber) {
+    const documentIndex = candidates.findIndex(
+      (candidate) => normalizeDocumentNumber(candidate.document_number) === uploadDocumentNumber,
+    );
+    if (documentIndex >= 0) return documentIndex;
+  }
+
+  let bestIndex = 0;
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  candidates.forEach((candidate, index) => {
+    const amountDiff = Math.abs(getAmountValue(upload) - getAmountValue(candidate));
+    const candidateDocumentNumber = normalizeDocumentNumber(candidate.document_number);
+    const sameDocumentPenalty =
+      uploadDocumentNumber && candidateDocumentNumber && uploadDocumentNumber !== candidateDocumentNumber
+        ? 1000
+        : 0;
+    const score = sameDocumentPenalty + amountDiff;
+
+    if (score < bestScore) {
+      bestScore = score;
+      bestIndex = index;
+    }
+  });
+
+  return bestIndex;
+}
+
+function pairByWeakMatch(
+  uploads: InvoiceMatch[],
+  atInvoices: InvoiceMatch[],
+): { pairs: MatchedPair[]; uploads: InvoiceMatch[]; atInvoices: InvoiceMatch[] } {
+  const atBuckets = new Map<string, InvoiceMatch[]>();
+  const atWithoutGroup: InvoiceMatch[] = [];
+
+  atInvoices.forEach((invoice) => {
+    const key = getWeakMatchGroupKey(invoice);
+    if (!key) {
+      atWithoutGroup.push(invoice);
+      return;
+    }
+
+    const bucket = atBuckets.get(key) || [];
+    bucket.push(invoice);
+    atBuckets.set(key, bucket.sort(compareInvoices));
+  });
+
+  const pairs: MatchedPair[] = [];
+  const unmatchedUploads: InvoiceMatch[] = [];
+
+  uploads
+    .slice()
+    .sort(compareInvoices)
+    .forEach((invoice) => {
+      const key = getWeakMatchGroupKey(invoice);
+      if (!key) {
+        unmatchedUploads.push(invoice);
+        return;
+      }
+
+      const bucket = atBuckets.get(key);
+      if (!bucket || bucket.length === 0) {
+        unmatchedUploads.push(invoice);
+        return;
+      }
+
+      const matchIndex = selectClosestAtMatch(invoice, bucket);
+      if (matchIndex < 0) {
+        unmatchedUploads.push(invoice);
+        return;
+      }
+
+      const [matchedAt] = bucket.splice(matchIndex, 1);
+      pairs.push({ upload: invoice, at: matchedAt });
+
+      if (bucket.length === 0) {
+        atBuckets.delete(key);
+      }
+    });
+
+  const unmatchedAt = [
+    ...atWithoutGroup,
+    ...Array.from(atBuckets.values()).flat(),
+  ];
+
+  return {
+    pairs,
+    uploads: unmatchedUploads,
+    atInvoices: unmatchedAt,
+  };
+}
 
 export function ReconciliationTab({
   clientId,
@@ -46,7 +246,7 @@ export function ReconciliationTab({
   const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
 
   // Fetch invoices for the client (period-filtered when range provided)
-  const { data: allInvoices = [], isLoading } = useQuery({
+  const { data: allInvoices = [], isLoading, refetch } = useQuery({
     queryKey: ['reconciliation-invoices', clientId, rangeStart, rangeEnd],
     queryFn: async () => {
       let query = supabase
@@ -104,58 +304,39 @@ export function ReconciliationTab({
       }
     });
 
-    // Cross-reference: AT vs Upload
-    // Build lookup by NIF+date
-    const buildLookup = (list: InvoiceMatch[]) => {
-      const map = new Map<string, InvoiceMatch[]>();
-      list.forEach(inv => {
-        const key = `${(inv.supplier_nif || '').trim()}|${inv.document_date || ''}`;
-        const arr = map.get(key) || [];
-        arr.push(inv);
-        map.set(key, arr);
-      });
-      return map;
-    };
+    const atSorted = atInvoices.slice().sort(compareInvoices);
+    const uploadSorted = uploadInvoices.slice().sort(compareInvoices);
+    const atcudPass = pairByStrongKey(uploadSorted, atSorted, 'atcud');
+    const documentPass = pairByStrongKey(atcudPass.uploads, atcudPass.atInvoices, 'document');
+    const weakPass = pairByWeakMatch(documentPass.uploads, documentPass.atInvoices);
+    const matchedPairs = [
+      ...atcudPass.pairs,
+      ...documentPass.pairs,
+      ...weakPass.pairs,
+    ];
 
-    const atLookup = buildLookup(atInvoices);
-    const uploadLookup = buildLookup(uploadInvoices);
+    const divergent = matchedPairs
+      .map(({ upload, at }) => {
+        const uploadAmount = getAmountValue(upload);
+        const atAmount = getAmountValue(at);
+        const diff = Math.abs(uploadAmount - atAmount);
+        const maxAmount = Math.max(Math.abs(uploadAmount), Math.abs(atAmount));
 
-    // AT invoices without upload match
-    const atOnly: InvoiceMatch[] = [];
-    atLookup.forEach((invs, key) => {
-      if (!uploadLookup.has(key)) {
-        atOnly.push(...invs);
-      }
-    });
-
-    // Upload invoices without AT match
-    const uploadOnly: InvoiceMatch[] = [];
-    uploadLookup.forEach((invs, key) => {
-      if (!atLookup.has(key)) {
-        uploadOnly.push(...invs);
-      }
-    });
-
-    // Value divergences: same NIF+date but amount differs > 5%
-    const divergent: Array<{ upload: InvoiceMatch; at: InvoiceMatch; diff: number }> = [];
-    uploadLookup.forEach((uploadInvs, key) => {
-      const atInvs = atLookup.get(key);
-      if (!atInvs) return;
-      for (const u of uploadInvs) {
-        for (const a of atInvs) {
-          const uAmount = Number(u.total_amount);
-          const aAmount = Number(a.total_amount);
-          if (uAmount === 0 && aAmount === 0) continue;
-          const maxAmount = Math.max(Math.abs(uAmount), Math.abs(aAmount));
-          const diff = Math.abs(uAmount - aAmount);
-          if (diff / maxAmount > 0.05) {
-            divergent.push({ upload: u, at: a, diff });
-          }
+        if (maxAmount === 0 || diff / maxAmount <= 0.05) {
+          return null;
         }
-      }
-    });
 
-    return { duplicates, atOnly, uploadOnly, divergent };
+        return { upload, at, diff };
+      })
+      .filter((entry): entry is { upload: InvoiceMatch; at: InvoiceMatch; diff: number } => entry !== null)
+      .sort((a, b) => compareInvoices(a.upload, b.upload) || b.diff - a.diff);
+
+    return {
+      duplicates: duplicates.sort((a, b) => compareInvoices(a.duplicate, b.duplicate)),
+      atOnly: weakPass.atInvoices.slice().sort(compareInvoices),
+      uploadOnly: weakPass.uploads.slice().sort(compareInvoices),
+      divergent,
+    };
   }, [allInvoices]);
 
   const handleRemoveDuplicate = async (id: string) => {
@@ -165,7 +346,8 @@ export function ReconciliationTab({
       toast.error('Erro ao remover duplicado');
     } else {
       toast.success('Duplicado removido');
-      onCleanupComplete?.();
+      await refetch();
+      await Promise.resolve(onCleanupComplete?.());
     }
     setRemovingIds(prev => {
       const next = new Set(prev);
@@ -389,7 +571,7 @@ export function ReconciliationTab({
           <div className="space-y-2">
             <p className="text-sm text-amber-600 flex items-center gap-1">
               <AlertTriangle className="h-3.5 w-3.5" />
-              Facturas com mesmo NIF e data mas valores divergentes (&gt;5%).
+              Facturas pareadas por ATCUD, documento ou fornecedor/data com valores divergentes (&gt;5%).
             </p>
             <div className="rounded-md border overflow-x-auto">
               <Table>

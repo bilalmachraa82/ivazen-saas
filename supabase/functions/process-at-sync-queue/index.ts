@@ -190,9 +190,9 @@ Deno.serve(async (req) => {
           .eq("client_id", job.client_id)
           .maybeSingle();
 
-        if (!credentials) {
-          throw new Error("No credentials configured for client");
-        }
+        const environment = credentials?.environment === "test"
+          ? "test"
+          : "production";
 
         // Build fiscal year date range (avoid future dates for current year).
         const fy = job.fiscal_year;
@@ -218,7 +218,7 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               clientId: job.client_id,
               accountantId: job.accountant_id,
-              environment: credentials.environment || "production",
+              environment,
               type: "ambos",
               startDate,
               endDate,

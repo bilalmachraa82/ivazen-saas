@@ -22,6 +22,7 @@ import {
   isFiscallyEffectivePurchase,
   isPurchasePendingReview,
 } from '@/lib/fiscalStatus';
+import { getPurchaseDeductibleVat } from '@/lib/purchaseDeductibility';
 import { getSupplierDisplayName } from '@/lib/supplierNameResolver';
 import { 
   Users, 
@@ -107,11 +108,7 @@ export default function AccountantDashboard() {
       validatedThisMonth: clientInvoices.filter(inv => inv.status === 'validated' && inv.fiscal_period === currentMonth).length,
       totalVatDeductible: clientInvoices
         .filter(isFiscallyEffectivePurchase)
-        .reduce((sum, inv) => {
-          const vat = inv.total_vat || 0;
-          const deductibility = (inv.final_deductibility || 0) / 100;
-          return sum + (vat * deductibility);
-        }, 0),
+        .reduce((sum, inv) => sum + getPurchaseDeductibleVat(inv), 0),
       ssDeclarationsPending: clients.find(c => c.id === filterClientId)?.ssStatus !== 'submitted' ? 1 : 0,
       ssTotalContributions: clients.find(c => c.id === filterClientId)?.ssContribution || 0,
     };

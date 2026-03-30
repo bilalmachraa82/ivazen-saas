@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ZenEmptyState, ZenSkeleton } from '@/components/zen';
 import { CheckCircle, AlertTriangle } from 'lucide-react';
+import { getSalesInvoiceRevenueAmount } from '@/lib/socialSecurityRevenue';
 
 interface SSReconciliationPanelProps {
   clientId: string;
@@ -23,7 +24,7 @@ export function SSReconciliationPanel({ clientId, fiscalYear, quarter, rangeStar
         // Only validated sales — matches SS calculation universe
         supabase
           .from('sales_invoices')
-          .select('total_amount, revenue_category, document_type, status')
+          .select('base_reduced, base_intermediate, base_standard, base_exempt, total_amount, total_vat, revenue_category, document_type, status')
           .eq('client_id', clientId)
           .eq('status', 'validated')
           .gte('document_date', rangeStart)
@@ -51,9 +52,15 @@ export function SSReconciliationPanel({ clientId, fiscalYear, quarter, rangeStar
       ]);
 
       const salesRows = salesRes.data || [];
-      const totalSalesRevenue = salesRows.reduce((sum, r) => sum + Number(r.total_amount || 0), 0);
+      const totalSalesRevenue = salesRows.reduce(
+        (sum, row) => sum + getSalesInvoiceRevenueAmount(row),
+        0,
+      );
       const recibosVerdes = salesRows.filter(r => r.document_type === 'FR' || r.document_type === 'FS');
-      const recibosRevenue = recibosVerdes.reduce((sum, r) => sum + Number(r.total_amount || 0), 0);
+      const recibosRevenue = recibosVerdes.reduce(
+        (sum, row) => sum + getSalesInvoiceRevenueAmount(row),
+        0,
+      );
       const pendingClassification = salesRows.filter(r => !r.revenue_category).length;
       const pendingSalesCount = pendingSalesRes.count ?? 0;
 

@@ -9,6 +9,7 @@ import {
   isFiscallyEffectivePurchase,
   isPurchasePendingReview,
 } from '@/lib/fiscalStatus';
+import { getPurchaseDeductibleVat } from '@/lib/purchaseDeductibility';
 import { enrichSupplierNames } from '@/lib/supplierNameResolver';
 
 interface ClientInvoice {
@@ -219,11 +220,7 @@ export function useAccountant(detailedClientId?: string | null) {
       const totalDeductible = detailedClientId
         ? clientInvoices
             .filter(isFiscallyEffectivePurchase)
-            .reduce((sum, inv) => {
-              const vat = inv.total_vat || 0;
-              const deductibility = (inv.final_deductibility || 0) / 100;
-              return sum + (vat * deductibility);
-            }, 0)
+            .reduce((sum, inv) => sum + getPurchaseDeductibleVat(inv), 0)
         : 0;
 
       // Get SS status for current quarter
@@ -314,11 +311,7 @@ export function useAccountant(detailedClientId?: string | null) {
 
     const totalVatDeductible = invoices
       .filter(isFiscallyEffectivePurchase)
-      .reduce((sum, inv) => {
-        const vat = inv.total_vat || 0;
-        const deductibility = (inv.final_deductibility || 0) / 100;
-        return sum + (vat * deductibility);
-      }, 0);
+      .reduce((sum, inv) => sum + getPurchaseDeductibleVat(inv), 0);
 
     return {
       totalClients: clients.length,

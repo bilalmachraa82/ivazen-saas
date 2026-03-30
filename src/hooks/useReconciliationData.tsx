@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchAllPages } from '@/lib/supabasePagination';
+import { getSalesInvoiceRevenueAmount } from '@/lib/socialSecurityRevenue';
 
 export interface ReconciliationSummary {
   purchases: {
@@ -94,11 +95,20 @@ export function useReconciliationData(options: UseReconciliationDataOptions) {
               .range(from, to),
         ),
         // Sales revenue for the quarter (fetchAllPages to avoid 1000-row cap)
-        fetchAllPages<{ total_amount: number }>(
+        fetchAllPages<{
+          base_reduced: number | null;
+          base_intermediate: number | null;
+          base_standard: number | null;
+          base_exempt: number | null;
+          total_amount: number | null;
+          total_vat: number | null;
+          document_type: string | null;
+          revenue_category: string | null;
+        }>(
           (from, to) =>
             supabase
               .from('sales_invoices')
-              .select('total_amount')
+              .select('base_reduced, base_intermediate, base_standard, base_exempt, total_amount, total_vat, document_type, revenue_category')
               .eq('client_id', clientId)
               .eq('status', 'validated')
               .gte('document_date', rangeStart)
@@ -166,9 +176,9 @@ export function useReconciliationData(options: UseReconciliationDataOptions) {
             : 'ok' as const;
 
       // --- SS reconciliation ---
-      const salesRevenue = salesRows.reduce(
-        (sum, r) => sum + Number(r.total_amount || 0), 0
-      );
+      const salesRevenue = salesRows.reduce((sum, row) => {
+        return sum + getSalesInvoiceRevenueAmount(row);
+      }, 0);
       const declaredRevenue = ssRes.data?.total_revenue ?? null;
       const ssDelta = declaredRevenue != null ? Math.abs(salesRevenue - declaredRevenue) : 0;
       const ssStatus =

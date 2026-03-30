@@ -8,7 +8,11 @@ import { deriveFiscalPeriodFromDocumentDate, normalizeDocumentDate } from '@/lib
 import { fetchAllPages } from '@/lib/supabasePagination';
 import { isTemporarySupplierTaxId, normalizeSupplierTaxId, normalizeSupplierVatId } from '@/lib/taxId';
 import { enrichSupplierNames } from '@/lib/supplierNameResolver';
-import { getRecentImportCutoff, type RecentImportWindow } from '@/lib/recentImports';
+import {
+  getRecentImportCutoff,
+  matchesRecentImportWindow,
+  type RecentImportWindow,
+} from '@/lib/recentImports';
 import { expandQuarterToPeriods } from '@/lib/formatFiscalPeriod';
 
 type Invoice = Tables<'invoices'>;
@@ -21,6 +25,23 @@ interface InvoiceFilters {
   clientId: string; // For accountants to filter by client
   reviewFilter?: string; // 'all' | 'needs_review' | 'auto_approved'
   recentWindow?: RecentImportWindow;
+}
+
+interface InvoiceStatsRow {
+  status: string | null;
+  requires_accountant_validation?: boolean | null;
+  accounting_excluded?: boolean | null;
+  created_at: string;
+}
+
+interface InvoiceStatsSummary {
+  pendingCount: number;
+  classifiedCount: number;
+  validatedCount: number;
+  needsReviewCount: number;
+  autoApprovedCount: number;
+  excludedCount: number;
+  recentImportsCount: number;
 }
 
 interface ClassificationUpdate {
@@ -107,9 +128,54 @@ function blobToDataUrl(blob: Blob, mimeType: string): Promise<string> {
 
 const PAGE_SIZE = 50;
 
+const EMPTY_INVOICE_STATS: InvoiceStatsSummary = {
+  pendingCount: 0,
+  classifiedCount: 0,
+  validatedCount: 0,
+  needsReviewCount: 0,
+  autoApprovedCount: 0,
+  excludedCount: 0,
+  recentImportsCount: 0,
+};
+
+function buildInvoiceStats(rows: InvoiceStatsRow[]): InvoiceStatsSummary {
+  return rows.reduce<InvoiceStatsSummary>((stats, row) => {
+    if (matchesRecentImportWindow(row.created_at, '24h')) {
+      stats.recentImportsCount += 1;
+    }
+
+    if (row.accounting_excluded) {
+      stats.excludedCount += 1;
+      return stats;
+    }
+
+    if (row.status === 'pending') {
+      stats.pendingCount += 1;
+      return stats;
+    }
+
+    if (row.status === 'classified') {
+      stats.classifiedCount += 1;
+      if (row.requires_accountant_validation === false) {
+        stats.autoApprovedCount += 1;
+      } else {
+        stats.needsReviewCount += 1;
+      }
+      return stats;
+    }
+
+    if (row.status === 'validated') {
+      stats.validatedCount += 1;
+    }
+
+    return stats;
+  }, { ...EMPTY_INVOICE_STATS });
+}
+
 export function useInvoices(externalClientId?: string | null) {
   const { user } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [statsSummary, setStatsSummary] = useState<InvoiceStatsSummary>(EMPTY_INVOICE_STATS);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
@@ -134,6 +200,7 @@ export function useInvoices(externalClientId?: string | null) {
     // If externalClientId is explicitly null, don't fetch (accountant without client selected)
     if (externalClientId === null) {
       setInvoices([]);
+      setStatsSummary(EMPTY_INVOICE_STATS);
       setTotalCount(0);
       setLoading(false);
       return;
@@ -141,22 +208,13 @@ export function useInvoices(externalClientId?: string | null) {
 
     setLoading(true);
     try {
-      const buildQuery = () => {
-        let query = supabase
-        .from('invoices')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (filters.status === 'accounting_excluded') {
-          query = query.eq('accounting_excluded', true);
-        } else if (filters.status === 'open') {
-          query = query.in('status', ['pending', 'classified']);
-        } else if (filters.status !== 'all') {
-          query = query.eq('status', filters.status);
-        }
-
+      const applyBaseFilters = <T extends {
+        eq(column: string, value: unknown): T;
+        gte(column: string, value: unknown): T;
+        lte(column: string, value: unknown): T;
+        in(column: string, values: unknown[]): T;
+      }>(query: T): T => {
         if (filters.fiscalPeriod !== 'all') {
-          // Quarter periods (YYYY-Q#) expand to all matching monthly formats stored in the DB
           const periodValues = expandQuarterToPeriods(filters.fiscalPeriod);
           query = periodValues.length === 1
             ? query.eq('fiscal_period', periodValues[0])
@@ -173,6 +231,25 @@ export function useInvoices(externalClientId?: string | null) {
           query = query.eq('client_id', effectiveClientId);
         }
 
+        return query;
+      };
+
+      const buildFilteredQuery = () => {
+        let query = applyBaseFilters(
+          supabase
+            .from('invoices')
+            .select('*')
+            .order('created_at', { ascending: false }),
+        );
+
+        if (filters.status === 'accounting_excluded') {
+          query = query.eq('accounting_excluded', true);
+        } else if (filters.status === 'open') {
+          query = query.in('status', ['pending', 'classified']);
+        } else if (filters.status !== 'all') {
+          query = query.eq('status', filters.status);
+        }
+
         if (filters.reviewFilter === 'needs_review') {
           query = query.eq('requires_accountant_validation', true);
         } else if (filters.reviewFilter === 'auto_approved') {
@@ -187,7 +264,19 @@ export function useInvoices(externalClientId?: string | null) {
         return query;
       };
 
-      const data = await fetchAllPages<Invoice>((from, to) => buildQuery().range(from, to));
+      const buildStatsQuery = () => {
+        return applyBaseFilters(
+          supabase
+            .from('invoices')
+            .select('status, requires_accountant_validation, accounting_excluded, created_at')
+            .order('created_at', { ascending: false }),
+        );
+      };
+
+      const [data, statsRows] = await Promise.all([
+        fetchAllPages<Invoice>((from, to) => buildFilteredQuery().range(from, to)),
+        fetchAllPages<InvoiceStatsRow>((from, to) => buildStatsQuery().range(from, to)),
+      ]);
       const enrichedData = await enrichSupplierNames(data);
       const searchTerm = filters.search.trim().toLowerCase();
       const filteredData = searchTerm
@@ -206,6 +295,7 @@ export function useInvoices(externalClientId?: string | null) {
 
       setInvoices(filteredData);
       setTotalCount(filteredData.length);
+      setStatsSummary(buildInvoiceStats(statsRows));
     } catch (error) {
       console.error('Error fetching invoices:', error);
       toast.error('Erro ao carregar facturas');
@@ -616,10 +706,9 @@ export function useInvoices(externalClientId?: string | null) {
     setPage(0);
   }, [filters.status, filters.fiscalPeriod, filters.year, filters.search, filters.reviewFilter, filters.recentWindow, effectiveClientId]);
 
-  const excludedCount = invoices.filter(inv => inv.accounting_excluded).length;
-
   return {
     invoices,
+    statsSummary,
     loading,
     filters,
     setFilters: setFiltersAndResetPage,
@@ -630,7 +719,7 @@ export function useInvoices(externalClientId?: string | null) {
     reExtractInvoice,
     getSignedUrl,
     getFiscalPeriods,
-    excludedCount,
+    excludedCount: statsSummary.excludedCount,
     refetch: fetchInvoices,
     // Pagination
     page,

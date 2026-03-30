@@ -41,6 +41,7 @@ import { useATConfig, useSyncHistory } from '@/hooks/useATCredentials';
 import { formatDistanceToNow } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { isFiscallyEffectivePurchase, isPurchasePendingReview } from '@/lib/fiscalStatus';
+import { getPurchaseDeductibleVat } from '@/lib/purchaseDeductibility';
 import { resolveScopedClientId } from '@/lib/clientScope';
 import { Link } from 'react-router-dom';
 
@@ -101,7 +102,7 @@ export default function EFaturaSync() {
       const pending = data.filter(isPurchasePendingReview).length;
       const vatDeductible = data
         .filter(isFiscallyEffectivePurchase)
-        .reduce((sum, i) => sum + (i.total_vat || 0) * ((i.ai_deductibility || 0) / 100), 0);
+        .reduce((sum, invoice) => sum + getPurchaseDeductibleVat(invoice), 0);
       return { imported, classified, pending, vatDeductible };
     },
     enabled: !!effectiveClientId,

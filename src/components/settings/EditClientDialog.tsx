@@ -23,11 +23,13 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, UserCog, Save } from 'lucide-react';
+import { Loader2, UserCog, Save, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { NifInput, validateNIF } from '@/components/ui/nif-input';
 import { AccountantClient } from '@/hooks/useClientManagement';
+import { useVatRegimeDetection } from '@/hooks/useVatRegimeDetection';
+import { getVatCadence } from '@/lib/formatVatRegime';
 
 const editClientSchema = z.object({
   full_name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
@@ -66,6 +68,7 @@ interface EditClientDialogProps {
 export function EditClientDialog({ open, onOpenChange, client, onSuccess }: EditClientDialogProps) {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { detectRegime, isDetecting, result: vatDetection } = useVatRegimeDetection();
   
   const form = useForm<EditClientForm>({
     resolver: zodResolver(editClientSchema),
@@ -90,6 +93,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSuccess }: Edit
 
   // Fetch full profile data for fiscal fields
   const [fiscalData, setFiscalData] = useState<Record<string, unknown>>({});
+  const watchedNif = form.watch('nif');
 
   useEffect(() => {
     if (client?.id) {
@@ -404,19 +408,62 @@ export function EditClientDialog({ open, onOpenChange, client, onSuccess }: Edit
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Regime IVA</FormLabel>
-                    <Select value={field.value || ''} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecionar..." />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="normal_monthly">Normal mensal por opção</SelectItem>
-                        <SelectItem value="normal_quarterly">Normal trimestral</SelectItem>
-                        <SelectItem value="exempt_53">Isento Art. 53º</SelectItem>
-                        <SelectItem value="exempt_9">Isento Art. 9º</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-2">
+                      <Select value={field.value || ''} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecionar..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="normal_monthly">Normal mensal por opção</SelectItem>
+                          <SelectItem value="normal_quarterly">Normal trimestral</SelectItem>
+                          <SelectItem value="exempt_53">Isento Art. 53º</SelectItem>
+                          <SelectItem value="exempt_9">Isento Art. 9º</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0 border-primary/30 hover:bg-primary/10"
+                        disabled={isDetecting || !watchedNif || !client?.id}
+                        title="Auto-detectar regime de IVA"
+                        onClick={async () => {
+                          if (!client?.id) return;
+                          const detection = await detectRegime(watchedNif, client.id);
+                          if (detection?.suggestedRegime) {
+                            form.setValue('vat_regime', detection.suggestedRegime, { shouldDirty: true });
+                            form.setValue(
+                              'iva_cadence',
+                              getVatCadence(detection.suggestedRegime, form.getValues('iva_cadence')),
+                              { shouldDirty: true },
+                            );
+                            toast.success('Regime sugerido aplicado — reveja antes de guardar');
+                          }
+                        }}
+                      >
+                        {isDetecting ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                    {vatDetection && (
+                      <div className={`mt-2 rounded-lg border p-3 text-xs ${
+                        vatDetection.confidence === 'high'
+                          ? 'border-green-500/20 bg-green-500/10 text-green-700 dark:text-green-400'
+                          : vatDetection.confidence === 'medium'
+                            ? 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                            : 'border-border/50 bg-muted/50 text-muted-foreground'
+                      }`}>
+                        <span className="font-medium">
+                          Confiança {vatDetection.confidence === 'high' ? 'alta' : vatDetection.confidence === 'medium' ? 'média' : 'baixa'}:
+                        </span>{' '}
+                        {vatDetection.reason}
+                      </div>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}

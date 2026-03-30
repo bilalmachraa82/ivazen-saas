@@ -424,15 +424,9 @@ Deno.serve(async (req: Request) => {
       .eq("client_id", clientId)
       .limit(1)
       .maybeSingle();
-
     if (!cred) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          reasonCode: "AT_AUTH_FAILED",
-          error: "No AT credentials found for this client",
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      console.warn(
+        `[sync-recibos] No at_credentials row for client ${clientId}; trying accountant fallback if available.`,
       );
     }
 
@@ -441,27 +435,26 @@ Deno.serve(async (req: Request) => {
     const encryptionSecrets = [primaryKey, fallbackKey].filter(Boolean);
 
     // For portal scraping we need the portal NIF and portal password
-    const portalNif = cred.portal_nif
-      ? String(cred.portal_nif).trim()
-      : null;
-
-    // Try to get portal password (portal_password_encrypted is set by import-client-credentials)
-    const portalPassword = (await decodeStoredSecret(
-      cred.portal_password_encrypted,
-      encryptionSecrets,
-      "portal_password_encrypted",
-    )) || (await decodeStoredSecret(
-      cred.encrypted_password,
-      encryptionSecrets,
-      "encrypted_password",
-    ));
-
-    // Get client NIF for verification
     const { data: profile } = await supabase
       .from("profiles")
       .select("nif")
       .eq("id", clientId)
       .maybeSingle();
+
+    const portalNif = cred?.portal_nif
+      ? String(cred.portal_nif).trim()
+      : (profile?.nif ? String(profile.nif).trim() : null);
+
+    // Try to get portal password (portal_password_encrypted is set by import-client-credentials)
+    const portalPassword = (await decodeStoredSecret(
+      cred?.portal_password_encrypted,
+      encryptionSecrets,
+      "portal_password_encrypted",
+    )) || (await decodeStoredSecret(
+      cred?.encrypted_password,
+      encryptionSecrets,
+      "encrypted_password",
+    ));
 
     const clientNif = profile?.nif || portalNif;
     if (!clientNif) {
@@ -495,15 +488,15 @@ Deno.serve(async (req: Request) => {
     }
 
     const rowUsername =
-      (cred.subuser_id ? String(cred.subuser_id).trim() : "") ||
+      (cred?.subuser_id ? String(cred.subuser_id).trim() : "") ||
       (await decodeStoredSecret(
-        cred.encrypted_username,
+        cred?.encrypted_username,
         encryptionSecrets,
         "encrypted_username",
       ))?.trim() ||
       portalNif;
     const rowPassword = (await decodeStoredSecret(
-      cred.encrypted_password,
+      cred?.encrypted_password,
       encryptionSecrets,
       "encrypted_password",
     )) || portalPassword;
@@ -511,7 +504,7 @@ Deno.serve(async (req: Request) => {
     const resolvedAccountant = await resolveActiveAccountantConfig(
       supabase,
       clientId,
-      [cred.accountant_id],
+      [cred?.accountant_id],
     );
     const resolvedAccountantId = resolvedAccountant.accountantId;
 
@@ -554,13 +547,17 @@ Deno.serve(async (req: Request) => {
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 120000);
-    const environment = cred.environment === "test" ? "test" : "production";
+    const environment = cred?.environment === "test" ? "test" : "production";
+    let attemptedOfficialConnector = false;
+    let officialReturnedEmpty = false;
+    let lastOfficialError: string | null = null;
 
     try {
       if (officialConnectorUrl && officialConnectorToken && officialAttempts.length > 0) {
         const officialUrl = `${officialConnectorUrl.replace(/\/$/, "")}/v1/invoices`;
 
         for (let index = 0; index < officialAttempts.length; index++) {
+          attemptedOfficialConnector = true;
           const attempt = officialAttempts[index];
           const officialFetchInit = buildConnectorFetchInit(officialConnectorToken, {
             environment,
@@ -604,6 +601,8 @@ Deno.serve(async (req: Request) => {
             );
 
             if (recibos.length > 0) {
+              lastOfficialError = null;
+              officialReturnedEmpty = false;
               const result = await insertSalesInvoicesFromAT(
                 supabase,
                 clientId,
@@ -634,6 +633,9 @@ Deno.serve(async (req: Request) => {
               );
             }
 
+            officialReturnedEmpty = true;
+            lastOfficialError = null;
+
             const shouldRetryWithFallback = index === 0 &&
               officialAttempts.length > 1 &&
               !isLikelyWfaUsername(attempt.username) &&
@@ -648,6 +650,8 @@ Deno.serve(async (req: Request) => {
             }
           } else {
             const vendasError = officialData.vendas?.errorMessage || officialData.error;
+            lastOfficialError = vendasError || "Official vendas query failed";
+            officialReturnedEmpty = false;
             const shouldRetryWithFallback = index === 0 &&
               officialAttempts.length > 1 &&
               !isLikelyWfaUsername(attempt.username) &&
@@ -667,23 +671,45 @@ Deno.serve(async (req: Request) => {
       }
 
       if (!portalConnectorUrl || !portalConnectorToken || !portalNif || !portalPassword) {
+        if (attemptedOfficialConnector && officialReturnedEmpty && !lastOfficialError) {
+          await supabase
+            .from("at_credentials")
+            .update({
+              last_sync_status: "success",
+              last_sync_error: null,
+              last_sync_at: new Date().toISOString(),
+            })
+            .eq("client_id", clientId);
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              reasonCode: "AT_EMPTY_LIST",
+              message: "No recibos verdes found in this period",
+              totalRecords: 0,
+              inserted: 0,
+              skipped: 0,
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+
+        const missingCredentialError = lastOfficialError ||
+          "No usable AT credentials found for this client";
         await supabase
           .from("at_credentials")
           .update({
-            last_sync_status: "success",
-            last_sync_error: null,
+            last_sync_status: "error",
+            last_sync_error: missingCredentialError,
             last_sync_at: new Date().toISOString(),
           })
           .eq("client_id", clientId);
 
         return new Response(
           JSON.stringify({
-            success: true,
-            reasonCode: "AT_EMPTY_LIST",
-            message: "No recibos verdes found in this period",
-            totalRecords: 0,
-            inserted: 0,
-            skipped: 0,
+            success: false,
+            reasonCode: "AT_AUTH_FAILED",
+            error: missingCredentialError,
           }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
