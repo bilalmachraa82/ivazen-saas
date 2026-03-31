@@ -129,10 +129,12 @@ export function useSalesInvoices(externalClientId?: string | null) {
       const enriched = await enrichCustomerNames(data);
 
       // Client-side search filter (safe — avoids PostgREST filter injection)
-      const searchTerm = (filters.search || '').trim().toLowerCase();
+      const normalize = (s: string) =>
+        s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      const searchTerm = normalize((filters.search || '').trim());
       const filtered = searchTerm
         ? enriched.filter(inv =>
-            (inv.customer_name || '').toLowerCase().includes(searchTerm) ||
+            normalize(inv.customer_name || '').includes(searchTerm) ||
             (inv.customer_nif || '').toLowerCase().includes(searchTerm)
           )
         : enriched;

@@ -47,9 +47,11 @@ export function WithholdingList({ withholdings, onDelete, onDeleteAll, onUpdate,
     return withholdings.filter((w) => {
       // Search filter (NIF or name)
       if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        const matchesNif = w.beneficiary_nif.toLowerCase().includes(searchLower);
-        const matchesName = w.beneficiary_name?.toLowerCase().includes(searchLower);
+        const normalize = (s: string) =>
+          s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        const searchNorm = normalize(filters.search);
+        const matchesNif = w.beneficiary_nif.toLowerCase().includes(searchNorm);
+        const matchesName = normalize(w.beneficiary_name || '').includes(searchNorm);
         if (!matchesNif && !matchesName) return false;
       }
 

@@ -113,12 +113,14 @@ export default function Validation() {
     const review = searchParams.get('review') || 'all';
     const year = searchParams.get('year') || 'all';
     const recent = searchParams.get('recent') || 'all';
+    const period = searchParams.get('period') || 'all';
     setFilters((prev) => {
       if (
         prev.status === status &&
         (prev.reviewFilter || 'all') === review &&
         prev.year === year &&
-        (prev.recentWindow || 'all') === recent
+        (prev.recentWindow || 'all') === recent &&
+        (prev.fiscalPeriod || 'all') === period
       ) {
         return prev;
       }
@@ -129,6 +131,7 @@ export default function Validation() {
         reviewFilter: review,
         year,
         recentWindow: recent as 'all' | '24h' | '7d',
+        fiscalPeriod: period,
       };
     });
   }, [searchParams, searchParamsKey, setFilters]);
@@ -198,25 +201,29 @@ export default function Validation() {
     review: string;
     year: string;
     recent: string;
+    period: string;
   }>) => {
     const next = new URLSearchParams(searchParams);
     next.delete('status');
     next.delete('review');
     next.delete('year');
     next.delete('recent');
+    next.delete('period');
 
     const status = updates.status ?? filters.status;
     const review = updates.review ?? (filters.reviewFilter || 'all');
     const year = updates.year ?? filters.year;
     const recent = updates.recent ?? (filters.recentWindow || 'all');
+    const period = updates.period ?? (filters.fiscalPeriod || 'all');
 
     if (status !== 'all') next.set('status', status);
     if (review !== 'all') next.set('review', review);
     if (year !== 'all') next.set('year', year);
     if (recent !== 'all') next.set('recent', recent);
+    if (period !== 'all') next.set('period', period);
 
     setSearchParams(next);
-  }, [filters.reviewFilter, filters.recentWindow, filters.status, filters.year, searchParams, setSearchParams]);
+  }, [filters.reviewFilter, filters.recentWindow, filters.fiscalPeriod, filters.status, filters.year, searchParams, setSearchParams]);
 
   const handleFiltersChange = useCallback((nextFilters: typeof filters) => {
     setFilters(nextFilters);
@@ -225,6 +232,7 @@ export default function Validation() {
       review: nextFilters.reviewFilter || 'all',
       year: nextFilters.year,
       recent: nextFilters.recentWindow || 'all',
+      period: nextFilters.fiscalPeriod || 'all',
     });
   }, [setFilters, syncFilterParams]);
 

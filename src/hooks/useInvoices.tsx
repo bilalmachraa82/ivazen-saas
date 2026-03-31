@@ -283,10 +283,12 @@ export function useInvoices(externalClientId?: string | null) {
         fetchAllPages<InvoiceStatsRow>((from, to) => buildStatsQuery().range(from, to)),
       ]);
       const enrichedData = await enrichSupplierNames(data);
-      const searchTerm = filters.search.trim().toLowerCase();
+      const normalize = (s: string) =>
+        s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      const searchTerm = normalize(filters.search.trim());
       const filteredData = searchTerm
         ? enrichedData.filter((invoice) => {
-            const supplierName = invoice.supplier_name?.toLowerCase() || '';
+            const supplierName = normalize(invoice.supplier_name || '');
             const supplierNif = invoice.supplier_nif?.toLowerCase() || '';
             const documentNumber = invoice.document_number?.toLowerCase() || '';
 

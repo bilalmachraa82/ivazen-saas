@@ -302,34 +302,40 @@ async function callAI(params: {
   mimeType: string;
   temperature?: number;
 }): Promise<string> {
-  // Use the native Gemini generateContent API because the OpenAI-compatible
-  // image_url payload rejects PDFs and breaks invoice extraction for uploads.
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_DOCUMENT_MODEL}:generateContent`, {
-    method: 'POST',
-    headers: {
-      'x-goog-api-key': params.apiKey,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            {
-              inline_data: {
-                mime_type: params.mimeType,
-                data: params.base64Data,
-              },
-            },
-            { text: params.prompt },
-          ],
-        },
-      ],
-      generationConfig: {
-        temperature: params.temperature ?? 0.1,
-        maxOutputTokens: 4096,
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
+  let response: Response;
+  try {
+    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_DOCUMENT_MODEL}:generateContent`, {
+      method: 'POST',
+      headers: {
+        'x-goog-api-key': params.apiKey,
+        'Content-Type': 'application/json',
       },
-    }),
-  });
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                inline_data: {
+                  mime_type: params.mimeType,
+                  data: params.base64Data,
+                },
+              },
+              { text: params.prompt },
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: params.temperature ?? 0.1,
+          maxOutputTokens: 4096,
+        },
+      }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -719,14 +725,13 @@ Deno.serve(async (req) => {
     );
 
   } catch (error: unknown) {
-    console.error('Error in extract-invoice-data function:', error);
     const baseMessage = error instanceof Error ? error.message : 'Internal server error';
     const upstreamBody = typeof (error as { body?: unknown })?.body === 'string'
       ? (error as { body: string }).body.slice(0, 500)
       : null;
-    const message = upstreamBody ? `${baseMessage} :: ${upstreamBody}` : baseMessage;
+    console.error('Error in extract-invoice-data function:', baseMessage, upstreamBody);
     return new Response(
-      JSON.stringify({ error: message }),
+      JSON.stringify({ error: 'Erro na extração AI. Tente novamente.' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

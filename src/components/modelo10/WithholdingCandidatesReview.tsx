@@ -130,10 +130,12 @@ export function WithholdingCandidatesReview({
       if (statusFilter !== 'all' && candidate.status !== statusFilter) return false;
 
       if (!search.trim()) return true;
-      const query = search.toLowerCase().trim();
+      const normalize = (s: string) =>
+        s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      const query = normalize(search.trim());
       return (
         candidate.beneficiary_nif.toLowerCase().includes(query) ||
-        (candidate.beneficiary_name || '').toLowerCase().includes(query) ||
+        normalize(candidate.beneficiary_name || '').includes(query) ||
         (candidate.document_reference || '').toLowerCase().includes(query)
       );
     });

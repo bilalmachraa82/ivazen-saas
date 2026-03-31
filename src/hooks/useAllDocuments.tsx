@@ -216,11 +216,13 @@ export function useAllDocuments() {
 
     // Filter by search (entity name or NIF)
     if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
+      const normalize = (s: string) =>
+        s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      const searchNorm = normalize(filters.search);
       combined = combined.filter((doc) => {
-        const nameMatch = doc.entityName?.toLowerCase().includes(searchLower);
-        const nifMatch = doc.entityNif?.toLowerCase().includes(searchLower);
-        const docNumMatch = doc.documentNumber?.toLowerCase().includes(searchLower);
+        const nameMatch = normalize(doc.entityName || '').includes(searchNorm);
+        const nifMatch = doc.entityNif?.toLowerCase().includes(searchNorm);
+        const docNumMatch = doc.documentNumber?.toLowerCase().includes(searchNorm);
         return nameMatch || nifMatch || docNumMatch;
       });
     }

@@ -97,16 +97,18 @@ export function ReconciliationTable({
     
     // Apply search
     if (search) {
-      const searchLower = search.toLowerCase();
+      const normalize = (s: string) =>
+        s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      const searchNorm = normalize(search);
       filtered = filtered.filter(r => {
-        const record = r.type === 'matched' 
-          ? (r.data as MatchedRecord).excel 
+        const record = r.type === 'matched'
+          ? (r.data as MatchedRecord).excel
           : r.data;
-        
+
         const nif = 'nif' in record ? record.nif : '';
         const name = 'name' in record ? record.name || '' : '';
-        
-        return nif.includes(searchLower) || name.toLowerCase().includes(searchLower);
+
+        return nif.includes(searchNorm) || normalize(name).includes(searchNorm);
       });
     }
     

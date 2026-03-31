@@ -449,11 +449,11 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
         };
       }
       
-      contributionBase = Math.min(monthlyRelevantIncome, quarterLimits.MAX_BASE);
+      contributionBase = Math.round(Math.min(monthlyRelevantIncome, quarterLimits.MAX_BASE) * 100) / 100;
     }
 
     // Calculate contribution amount
-    let contributionAmount = contributionBase * (contributionRate / 100);
+    let contributionAmount = Math.round(contributionBase * (contributionRate / 100) * 100) / 100;
 
     // Apply minimum contribution rule (20€ if positive but less than 20€)
     if (contributionAmount > 0 && contributionAmount < quarterLimits.MIN_CONTRIBUTION) {

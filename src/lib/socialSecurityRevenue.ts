@@ -33,14 +33,14 @@ export function getSalesInvoiceRevenueAmount(
   const summedBases = lineBases.reduce((sum, value) => sum + value, 0);
 
   if (summedBases > 0) {
-    return summedBases;
+    return Math.round(summedBases * 100) / 100;
   }
 
   const totalAmount = Number(invoice.total_amount || 0);
   const totalVat = Number(invoice.total_vat || 0);
 
   if (totalAmount > 0) {
-    return Math.max(totalAmount - totalVat, 0);
+    return Math.round(Math.max(totalAmount - totalVat, 0) * 100) / 100;
   }
 
   return 0;

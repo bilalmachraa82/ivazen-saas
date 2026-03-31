@@ -100,14 +100,17 @@ export default function AdminUsers() {
     );
   }
 
+  const normalize = (s: string) =>
+    s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
   const filteredUsers = users.filter((u) => {
     if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
+    const query = normalize(searchQuery);
     return (
-      u.full_name?.toLowerCase().includes(query) ||
-      u.email?.toLowerCase().includes(query) ||
-      u.nif?.toLowerCase().includes(query) ||
-      u.company_name?.toLowerCase().includes(query)
+      normalize(u.full_name || '').includes(query) ||
+      normalize(u.email || '').includes(query) ||
+      (u.nif || '').toLowerCase().includes(query) ||
+      normalize(u.company_name || '').includes(query)
     );
   });
 
