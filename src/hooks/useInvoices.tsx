@@ -244,10 +244,15 @@ export function useInvoices(externalClientId?: string | null) {
 
         if (filters.status === 'accounting_excluded') {
           query = query.eq('accounting_excluded', true);
-        } else if (filters.status === 'open') {
-          query = query.in('status', ['pending', 'classified']);
-        } else if (filters.status !== 'all') {
-          query = query.eq('status', filters.status);
+        } else {
+          // Exclude accounting_excluded invoices from all non-excluded filters
+          query = query.or('accounting_excluded.is.null,accounting_excluded.eq.false');
+
+          if (filters.status === 'open') {
+            query = query.in('status', ['pending', 'classified']);
+          } else if (filters.status !== 'all') {
+            query = query.eq('status', filters.status);
+          }
         }
 
         if (filters.reviewFilter === 'needs_review') {
