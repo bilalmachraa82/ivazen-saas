@@ -94,15 +94,16 @@ export function ClientSelector({
       return clients;
     }
 
-    const searchLower = debouncedSearch.toLowerCase();
+    const strip = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const searchNorm = strip(debouncedSearch);
     return clients.filter(client => {
-      const fullName = client.full_name.toLowerCase();
-      const companyName = client.company_name?.toLowerCase() || '';
-      const nif = client.nif?.toLowerCase() || '';
+      const fullName = strip(client.full_name);
+      const companyName = strip(client.company_name || '');
+      const nif = (client.nif || '').toLowerCase();
 
-      return fullName.includes(searchLower) ||
-             companyName.includes(searchLower) ||
-             nif.includes(searchLower);
+      return fullName.includes(searchNorm) ||
+             companyName.includes(searchNorm) ||
+             nif.includes(searchNorm);
     });
   }, [clients, debouncedSearch]);
 

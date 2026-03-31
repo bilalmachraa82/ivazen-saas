@@ -66,11 +66,13 @@ export function ClientSearchSelector({
   const filteredClients = useMemo(() => {
     let result = [...clients];
 
-    // Filter by search query
+    // Filter by search query (accent-insensitive)
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
+      const normalize = (s: string) =>
+        s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      const query = normalize(searchQuery.trim());
       result = result.filter(client => {
-        const name = (client.full_name || client.company_name || '').toLowerCase();
+        const name = normalize(client.full_name || client.company_name || '');
         const nif = (client.nif || '').toLowerCase();
         return name.includes(query) || nif.includes(query);
       });

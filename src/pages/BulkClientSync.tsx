@@ -348,9 +348,10 @@ export default function BulkClientSync() {
     
     return clients.filter(client => {
       // Search filter
-      const matchesSearch = !searchTerm || 
-        client.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        client.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      const strip = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      const matchesSearch = !searchTerm ||
+        strip(client.full_name || '').includes(strip(searchTerm)) ||
+        strip(client.company_name || '').includes(strip(searchTerm)) ||
         client.nif?.includes(searchTerm);
 
       // Status filter
