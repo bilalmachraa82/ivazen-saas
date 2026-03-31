@@ -73,15 +73,23 @@ function isLikelySalesExport(headers: string[]): boolean {
   const normalized = headers.map((h) =>
     h.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim(),
   );
-  const hasAdquirente = normalized.some((h) =>
-    h.includes('adquirente') || h.includes('nif cliente') || h.includes('nome do cliente'),
+  const hasIssuerOrCustomerParty = normalized.some((h) =>
+    h.includes('adquirente')
+    || h.includes('nif cliente')
+    || h.includes('nome do cliente')
+    || h.includes('nif emitente')
+    || h.includes('nome emitente'),
   );
   const hasSalesDocumentRef = normalized.some((h) =>
-    h.includes('referencia') || h.includes('motivo emissao') || h.includes('data da transacao'),
+    h.includes('referencia')
+    || h.includes('motivo emissao')
+    || h.includes('data da transacao')
+    || h.includes('atcud')
+    || h.includes('tipo documento'),
   );
   const hasTotal = normalized.some((h) => h.includes('total'));
 
-  return hasAdquirente && (hasSalesDocumentRef || hasTotal);
+  return hasIssuerOrCustomerParty && hasSalesDocumentRef && hasTotal;
 }
 
 /**

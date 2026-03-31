@@ -79,6 +79,20 @@ describe('parseEFaturaCSV — deteção de ficheiro de vendas', () => {
     expect(result.records).toHaveLength(0);
     expect(result.errors[0]).toContain('Centro de Importação');
   });
+
+  it('bloqueia o CSV AT de vendas com colunas de emitente que antes caía no fallback genérico', () => {
+    const salesCsv = [
+      'Referência;Tipo Documento;ATCUD;Situação;Data da Transação;Motivo Emissão;Data de Emissão;NIF Emitente;Nome do Emitente;Valor Tributável (em euros);Valor do IVA (em euros);Total do Documento (em euros)',
+      'FR ATSIRE01FR/18;Fatura-Recibo;JJ37MMGM-18;Emitido;2025-10-10;Pagamento dos bens ou dos serviços;2025-12-31;103595503;JOSE FERNANDO COUTINHO PIRES;1000;0;1000',
+    ].join('\n');
+
+    const result = parseEFaturaCSV(salesCsv);
+
+    expect(result.success).toBe(false);
+    expect(result.type).toBe('vendas');
+    expect(result.records).toHaveLength(0);
+    expect(result.errors[0]).toContain('Centro de Importação');
+  });
 });
 
 // ---------------------------------------------------------------------------
