@@ -611,10 +611,11 @@ async function insertPurchaseInvoicesFromAT(
   clientId: string,
   clientNif: string,
   invoices: ATInvoice[],
-): Promise<{ inserted: number; skipped: number; errors: number }> {
+): Promise<{ inserted: number; skipped: number; errors: number; redirectedToSales: number }> {
   let inserted = 0;
   let skipped = 0;
   let errors = 0;
+  let redirectedToSales = 0;
 
   for (const inv of invoices) {
     const documentDate = normalizeDate(inv.documentDate);
@@ -632,9 +633,62 @@ async function insertPurchaseInvoicesFromAT(
       supplierNif === "999999990" || supplierNif === clientNif;
 
     if (isSuspiciousPurchaseSupplier) {
-      skipped++;
-      console.warn(
-        `[sync-efatura] Skipping suspicious purchase invoice for client ${clientId}: supplier_nif=${supplierNif}, document=${inv.documentNumber || "unknown"}`,
+      // This is a sale that AT returned in the compras response.
+      // Redirect it to sales_invoices instead of discarding.
+      const docNum = inv.documentNumber || null;
+      let alreadyInSales = false;
+      if (docNum) {
+        const { data: existing } = await supabase
+          .from("sales_invoices")
+          .select("id")
+          .eq("client_id", clientId)
+          .eq("supplier_nif", clientNif)
+          .eq("document_number", docNum)
+          .limit(1);
+        alreadyInSales = !!(existing && existing.length > 0);
+      }
+
+      if (alreadyInSales) {
+        skipped++;
+      } else {
+        const docType = inv.documentType || "FS";
+        const revCat = (docType === "FR" || docType === "FS" || docType === "FS/FR")
+          ? "prestacao_servicos" : "vendas";
+        const { error: saleErr } = await supabase
+          .from("sales_invoices")
+          .insert({
+            client_id: clientId,
+            supplier_nif: clientNif,
+            customer_nif: customerNif !== clientNif ? customerNif : supplierNif,
+            customer_name: supplierName || customerNif || "Cliente",
+            document_type: docType,
+            document_date: documentDate,
+            document_number: docNum,
+            atcud: inv.atcud || null,
+            fiscal_region: "PT",
+            ...vatTotals,
+            total_amount: Number(inv.grossTotal) || 0,
+            total_vat: Number(inv.taxPayable) || 0,
+            image_path: `at-webservice-sales/${clientId}/${docNum || Date.now()}`,
+            import_source: "api_redirected_from_compras",
+            status: "validated",
+            validated_at: new Date().toISOString(),
+            fiscal_period: fiscalPeriod,
+            revenue_category: revCat,
+          });
+
+        if (saleErr) {
+          errors++;
+          console.error(
+            `[sync-efatura] Failed to redirect self-purchase to sales for ${clientId}: ${saleErr.message}`,
+          );
+        } else {
+          redirectedToSales++;
+        }
+      }
+
+      console.log(
+        `[sync-efatura] Self-purchase redirected to sales for client ${clientId}: supplier_nif=${supplierNif}, document=${docNum || "unknown"}, alreadyExists=${alreadyInSales}`,
       );
       continue;
     }
@@ -744,7 +798,7 @@ async function insertPurchaseInvoicesFromAT(
     }
   }
 
-  return { inserted, skipped, errors };
+  return { inserted, skipped, errors, redirectedToSales };
 }
 
 async function insertSalesInvoicesFromAT(
@@ -1534,7 +1588,7 @@ Deno.serve(async (req: Request) => {
               clientNif,
               q.invoices || [],
             )
-            : { inserted: 0, skipped: 0, errors: 0 };
+            : { inserted: 0, skipped: 0, errors: 0, redirectedToSales: 0 };
           inserted += r.inserted;
           skipped += r.skipped;
           errors += r.errors;
@@ -1547,6 +1601,7 @@ Deno.serve(async (req: Request) => {
             imported: r.inserted,
             skipped: r.skipped,
             errors: r.errors,
+            redirectedToSales: r.redirectedToSales,
             errorMessage: emptyList ? q?.errorMessage || null : null,
           };
         } else {
