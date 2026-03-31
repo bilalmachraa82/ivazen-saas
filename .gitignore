@@ -27,6 +27,7 @@ test-results/
 # Supabase CLI temp artifacts
 supabase/.temp/
 .vercel
+.vercel_backup_*/
 
 # Migration data (sensitive - user data, credentials)
 scripts/migration/csv/
@@ -62,3 +63,4 @@ e2e/screenshots/
 .storybook/
 .playwright-cli/
 .env*.local
+tsconfig.tsbuildinfo
