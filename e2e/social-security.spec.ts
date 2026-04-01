@@ -1,12 +1,19 @@
 import { test, expect } from '@playwright/test';
 
+// Unified env var access — support both DEMO_* and TEST_USER_* naming
+const TEST_EMAIL = process.env.DEMO_EMAIL || process.env.TEST_USER_EMAIL;
+const TEST_PASSWORD = process.env.DEMO_PASSWORD || process.env.TEST_USER_PASSWORD;
+
+// Force desktop viewport for consistent tab/label visibility
+test.use({ viewport: { width: 1280, height: 900 } });
+
 test.describe('Social Security Flow', () => {
-  test.skip(!process.env.TEST_USER_EMAIL, 'Requires authenticated user');
+  test.skip(!TEST_EMAIL, 'Requires authenticated user');
 
   test.beforeEach(async ({ page }) => {
     await page.goto('/auth');
-    await page.getByLabel(/email/i).fill(process.env.TEST_USER_EMAIL!);
-    await page.getByLabel(/password|palavra-passe/i).fill(process.env.TEST_USER_PASSWORD!);
+    await page.getByLabel(/email/i).fill(TEST_EMAIL!);
+    await page.getByLabel(/password|palavra-passe/i).fill(TEST_PASSWORD!);
     await page.getByRole('button', { name: /entrar/i }).click();
     await page.waitForURL(/\/(dashboard|upload)/, { timeout: 15000 });
     await page.goto('/seguranca-social');
@@ -62,12 +69,12 @@ test.describe('Social Security Flow', () => {
 });
 
 test.describe('Social Security Calculation', () => {
-  test.skip(!process.env.TEST_USER_EMAIL, 'Requires authenticated user');
+  test.skip(!TEST_EMAIL, 'Requires authenticated user');
 
   test('should calculate contribution correctly', async ({ page }) => {
     await page.goto('/auth');
-    await page.getByLabel(/email/i).fill(process.env.TEST_USER_EMAIL!);
-    await page.getByLabel(/password|palavra-passe/i).fill(process.env.TEST_USER_PASSWORD!);
+    await page.getByLabel(/email/i).fill(TEST_EMAIL!);
+    await page.getByLabel(/password|palavra-passe/i).fill(TEST_PASSWORD!);
     await page.getByRole('button', { name: /entrar/i }).click();
     await page.waitForURL(/\/(dashboard|upload)/, { timeout: 15000 });
     await page.goto('/seguranca-social');

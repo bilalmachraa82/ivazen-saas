@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test';
 
+// Unified env var access — support both DEMO_* and TEST_USER_* naming
+const TEST_EMAIL = process.env.DEMO_EMAIL || process.env.TEST_USER_EMAIL;
+const TEST_PASSWORD = process.env.DEMO_PASSWORD || process.env.TEST_USER_PASSWORD;
+
 test.describe('Super Admin Dashboard', () => {
   test('redirects to auth when not logged in', async ({ page }) => {
     await page.goto('/admin/super');
@@ -9,15 +13,15 @@ test.describe('Super Admin Dashboard', () => {
 
 test.describe('Super Admin Dashboard - Authenticated', () => {
   test.skip(
-    !process.env.TEST_USER_EMAIL || !process.env.TEST_USER_PASSWORD,
+    !TEST_EMAIL || !TEST_PASSWORD,
     'Requires test credentials'
   );
 
   test.beforeEach(async ({ page }) => {
     // Login first
     await page.goto('/auth');
-    await page.getByLabel(/email/i).fill(process.env.TEST_USER_EMAIL!);
-    await page.getByLabel(/password|palavra-passe/i).fill(process.env.TEST_USER_PASSWORD!);
+    await page.getByLabel(/email/i).fill(TEST_EMAIL!);
+    await page.getByLabel(/password|palavra-passe/i).fill(TEST_PASSWORD!);
     await page.getByRole('button', { name: /entrar/i }).click();
     await page.waitForURL(/\/(dashboard|upload)/, { timeout: 15000 });
   });

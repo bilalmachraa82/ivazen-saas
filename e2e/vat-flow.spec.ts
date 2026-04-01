@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
 
+// Unified env var access — support both DEMO_* and TEST_USER_* naming
+const TEST_EMAIL = process.env.DEMO_EMAIL || process.env.TEST_USER_EMAIL;
+const TEST_PASSWORD = process.env.DEMO_PASSWORD || process.env.TEST_USER_PASSWORD;
+
+// Force desktop viewport for consistent tab/label visibility
+test.use({ viewport: { width: 1280, height: 900 } });
+
 test.describe('VAT Calculator Flow', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/iva-calculator');
@@ -20,15 +27,15 @@ test.describe('VAT Calculator Flow', () => {
 
 test.describe('VAT Calculator - Authenticated', () => {
   test.skip(
-    !process.env.TEST_USER_EMAIL || !process.env.TEST_USER_PASSWORD,
+    !TEST_EMAIL || !TEST_PASSWORD,
     'Requires test credentials'
   );
 
   test.beforeEach(async ({ page }) => {
     // Login first
     await page.goto('/auth');
-    await page.getByLabel(/email/i).fill(process.env.TEST_USER_EMAIL!);
-    await page.getByLabel(/password|palavra-passe/i).fill(process.env.TEST_USER_PASSWORD!);
+    await page.getByLabel(/email/i).fill(TEST_EMAIL!);
+    await page.getByLabel(/password|palavra-passe/i).fill(TEST_PASSWORD!);
     await page.getByRole('button', { name: /entrar/i }).click();
     await page.waitForURL(/\/(dashboard|upload)/, { timeout: 15000 });
     
@@ -88,14 +95,14 @@ test.describe('VAT Calculator - Authenticated', () => {
 
 test.describe('VAT Flow - Social Security Integration', () => {
   test.skip(
-    !process.env.TEST_USER_EMAIL || !process.env.TEST_USER_PASSWORD,
+    !TEST_EMAIL || !TEST_PASSWORD,
     'Requires test credentials'
   );
 
   test.beforeEach(async ({ page }) => {
     await page.goto('/auth');
-    await page.getByLabel(/email/i).fill(process.env.TEST_USER_EMAIL!);
-    await page.getByLabel(/password|palavra-passe/i).fill(process.env.TEST_USER_PASSWORD!);
+    await page.getByLabel(/email/i).fill(TEST_EMAIL!);
+    await page.getByLabel(/password|palavra-passe/i).fill(TEST_PASSWORD!);
     await page.getByRole('button', { name: /entrar/i }).click();
     await page.waitForURL(/\/(dashboard|upload)/, { timeout: 15000 });
   });

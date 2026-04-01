@@ -1,13 +1,20 @@
 import { test, expect } from '@playwright/test';
 import { CAAD_CLIENT_ID, dismissOverlays, navigateAndWait } from './helpers/setup';
 
+// Unified env var access — support both DEMO_* and TEST_USER_* naming
+const TEST_EMAIL = process.env.DEMO_EMAIL || process.env.TEST_USER_EMAIL;
+const TEST_PASSWORD = process.env.DEMO_PASSWORD || process.env.TEST_USER_PASSWORD;
+
+// Force desktop viewport so tab labels with hidden sm:inline are visible
+test.use({ viewport: { width: 1280, height: 900 } });
+
 test.describe('Modelo 10 Flow', () => {
-  test.skip(!process.env.TEST_USER_EMAIL || !process.env.TEST_USER_PASSWORD, 'Requires authenticated user');
+  test.skip(!TEST_EMAIL || !TEST_PASSWORD, 'Requires authenticated user');
 
   test.beforeEach(async ({ page }) => {
     await page.goto('/auth');
-    await page.locator('#login-email').fill(process.env.TEST_USER_EMAIL!);
-    await page.locator('#login-password').fill(process.env.TEST_USER_PASSWORD!);
+    await page.locator('#login-email').fill(TEST_EMAIL!);
+    await page.locator('#login-password').fill(TEST_PASSWORD!);
     await page.getByRole('button', { name: /entrar/i }).click();
     await page.waitForURL(/\/(dashboard|upload)/, { timeout: 15000 });
     await page.evaluate(({ clientId }) => {

@@ -1,12 +1,16 @@
 import { test as base, expect } from '@playwright/test';
 
+// Unified env var access — support both DEMO_* and TEST_USER_* naming
+const TEST_EMAIL = process.env.DEMO_EMAIL || process.env.TEST_USER_EMAIL;
+const TEST_PASSWORD = process.env.DEMO_PASSWORD || process.env.TEST_USER_PASSWORD;
+
 // Extend base test with authentication fixtures
 export const test = base.extend<{
   authenticatedPage: ReturnType<typeof base['page']>;
 }>({
   authenticatedPage: async ({ page }, use) => {
     // Skip if no test credentials
-    if (!process.env.TEST_USER_EMAIL || !process.env.TEST_USER_PASSWORD) {
+    if (!TEST_EMAIL || !TEST_PASSWORD) {
       console.warn('Skipping authenticated tests - no credentials provided');
       await use(page);
       return;
@@ -14,8 +18,8 @@ export const test = base.extend<{
 
     // Perform login
     await page.goto('/auth');
-    await page.getByLabel(/email/i).fill(process.env.TEST_USER_EMAIL);
-    await page.getByLabel(/password|palavra-passe/i).fill(process.env.TEST_USER_PASSWORD);
+    await page.getByLabel(/email/i).fill(TEST_EMAIL);
+    await page.getByLabel(/password|palavra-passe/i).fill(TEST_PASSWORD);
     await page.getByRole('button', { name: /entrar/i }).click();
     
     // Wait for redirect
