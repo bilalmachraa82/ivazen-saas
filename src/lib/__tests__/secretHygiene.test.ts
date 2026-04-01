@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-const hardcodedSecretPattern = /eyJhbGciOiJIUzI1Ni/;
+const hardcodedSecretPattern = new RegExp(['eyJ', 'hbGci', 'OiJIUzI1Ni'].join(''));
 
 describe('Secret hygiene', () => {
   it('does not keep hardcoded Supabase service-role JWTs in tracked scripts', () => {
