@@ -298,7 +298,7 @@ const Landing = () => {
         "Modelo 10 completo",
         "Multi-cliente (10 clientes)",
         "Segurança Social",
-        "eFatura sync",
+        "eFatura sync (compras)",
         "Export SAFT-PT / CSV",
         "Suporte prioritário"
       ],

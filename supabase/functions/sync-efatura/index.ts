@@ -948,16 +948,9 @@ Deno.serve(async (req: Request) => {
       windowCheck,
     });
     if (preconditionFailure) {
-      if (
-        preconditionFailure.body.reasonCode === "AT_TIME_WINDOW" &&
-        forceSync &&
-        isServiceRole
-      ) {
-        console.log("[sync-efatura] Time window bypassed via force+service-role");
-      } else if (preconditionFailure.body.reasonCode === "AT_TIME_WINDOW") {
+      if (preconditionFailure.body.reasonCode === "AT_TIME_WINDOW") {
         console.log(`[sync-efatura] Blocked: outside AT time window. ${windowCheck.message}`);
       }
-
       return new Response(
         JSON.stringify(preconditionFailure.body),
         {
@@ -967,7 +960,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    if (forceSync && isServiceRole && !windowCheck.isWithin && source !== "queue" && environment !== "test") {
+    if (forceSync && isServiceRole && !windowCheck.isWithin) {
       console.log("[sync-efatura] Time window bypassed via force+service-role");
     }
 
