@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test';
 
+// Unified env var access — support both DEMO_* and TEST_USER_* naming
+const TEST_EMAIL = process.env.DEMO_EMAIL || process.env.TEST_USER_EMAIL;
+const TEST_PASSWORD = process.env.DEMO_PASSWORD || process.env.TEST_USER_PASSWORD;
+
 test.describe('Authentication Flow', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/auth');
@@ -51,10 +55,10 @@ test.describe('Authentication Flow', () => {
   test('should redirect authenticated users from auth page', async ({ page, context }) => {
     // This test assumes a valid test user exists
     // Skip if no test credentials available
-    test.skip(!process.env.TEST_USER_EMAIL, 'No test user credentials');
-    
-    await page.getByLabel(/email/i).fill(process.env.TEST_USER_EMAIL!);
-    await page.getByLabel(/password|palavra-passe/i).fill(process.env.TEST_USER_PASSWORD!);
+    test.skip(!TEST_EMAIL, 'No test user credentials');
+
+    await page.getByLabel(/email/i).fill(TEST_EMAIL!);
+    await page.getByLabel(/password|palavra-passe/i).fill(TEST_PASSWORD!);
     await page.getByRole('button', { name: /entrar/i }).click();
     
     // Should redirect to dashboard

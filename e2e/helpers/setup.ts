@@ -2,9 +2,10 @@ import { type Page, type BrowserContext, expect } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 
 // ── Config — all required via env vars, no hardcoded credentials ──
+// Support both DEMO_EMAIL/DEMO_PASSWORD and TEST_USER_EMAIL/TEST_USER_PASSWORD
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8080';
-const EMAIL = process.env.DEMO_EMAIL;
-const PASSWORD = process.env.DEMO_PASSWORD;
+const EMAIL = process.env.DEMO_EMAIL || process.env.TEST_USER_EMAIL;
+const PASSWORD = process.env.DEMO_PASSWORD || process.env.TEST_USER_PASSWORD;
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 

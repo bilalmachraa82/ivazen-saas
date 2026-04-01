@@ -234,6 +234,10 @@ export function useInvoices(externalClientId?: string | null) {
         return query;
       };
 
+      // Escape SQL LIKE special characters so user input is treated as literal text
+      const escapeIlike = (term: string): string =>
+        term.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+
       const buildFilteredQuery = () => {
         let query = applyBaseFilters(
           supabase
@@ -264,6 +268,16 @@ export function useInvoices(externalClientId?: string | null) {
         const recentCutoff = getRecentImportCutoff(filters.recentWindow || 'all');
         if (recentCutoff) {
           query = query.gte('created_at', recentCutoff);
+        }
+
+        // Server-side search: ilike on supplier_name, supplier_nif, document_number
+        // Only apply when search has 2+ chars to avoid overly broad queries
+        const rawSearch = filters.search.trim();
+        if (rawSearch.length >= 2) {
+          const escaped = escapeIlike(rawSearch);
+          query = query.or(
+            `supplier_name.ilike.%${escaped}%,supplier_nif.ilike.%${escaped}%,document_number.ilike.%${escaped}%`,
+          );
         }
 
         return query;

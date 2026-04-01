@@ -269,24 +269,39 @@ export function parseInvoicesResponse(xmlText: string): ATInvoicesResponse {
       return parseFloat(getValue(tag)) || 0;
     };
     
-    // Parse LineSummary entries
+    // Parse tax line entries — AT vendas may use <TaxPayable> or <TaxSummary>
+    // instead of <LineSummary> as the container element for tax breakdowns.
     const lineSummary: ATLineSummary[] = [];
-    const lineMatches = invoiceXml.matchAll(/<LineSummary>([\s\S]*?)<\/LineSummary>/g);
-    
-    for (const lineMatch of lineMatches) {
-      const lineXml = lineMatch[1];
-      const getLineValue = (tag: string): string => {
-        const m = lineXml.match(new RegExp(`<${tag}>([^<]*)</${tag}>`));
-        return m ? m[1] : '';
-      };
-      
-      lineSummary.push({
-        taxCode: (getLineValue('TaxCode') || 'NOR') as ATLineSummary['taxCode'],
-        taxPercentage: parseFloat(getLineValue('TaxPercentage')) || 0,
-        taxCountryRegion: (getLineValue('TaxCountryRegion') || 'PT') as ATLineSummary['taxCountryRegion'],
-        amount: parseFloat(getLineValue('Amount')) || 0,
-        taxAmount: parseFloat(getLineValue('TaxAmount')) || 0,
-      });
+    const taxLineContainerNames = ['LineSummary', 'TaxSummary', 'TaxPayable'];
+
+    for (const containerName of taxLineContainerNames) {
+      const lineMatches = invoiceXml.matchAll(new RegExp(`<${containerName}>([\\s\\S]*?)</${containerName}>`, 'g'));
+
+      for (const lineMatch of lineMatches) {
+        const lineXml = lineMatch[1];
+        // Skip scalar TaxPayable values (just a number, no child XML elements)
+        if (containerName === 'TaxPayable' && !/</.test(lineXml.trim())) continue;
+
+        const getLineValue = (tag: string): string => {
+          const m = lineXml.match(new RegExp(`<${tag}>([^<]*)</${tag}>`));
+          return m ? m[1] : '';
+        };
+
+        const hasTaxData = getLineValue('TaxCode') || getLineValue('TaxPercentage') ||
+          parseFloat(getLineValue('Amount')) || parseFloat(getLineValue('TaxAmount'));
+
+        if (hasTaxData) {
+          lineSummary.push({
+            taxCode: (getLineValue('TaxCode') || 'NOR') as ATLineSummary['taxCode'],
+            taxPercentage: parseFloat(getLineValue('TaxPercentage')) || 0,
+            taxCountryRegion: (getLineValue('TaxCountryRegion') || 'PT') as ATLineSummary['taxCountryRegion'],
+            amount: parseFloat(getLineValue('Amount')) || 0,
+            taxAmount: parseFloat(getLineValue('TaxAmount')) || 0,
+          });
+        }
+      }
+      // Stop trying other container names once we found line items
+      if (lineSummary.length > 0) break;
     }
     
     result.invoices.push({

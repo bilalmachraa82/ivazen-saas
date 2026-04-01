@@ -218,6 +218,8 @@ function classifyReasonCode(
   }
   if (
     m.includes("linesummary") ||
+    m.includes("taxpayable") ||
+    m.includes("taxsummary") ||
     m.includes("particle 2.1") ||
     m.includes("simple-type") ||
     m.includes("customertaxid")

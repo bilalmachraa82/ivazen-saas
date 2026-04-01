@@ -283,7 +283,9 @@ function parseInvoicesResponse(xmlText) {
   out.page = getInt(xmlText, 'nPage') || 1;
 
   const invoiceRe = /<(?:\w+:)?Invoice>([\s\S]*?)<\/(?:\w+:)?Invoice>/g;
-  const lineRe = /<(?:\w+:)?LineSummary>([\s\S]*?)<\/(?:\w+:)?LineSummary>/g;
+  // AT vendas responses may use <TaxPayable>, <TaxSummary>, or <LineSummary>
+  // as container elements for tax line breakdowns. Try all known variants.
+  const taxLineContainerNames = ['LineSummary', 'TaxSummary', 'TaxPayable'];
 
   const getNum = (xml, tag) => Number(getTag(xml, tag)) || 0;
 
@@ -291,26 +293,38 @@ function parseInvoicesResponse(xmlText) {
     const invoiceXml = m[1];
     const lineSummary = [];
 
-    for (const lm of invoiceXml.matchAll(lineRe)) {
-      const lineXml = lm[1];
-      const baseAmount =
-        Number(getTag(lineXml, 'TotalTaxBase')) ||
-        Number(getTag(lineXml, 'NetAmount')) ||
-        Number(getTag(lineXml, 'Amount')) ||
-        0;
+    // Try each known container element name for tax line items
+    for (const containerName of taxLineContainerNames) {
+      const lineRe = new RegExp(`<(?:\\w+:)?${containerName}>([\\s\\S]*?)<\\/(?:\\w+:)?${containerName}>`, 'g');
+      for (const lm of invoiceXml.matchAll(lineRe)) {
+        const lineXml = lm[1];
+        // Skip scalar TaxPayable values (just a number, no child XML elements)
+        if (containerName === 'TaxPayable' && !/</.test(lineXml.trim())) continue;
 
-      const taxAmount =
-        Number(getTag(lineXml, 'TaxAmount')) ||
-        Number(getTag(lineXml, 'TotalTaxAmount')) ||
-        0;
+        const baseAmount =
+          Number(getTag(lineXml, 'TotalTaxBase')) ||
+          Number(getTag(lineXml, 'NetAmount')) ||
+          Number(getTag(lineXml, 'Amount')) ||
+          0;
 
-      lineSummary.push({
-        taxCode: getTag(lineXml, 'TaxCode') || 'NOR',
-        taxPercentage: Number(getTag(lineXml, 'TaxPercentage')) || 0,
-        taxCountryRegion: getTag(lineXml, 'TaxCountryRegion') || 'PT',
-        amount: baseAmount,
-        taxAmount,
-      });
+        const taxAmount =
+          Number(getTag(lineXml, 'TaxAmount')) ||
+          Number(getTag(lineXml, 'TotalTaxAmount')) ||
+          0;
+
+        // Only add if the block actually contained meaningful tax data
+        if (baseAmount || taxAmount || getTag(lineXml, 'TaxCode') || getTag(lineXml, 'TaxPercentage')) {
+          lineSummary.push({
+            taxCode: getTag(lineXml, 'TaxCode') || 'NOR',
+            taxPercentage: Number(getTag(lineXml, 'TaxPercentage')) || 0,
+            taxCountryRegion: getTag(lineXml, 'TaxCountryRegion') || 'PT',
+            amount: baseAmount,
+            taxAmount,
+          });
+        }
+      }
+      // If we found line items from this container, stop trying others
+      if (lineSummary.length > 0) break;
     }
 
     out.invoices.push({
