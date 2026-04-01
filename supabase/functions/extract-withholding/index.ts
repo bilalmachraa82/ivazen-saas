@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
+import { extractBearerToken } from "../_shared/auth.ts";
 
 const VERSION = '2.2.0'; // Fix PT decimal separator parsing
 
@@ -151,7 +152,7 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const token = extractBearerToken(authHeader);
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { persistSession: false, autoRefreshToken: false }
     });

@@ -3,7 +3,8 @@
  * Tests both sync-efatura (SOAP) and sync-recibos-verdes (portal scraping)
  */
 const SUPABASE_URL = 'https://dmprkdvkzzjtixlatnlx.supabase.co';
-const SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtcHJrZHZrenpqdGl4bGF0bmx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTQ0NDc1NiwiZXhwIjoyMDg3MDIwNzU2fQ.N1NlcwgzsJ7ZZ-xpN29Xvr79vUZMUaY5QZFWjZHNWIY';
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!SERVICE_KEY) throw new Error('Missing SUPABASE_SERVICE_KEY or SUPABASE_SERVICE_ROLE_KEY');
 
 const RAFAEL_ID = 'f1c74244-ccbc-4140-9224-9df9472a345c';
 const MARIA_ID = '75e5b973-6b8f-47ba-a1bb-c6988eed86e1';

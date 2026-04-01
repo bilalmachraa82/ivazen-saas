@@ -11,6 +11,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
 import forge from "https://esm.sh/node-forge@1.3.3";
+import { extractBearerToken } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://ivazen-saas.vercel.app",
@@ -272,7 +273,8 @@ Deno.serve(async (req: Request) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    const token = extractBearerToken(authHeader);
+    if (!token) {
       return new Response(
         JSON.stringify({ error: "Missing authorization header" }),
         {
@@ -287,7 +289,7 @@ Deno.serve(async (req: Request) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
     const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
+      global: { headers: { Authorization: `Bearer ${token}` } },
     });
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 

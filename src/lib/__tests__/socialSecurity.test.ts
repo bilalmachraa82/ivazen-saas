@@ -15,6 +15,7 @@ import {
   isQuarterInDeadlineMonth,
   getSalesInvoiceRevenueAmount,
   getSalesInvoiceRevenueCategory,
+  calculateContributionAmounts,
 } from '@/hooks/useSocialSecurity';
 
 /**
@@ -348,6 +349,27 @@ describe('Facturas de venda para Segurança Social', () => {
   it('infere prestação de serviços para FR e vendas nos restantes casos', () => {
     expect(getSalesInvoiceRevenueCategory({ document_type: 'FR' })).toBe('prestacao_servicos');
     expect(getSalesInvoiceRevenueCategory({ document_type: 'FT' })).toBe('vendas');
+  });
+});
+
+describe('Arredondamento de contribuições', () => {
+  it('arredonda a base e o valor no regime organizado a 2 casas decimais', () => {
+    const result = calculateContributionAmounts({
+      accountingRegime: 'organized',
+      taxableProfit: 10001,
+      relevantIncome: 0,
+      hasOtherEmployment: false,
+      otherEmploymentSalary: 0,
+      contributionRate: 21.4,
+      quarterYear: 2025,
+    });
+
+    expect(result).toEqual({
+      base: 833.42,
+      amount: 178.35,
+      isExempt: false,
+      exemptReason: '',
+    });
   });
 });
 

@@ -11,6 +11,8 @@
  * This function returns 410 Gone for any request.
  */
 
+import { extractBearerToken } from "../_shared/auth.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://ivazen-saas.vercel.app",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -22,6 +24,8 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  void extractBearerToken(req.headers.get("Authorization"));
 
   return new Response(
     JSON.stringify({

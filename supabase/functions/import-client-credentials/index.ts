@@ -12,6 +12,7 @@
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
+import { extractBearerToken, isServiceRoleToken } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://ivazen-saas.vercel.app',
@@ -150,10 +151,17 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const token = extractBearerToken(authHeader);
+    if (!token) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
     // Client with user's JWT for RLS
     const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
+      global: { headers: { Authorization: `Bearer ${token}` } }
     });
     
     // Service client for admin operations
@@ -166,22 +174,16 @@ Deno.serve(async (req: Request) => {
     if (authUser) {
       user = authUser;
     } else {
-      // Fallback: decode JWT to check if it's a service_role token
-      try {
-        const token = authHeader.replace('Bearer ', '');
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        if (payload.role === 'service_role') {
-          // Service role: find the primary accountant (Adélia)
-          const { data: accountants } = await supabaseAdmin
-            .from('user_roles')
-            .select('user_id')
-            .eq('role', 'accountant')
-            .limit(1);
-          if (accountants?.length) {
-            user = { id: accountants[0].user_id };
-          }
+      if (isServiceRoleToken(token, supabaseServiceKey)) {
+        const { data: accountants } = await supabaseAdmin
+          .from('user_roles')
+          .select('user_id')
+          .eq('role', 'accountant')
+          .limit(1);
+        if (accountants?.length) {
+          user = { id: accountants[0].user_id };
         }
-      } catch {}
+      }
     }
 
     if (!user) {

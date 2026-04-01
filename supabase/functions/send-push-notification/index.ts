@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
+import { extractBearerToken } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://ivazen-saas.vercel.app",
@@ -23,7 +24,8 @@ Deno.serve(async (req) => {
   try {
     // Verify JWT authentication
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
+    const token = extractBearerToken(authHeader);
+    if (!token) {
       return new Response(
         JSON.stringify({ error: 'Autenticação obrigatória' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -33,7 +35,7 @@ Deno.serve(async (req) => {
     const authSupabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: authHeader } } }
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
     );
 
     const { data: { user }, error: authError } = await authSupabase.auth.getUser();

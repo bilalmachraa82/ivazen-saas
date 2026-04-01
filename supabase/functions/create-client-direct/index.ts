@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
+import { extractBearerToken } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://ivazen-saas.vercel.app',
@@ -53,7 +54,7 @@ Deno.serve(async (req) => {
     });
 
     // Validate JWT explicitly (required for Lovable Cloud ES256 tokens)
-    const token = authHeader.replace('Bearer ', '');
+    const token = extractBearerToken(authHeader);
     const { data: { user: accountant }, error: authError } = await supabaseAdmin.auth.getUser(token);
     if (authError || !accountant) {
       return new Response(

@@ -136,6 +136,27 @@ export const ACCOUNTING_REGIMES = [
   { value: 'organized', label: 'Contabilidade Organizada' },
 ];
 
+interface ContributionAmountsInput {
+  accountingRegime: string;
+  taxableProfit: number;
+  relevantIncome: number;
+  hasOtherEmployment: boolean;
+  otherEmploymentSalary: number;
+  contributionRate: number;
+  quarterYear: number;
+}
+
+interface ContributionAmountsResult {
+  base: number;
+  amount: number;
+  isExempt: boolean;
+  exemptReason: string;
+}
+
+function roundToCents(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 // Calculate contribution rate dynamically based on user profile
 export function calculateContributionRate(
   workerType: string,
@@ -176,6 +197,58 @@ export function calculateContributionRate(
     rate: baseRate, 
     isExempt: false, 
     reason: description 
+  };
+}
+
+export function calculateContributionAmounts(
+  input: ContributionAmountsInput,
+): ContributionAmountsResult {
+  const quarterLimits = getSSLimits(input.quarterYear);
+
+  let contributionBase = 0;
+
+  if (input.accountingRegime === 'organized') {
+    const monthlyBase = input.taxableProfit / 12;
+    contributionBase = Math.max(monthlyBase, quarterLimits.MIN_BASE_ORGANIZED);
+    contributionBase = Math.min(contributionBase, quarterLimits.MAX_BASE);
+    contributionBase = roundToCents(contributionBase);
+  } else {
+    const monthlyRelevantIncome = input.relevantIncome / 3;
+
+    if (
+      checkTCOExemption(
+        input.hasOtherEmployment,
+        input.otherEmploymentSalary,
+        monthlyRelevantIncome,
+        input.quarterYear,
+      )
+    ) {
+      return {
+        base: 0,
+        amount: 0,
+        isExempt: true,
+        exemptReason: 'Isento - Acumulação TCO (rendimento < 4×IAS)',
+      };
+    }
+
+    contributionBase = roundToCents(
+      Math.min(monthlyRelevantIncome, quarterLimits.MAX_BASE),
+    );
+  }
+
+  let contributionAmount = roundToCents(
+    contributionBase * (input.contributionRate / 100),
+  );
+
+  if (contributionAmount > 0 && contributionAmount < quarterLimits.MIN_CONTRIBUTION) {
+    contributionAmount = quarterLimits.MIN_CONTRIBUTION;
+  }
+
+  return {
+    base: contributionBase,
+    amount: contributionAmount,
+    isExempt: false,
+    exemptReason: '',
   };
 }
 
@@ -428,39 +501,15 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
       return { base: 0, amount: 0, isExempt: true, exemptReason: 'Isento - 1º ano de actividade' };
     }
 
-    let contributionBase = 0;
-
-    if (accountingRegime === 'organized') {
-      // Organized accounting: base = taxable profit / 12 (minimum 1.5 IAS)
-      const monthlyBase = taxableProfit / 12;
-      contributionBase = Math.max(monthlyBase, quarterLimits.MIN_BASE_ORGANIZED);
-      contributionBase = Math.min(contributionBase, quarterLimits.MAX_BASE);
-    } else {
-      // Simplified regime: base = 1/3 of relevant quarterly income
-      const monthlyRelevantIncome = totals.relevantIncome / 3;
-      
-      // Check TCO exemption
-      if (checkTCOExemption(hasOtherEmployment, otherEmploymentSalary, monthlyRelevantIncome, quarterYear)) {
-        return { 
-          base: 0, 
-          amount: 0, 
-          isExempt: true, 
-          exemptReason: 'Isento - Acumulação TCO (rendimento < 4×IAS)' 
-        };
-      }
-      
-      contributionBase = Math.round(Math.min(monthlyRelevantIncome, quarterLimits.MAX_BASE) * 100) / 100;
-    }
-
-    // Calculate contribution amount
-    let contributionAmount = Math.round(contributionBase * (contributionRate / 100) * 100) / 100;
-
-    // Apply minimum contribution rule (20€ if positive but less than 20€)
-    if (contributionAmount > 0 && contributionAmount < quarterLimits.MIN_CONTRIBUTION) {
-      contributionAmount = quarterLimits.MIN_CONTRIBUTION;
-    }
-
-    return { base: contributionBase, amount: contributionAmount, isExempt: false, exemptReason: '' };
+    return calculateContributionAmounts({
+      accountingRegime,
+      taxableProfit,
+      relevantIncome: totals.relevantIncome,
+      hasOtherEmployment,
+      otherEmploymentSalary,
+      contributionRate,
+      quarterYear,
+    });
   }, [activeProfile, quarter, totals.relevantIncome]);
 
   // Add revenue entry

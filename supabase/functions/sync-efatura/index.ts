@@ -14,6 +14,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.94.1";
 import { isServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
 import { isWithinATWindow } from "../_shared/atWindow.ts";
 import { resolveActiveAccountantConfig } from "../_shared/resolveAccountantConfig.ts";
+import { validateSyncEfaturaRequest } from "../_shared/syncEfaturaRequest.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://ivazen-saas.vercel.app",
@@ -937,42 +938,37 @@ Deno.serve(async (req: Request) => {
 
     const source = body.source || "manual";
     const forceSync = body.force === true;
-
-    // AT Time Window Guard: only applies to manual (user-driven) calls.
-    // Queue calls (from process-at-sync-queue) bypass — the scheduler already controls the window.
-    // force:true is only allowed for service-role callers (diagnostic/admin use).
-    if (source !== "queue" && environment !== "test") {
-      const windowCheck = isWithinATWindow();
-      if (!windowCheck.isWithin) {
-        if (forceSync && isServiceRole) {
-          console.log("[sync-efatura] Time window bypassed via force+service-role");
-        } else {
-          console.log(`[sync-efatura] Blocked: outside AT time window. ${windowCheck.message}`);
-          return new Response(
-            JSON.stringify({
-              success: false,
-              reasonCode: "AT_TIME_WINDOW" as SyncReasonCode,
-              error: windowCheck.message,
-              nextWindowStart: windowCheck.nextWindowStart,
-              nextWindowEnd: windowCheck.nextWindowEnd,
-            }),
-            {
-              status: 200,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            },
-          );
-        }
+    const windowCheck = isWithinATWindow();
+    const preconditionFailure = validateSyncEfaturaRequest({
+      clientId,
+      environment,
+      source,
+      forceSync,
+      isServiceRole,
+      windowCheck,
+    });
+    if (preconditionFailure) {
+      if (
+        preconditionFailure.body.reasonCode === "AT_TIME_WINDOW" &&
+        forceSync &&
+        isServiceRole
+      ) {
+        console.log("[sync-efatura] Time window bypassed via force+service-role");
+      } else if (preconditionFailure.body.reasonCode === "AT_TIME_WINDOW") {
+        console.log(`[sync-efatura] Blocked: outside AT time window. ${windowCheck.message}`);
       }
-    }
 
-    if (!clientId) {
       return new Response(
-        JSON.stringify({ error: "clientId is required" }),
+        JSON.stringify(preconditionFailure.body),
         {
-          status: 400,
+          status: preconditionFailure.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );
+    }
+
+    if (forceSync && isServiceRole && !windowCheck.isWithin && source !== "queue" && environment !== "test") {
+      console.log("[sync-efatura] Time window bypassed via force+service-role");
     }
 
     // IDOR protection: verify authenticated user has access to this clientId

@@ -8,6 +8,7 @@
 const VERSION = "sync-queue-manager@20260224-1900";
 
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
+import { extractBearerToken } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://ivazen-saas.vercel.app",
@@ -46,7 +47,7 @@ Deno.serve(async (req) => {
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Validate caller JWT directly with service role (more robust than anon-key path)
-    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    const token = extractBearerToken(authHeader);
     if (!token) {
       return new Response(
         JSON.stringify({ error: "Invalid token" }),
