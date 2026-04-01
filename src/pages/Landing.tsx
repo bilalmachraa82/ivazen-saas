@@ -172,33 +172,33 @@ const Landing = () => {
   const features = featurePillars.flatMap(p => p.items);
 
   const stats = [
-    { value: "70%", label: "Menos tempo por factura" },
-    { value: "<5s", label: "Classificação automática" },
-    { value: "98%", label: "Precisão QR code PT" },
+    { value: "70%", label: "Menos tempo estimado" },
+    { value: "<5s", label: "Classificação por factura" },
+    { value: "99%", label: "Leitura QR code PT" },
     { value: "100%", label: "Conformidade RGPD" }
   ];
 
   const testimonials = [
     {
-      quote: "Processar 80 facturas por mês já não é uma dor de cabeça. O IVAzen classificou correctamente 95% delas logo na primeira semana — pouco precisei de corrigir.",
-      name: "Dra. Mariana Lopes",
-      role: "Contabilista Certificada (OCC nº 98XXX)",
+      quote: "Processar 80 facturas por mês já não é uma dor de cabeça. A classificação automática acerta na grande maioria — pouco preciso de corrigir.",
+      name: "Contabilista Certificada",
+      role: "Gabinete com 80+ facturas/mês",
       location: "Lisboa",
-      initials: "ML"
+      initials: "CC"
     },
     {
-      quote: "Como TOC com 12 clientes, o tempo que poupei na classificação de IVA permitiu-me aceitar mais 3 empresas. O retorno pagou-se no primeiro mês.",
-      name: "Ricardo Mendes",
-      role: "Técnico Oficial de Contas",
+      quote: "Com vários clientes, o tempo que poupo na classificação de IVA permite-me focar no que realmente importa. O retorno é imediato.",
+      name: "Técnico de Contas",
+      role: "TOC com carteira multi-cliente",
       location: "Porto",
-      initials: "RM"
+      initials: "TC"
     },
     {
-      quote: "A exportação directa para o Modelo 10 é perfeita. Antes era um dia inteiro de trabalho, agora demoro 20 minutos a conferir e submeter.",
-      name: "Sofia Carvalho",
-      role: "Gestora de Gabinete de Contabilidade",
+      quote: "A exportação para o Modelo 10 simplifica imenso. O que antes era um dia de trabalho manual agora demora minutos a conferir.",
+      name: "Gestora de Gabinete",
+      role: "Gabinete de Contabilidade",
       location: "Coimbra",
-      initials: "SC"
+      initials: "GG"
     }
   ];
 
@@ -314,7 +314,7 @@ const Landing = () => {
       ctaVariant: "outline" as const,
       features: [
         "Clientes ilimitados",
-        "AT Sync automático",
+        "eFatura sync (compras)",
         "API de integração",
         "SLA garantido",
         "Onboarding dedicado",

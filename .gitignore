@@ -53,8 +53,12 @@ deno.lock
 .lovable/
 .gstack/
 
-# Migration scripts (local tooling, not part of the app)
+# Migration/debug scripts (local tooling, not part of the app)
 scripts/migration/*.mjs
+scripts/audit-*.mjs
+scripts/fix-audit-*.mjs
+scripts/try-*.mjs
+scripts/migrate-*.mjs
 
 # Test artifacts
 e2e/screenshots/
