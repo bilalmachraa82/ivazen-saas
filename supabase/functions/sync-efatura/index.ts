@@ -13,6 +13,14 @@
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
 import { isServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
 import { isWithinATWindow } from "../_shared/atWindow.ts";
+import {
+  isAtEmptyListMessage,
+  isConnectorAuthFailure,
+  isConnectorSuccessfulEmptyResponse,
+  isLikelyWfaUsername,
+  shouldPreferFallbackResponse,
+  shouldRetryWithCredentialFallback,
+} from "../_shared/connectorFallback.ts";
 import { resolveActiveAccountantConfig } from "../_shared/resolveAccountantConfig.ts";
 import { validateSyncEfaturaRequest } from "../_shared/syncEfaturaRequest.ts";
 
@@ -288,16 +296,6 @@ async function retryConnectorMonthByMonth(params: {
   return { invoices: allInvoices, totalRecords, monthsSucceeded, monthsFailed, monthErrors };
 }
 
-function isAtEmptyListMessage(msg: string | null | undefined): boolean {
-  const m = String(msg || "").toLowerCase();
-  return (
-    m.includes("lista de faturas vazia") ||
-    m.includes("lista de facturas vazia") ||
-    m.includes("no invoices found") ||
-    m.includes("sem faturas")
-  );
-}
-
 function classifyReasonCode(
   message: string | null | undefined,
 ): SyncReasonCode {
@@ -486,55 +484,6 @@ async function decodeStoredSecret(
     `[sync-efatura] Failed to decrypt ${fieldLabel} with available keys. payload length=${value.length}`,
   );
   return null;
-}
-
-function isLikelyWfaUsername(value: string | null): boolean {
-  if (!value) return false;
-  return /^\d{9}\/\d+$/.test(value.trim());
-}
-
-function isLikelyAuthMessage(msg: string | null | undefined): boolean {
-  const m = String(msg || "").toLowerCase();
-  return (
-    m.includes("autentic") ||
-    m.includes("credencia") ||
-    m.includes("não autorizado") ||
-    m.includes("nao autorizado") ||
-    m.includes("unauthorized") ||
-    m.includes("forbidden")
-  );
-}
-
-function isConnectorAuthFailure(
-  resp: ConnectorResponse,
-  type: "compras" | "vendas" | "ambos",
-): boolean {
-  const errors: string[] = [];
-  if (resp.error) errors.push(resp.error);
-  if (type === "compras" || type === "ambos") {
-    if (resp.compras?.errorMessage) errors.push(resp.compras.errorMessage);
-  }
-  if (type === "vendas" || type === "ambos") {
-    if (resp.vendas?.errorMessage) errors.push(resp.vendas.errorMessage);
-  }
-  return errors.some((e) => isLikelyAuthMessage(e));
-}
-
-function isConnectorSuccessfulEmptyResponse(query?: ConnectorQuery): boolean {
-  return Boolean(query?.success) && (query?.totalRecords || 0) === 0;
-}
-
-function shouldRetryVendasWithFallback(
-  resp: ConnectorResponse,
-  type: "compras" | "vendas" | "ambos",
-  primaryUsername: string | null,
-  fallbackUsername: string | null,
-): boolean {
-  if (type !== "vendas" && type !== "ambos") return false;
-  if (!isLikelyWfaUsername(fallbackUsername)) return false;
-  if (isLikelyWfaUsername(primaryUsername)) return false;
-  return isConnectorSuccessfulEmptyResponse(resp.vendas) ||
-    isAtEmptyListMessage(resp.vendas?.errorMessage);
 }
 
 let connectorHttpClientInit = false;
@@ -1553,7 +1502,7 @@ Deno.serve(async (req: Request) => {
       const retryWithFallback = fallbackAttempt &&
         (
           isConnectorAuthFailure(primaryConnectorResp, type) ||
-          shouldRetryVendasWithFallback(
+          shouldRetryWithCredentialFallback(
             primaryConnectorResp,
             type,
             usedCredentials.username,
@@ -1578,15 +1527,13 @@ Deno.serve(async (req: Request) => {
         });
         fallbackResult = fallbackConnectorResp.success ? "success" : "failed";
 
-        const fallbackRecoveredVendas = (type === "vendas" || type === "ambos") &&
-          Boolean(fallbackConnectorResp.vendas?.success) &&
-          (fallbackConnectorResp.vendas?.totalRecords || 0) > 0;
-        const primaryWasAuthFailure = isConnectorAuthFailure(
-          primaryConnectorResp,
-          type,
-        );
-
-        if (primaryWasAuthFailure || fallbackRecoveredVendas) {
+        if (
+          shouldPreferFallbackResponse(
+            primaryConnectorResp,
+            fallbackConnectorResp,
+            type,
+          )
+        ) {
           usedCredentials = fallbackAttempt;
           connectorResp = fallbackConnectorResp;
         } else {

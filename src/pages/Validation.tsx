@@ -13,7 +13,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { InvoiceFilters } from '@/components/validation/InvoiceFilters';
 import { InvoiceTable } from '@/components/validation/InvoiceTable';
 import { InvoiceDetailDialog } from '@/components/validation/InvoiceDetailDialog';
-import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { FiscalSetupWizard } from '@/components/onboarding/FiscalSetupWizard';
 import { DuplicateManager } from '@/components/validation/DuplicateManager';
 import { ReconciliationTab } from '@/components/validation/ReconciliationTab';
@@ -845,8 +844,6 @@ export default function Validation() {
         canNavigateNext={selectedIndex < invoices.length - 1}
         onDataUpdated={handleInvoiceDataUpdated}
       />
-
-      <OnboardingTour />
     </DashboardLayout>
   );
 }

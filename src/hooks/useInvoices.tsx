@@ -8,6 +8,7 @@ import { deriveFiscalPeriodFromDocumentDate, normalizeDocumentDate } from '@/lib
 import { fetchAllPages } from '@/lib/supabasePagination';
 import { isTemporarySupplierTaxId, normalizeSupplierTaxId, normalizeSupplierVatId } from '@/lib/taxId';
 import { enrichSupplierNames } from '@/lib/supplierNameResolver';
+import { applyClientInvoiceSearchFallback, escapeInvoiceSearchTerm } from '@/lib/invoiceSearch';
 import {
   getRecentImportCutoff,
   matchesRecentImportWindow,
@@ -234,10 +235,6 @@ export function useInvoices(externalClientId?: string | null) {
         return query;
       };
 
-      // Escape SQL LIKE special characters so user input is treated as literal text
-      const escapeIlike = (term: string): string =>
-        term.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
-
       const buildFilteredQuery = () => {
         let query = applyBaseFilters(
           supabase
@@ -274,7 +271,7 @@ export function useInvoices(externalClientId?: string | null) {
         // Only apply when search has 2+ chars to avoid overly broad queries
         const rawSearch = filters.search.trim();
         if (rawSearch.length >= 2) {
-          const escaped = escapeIlike(rawSearch);
+          const escaped = escapeInvoiceSearchTerm(rawSearch);
           query = query.or(
             `supplier_name.ilike.%${escaped}%,supplier_nif.ilike.%${escaped}%,document_number.ilike.%${escaped}%`,
           );
@@ -297,21 +294,13 @@ export function useInvoices(externalClientId?: string | null) {
         fetchAllPages<InvoiceStatsRow>((from, to) => buildStatsQuery().range(from, to)),
       ]);
       const enrichedData = await enrichSupplierNames(data);
-      const normalize = (s: string) =>
-        s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-      const searchTerm = normalize(filters.search.trim());
-      const filteredData = searchTerm
-        ? enrichedData.filter((invoice) => {
-            const supplierName = normalize(invoice.supplier_name || '');
-            const supplierNif = invoice.supplier_nif?.toLowerCase() || '';
-            const documentNumber = invoice.document_number?.toLowerCase() || '';
-
-            return (
-              supplierName.includes(searchTerm)
-              || supplierNif.includes(searchTerm)
-              || documentNumber.includes(searchTerm)
-            );
-          })
+      const normalizedSearch = filters.search
+        .trim()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+      const filteredData = normalizedSearch.length === 1
+        ? applyClientInvoiceSearchFallback(enrichedData, filters.search)
         : enrichedData;
 
       setInvoices(filteredData);

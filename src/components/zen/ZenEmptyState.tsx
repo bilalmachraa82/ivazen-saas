@@ -12,7 +12,7 @@ interface ZenEmptyStateProps {
     onClick: () => void;
     icon?: LucideIcon;
   };
-  variant?: 'default' | 'primary' | 'muted';
+  variant?: 'default' | 'primary' | 'muted' | 'success' | 'warning';
   className?: string;
 }
 
@@ -26,6 +26,16 @@ const variantStyles = {
     iconBg: 'from-primary/20 to-primary/10',
     iconColor: 'text-primary/50',
     pulse: 'bg-primary/10',
+  },
+  success: {
+    iconBg: 'from-emerald-500/20 to-emerald-500/10',
+    iconColor: 'text-emerald-600/60',
+    pulse: 'bg-emerald-500/10',
+  },
+  warning: {
+    iconBg: 'from-amber-500/20 to-amber-500/10',
+    iconColor: 'text-amber-600/60',
+    pulse: 'bg-amber-500/10',
   },
   muted: {
     iconBg: 'from-muted/30 to-muted/20',
@@ -42,7 +52,7 @@ export function ZenEmptyState({
   variant = 'default',
   className,
 }: ZenEmptyStateProps) {
-  const styles = variantStyles[variant];
+  const styles = variantStyles[variant] ?? variantStyles.default;
 
   return (
     <div className={cn('text-center py-16', className)}>

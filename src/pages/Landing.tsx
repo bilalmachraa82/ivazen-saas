@@ -172,10 +172,10 @@ const Landing = () => {
   const features = featurePillars.flatMap(p => p.items);
 
   const stats = [
-    { value: "70%", label: "Menos tempo estimado" },
-    { value: "<5s", label: "Classificação por factura" },
-    { value: "99%", label: "Leitura QR code PT" },
-    { value: "100%", label: "Conformidade RGPD" }
+    { value: "Menos tempo", label: "Estimativa de ganho operacional" },
+    { value: "Em segundos", label: "Classificação assistida" },
+    { value: "QR Code PT", label: "Leitura automática" },
+    { value: "RLS + RGPD", label: "Proteção de dados" }
   ];
 
   const testimonials = [
@@ -208,16 +208,16 @@ const Landing = () => {
     {
       type: 'scan' as const,
       title: "Scan & Go",
-      badge: "QR Code PT • <5s",
+      badge: "QR Code PT • Fluxo rápido",
       description: "Aponte para o QR code português. Ou arraste SAFT-PT/CSV. Suporta foto, PDF ou XML.",
       bullets: ["Leitura instantânea", "Batch até 100 facturas", "Funciona offline (PWA)"]
     },
     {
       type: 'classify' as const,
       title: "IA que Aprende",
-      badge: "Few-Shot Learning • 98%",
+      badge: "Few-Shot Learning • Adaptativo",
       description: "Few-shot learning adapta-se às suas preferências. Cada correcção melhora o sistema.",
-      bullets: ["98% precisão", "Melhora com uso", "Personalizado ao seu negócio"]
+      bullets: ["Sugestões consistentes", "Melhora com uso", "Personalizado ao seu negócio"]
     },
     {
       type: 'export' as const,
@@ -447,14 +447,14 @@ const Landing = () => {
                   Gestão fiscal automatizada com IA
                 </div>
                 <h1 className="mb-6 text-4xl font-display font-bold tracking-tight md:text-5xl lg:text-6xl">
-                  Poupe{" "}
+                  Recupere{" "}
                   <span className="bg-gradient-to-r from-primary via-pink-400 to-accent bg-clip-text text-transparent animate-gradient bg-[length:200%_auto]">
-                    70% do tempo
+                    horas da semana
                   </span>
                   {" "}em gestão fiscal
                 </h1>
                 <p className="mx-auto mb-8 max-w-xl text-lg text-muted-foreground lg:mx-0">
-                  O IVAzen automatiza a classificação de facturas com IA, gera o Modelo 10, calcula a Segurança Social e exporta em formato AT — tudo em segundos, não horas.
+                  O IVAzen automatiza a classificação de facturas com IA, gera o Modelo 10, calcula a Segurança Social e exporta em formato AT num único fluxo auditável.
                 </p>
                 <div className="flex flex-col items-center gap-4 sm:flex-row lg:justify-start">
                   <Button asChild size="lg" className="premium-button gap-2 px-8 shadow-glow-lg elastic-scale click-bounce group">
@@ -832,7 +832,7 @@ const Landing = () => {
               </span>
             </h2>
             <p className="mx-auto mb-8 max-w-xl text-lg text-white/80">
-              Junte-se a contabilistas que já poupam 70% do tempo em gestão fiscal. Comece grátis hoje.
+              Feito para reduzir trabalho repetitivo na gestão fiscal. Comece grátis hoje.
             </p>
             <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Button asChild size="lg" className="gap-2 px-8 bg-white text-primary hover:bg-white/90 shadow-glow-lg hover-scale">
