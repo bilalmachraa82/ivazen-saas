@@ -1,5 +1,6 @@
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
+import * as Sentry from '@sentry/react';
 import { supabase } from '@/integrations/supabase/client';
 
 type AppRole = 'client' | 'accountant' | 'admin';
@@ -45,14 +46,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (session?.user) {
+          Sentry.setUser({
+            id: session.user.id,
+            email: session.user.email,
+          });
           // Fetch roles after auth state change
           setTimeout(() => fetchRoles(session.user.id), 0);
         } else {
+          Sentry.setUser(null);
           setRoles([]);
         }
-        
+
         setLoading(false);
       }
     );
@@ -61,11 +67,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
+        Sentry.setUser({
+          id: session.user.id,
+          email: session.user.email,
+        });
         await fetchRoles(session.user.id);
+      } else {
+        Sentry.setUser(null);
       }
-      
+
       setLoading(false);
     });
 
@@ -126,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    Sentry.setUser(null);
     await supabase.auth.signOut();
   };
 

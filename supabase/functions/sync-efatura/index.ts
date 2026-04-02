@@ -181,6 +181,113 @@ function buildRequestMetadata(
   };
 }
 
+/**
+ * Split a date range into per-calendar-month sub-ranges.
+ * E.g. ("2025-01-15", "2025-03-20") → [{start:"2025-01-15",end:"2025-01-31"}, {start:"2025-02-01",end:"2025-02-28"}, {start:"2025-03-01",end:"2025-03-20"}]
+ */
+function splitIntoMonths(
+  startDate: string,
+  endDate: string,
+): Array<{ start: string; end: string }> {
+  const result: Array<{ start: string; end: string }> = [];
+  const end = new Date(endDate + "T00:00:00Z");
+
+  let cursor = new Date(startDate + "T00:00:00Z");
+
+  while (cursor <= end) {
+    const year = cursor.getUTCFullYear();
+    const month = cursor.getUTCMonth();
+    // Last day of this calendar month
+    const lastDayOfMonth = new Date(Date.UTC(year, month + 1, 0));
+    const monthEnd = lastDayOfMonth < end ? lastDayOfMonth : end;
+
+    const fmt = (d: Date) =>
+      d.toISOString().slice(0, 10);
+
+    result.push({ start: fmt(cursor), end: fmt(monthEnd) });
+
+    // Move cursor to 1st of next month
+    cursor = new Date(Date.UTC(year, month + 1, 1));
+  }
+
+  return result;
+}
+
+/**
+ * Retry an AT connector call month-by-month when the full range fails with
+ * AT_SCHEMA_RESPONSE_ERROR.  Returns aggregated invoices from successful months.
+ */
+async function retryConnectorMonthByMonth(params: {
+  environment: "test" | "production";
+  clientNif: string;
+  username: string;
+  password: string;
+  direction: "compras" | "vendas";
+  startDate: string;
+  endDate: string;
+}): Promise<{
+  invoices: ATInvoice[];
+  totalRecords: number;
+  monthsSucceeded: number;
+  monthsFailed: number;
+  monthErrors: string[];
+}> {
+  const months = splitIntoMonths(params.startDate, params.endDate);
+  const allInvoices: ATInvoice[] = [];
+  let totalRecords = 0;
+  let monthsSucceeded = 0;
+  let monthsFailed = 0;
+  const monthErrors: string[] = [];
+
+  console.log(
+    `[sync-efatura] Schema error retry: splitting ${params.startDate}→${params.endDate} into ${months.length} month(s) for ${params.direction}`,
+  );
+
+  for (const { start, end } of months) {
+    const monthResp = await callAtConnector({
+      environment: params.environment,
+      clientNif: params.clientNif,
+      username: params.username,
+      password: params.password,
+      type: params.direction,
+      startDate: start,
+      endDate: end,
+    });
+
+    const query = params.direction === "compras"
+      ? monthResp.compras
+      : monthResp.vendas;
+
+    const emptyList = !query?.success &&
+      isAtEmptyListMessage(query?.errorMessage);
+
+    if (query?.success) {
+      const inv = query.invoices || [];
+      allInvoices.push(...inv);
+      totalRecords += query.totalRecords || inv.length;
+      monthsSucceeded++;
+      console.log(
+        `[sync-efatura] Month ${start}→${end} OK: ${inv.length} invoices`,
+      );
+    } else if (emptyList) {
+      // Empty list counts as success (no data for that month)
+      monthsSucceeded++;
+      console.log(
+        `[sync-efatura] Month ${start}→${end}: empty list (ok)`,
+      );
+    } else {
+      monthsFailed++;
+      const err = query?.errorMessage || monthResp.error || "unknown";
+      monthErrors.push(`${start}: ${err}`);
+      console.warn(
+        `[sync-efatura] Month ${start}→${end} FAILED: ${err}`,
+      );
+    }
+  }
+
+  return { invoices: allInvoices, totalRecords, monthsSucceeded, monthsFailed, monthErrors };
+}
+
 function isAtEmptyListMessage(msg: string | null | undefined): boolean {
   const m = String(msg || "").toLowerCase();
   return (
@@ -1596,18 +1703,84 @@ Deno.serve(async (req: Request) => {
             errorMessage: emptyList ? q?.errorMessage || null : null,
           };
         } else {
-          hasErrors = true;
           const err = q?.errorMessage || connectorResp.error ||
             "Consulta compras falhou";
           const rc = classifyReasonCode(err);
-          reasonCodes.push(rc);
-          errorMessages.push(err);
-          directionMetadata.compras = {
-            success: false,
-            totalRecords: q?.totalRecords || 0,
-            errorMessage: err,
-            reasonCode: rc,
-          };
+
+          // Month-by-month retry for AT schema errors
+          if (rc === "AT_SCHEMA_RESPONSE_ERROR") {
+            console.warn(
+              `[sync-efatura] Compras schema error for client ${clientId}, retrying month-by-month`,
+            );
+            const monthRetry = await retryConnectorMonthByMonth({
+              environment,
+              clientNif,
+              username: usedCredentials.username,
+              password: usedCredentials.password,
+              direction: "compras",
+              startDate: effectiveStartDate,
+              endDate: effectiveEndDate,
+            });
+
+            if (monthRetry.monthsSucceeded > 0) {
+              const r = await insertPurchaseInvoicesFromAT(
+                supabase,
+                clientId,
+                clientNif,
+                monthRetry.invoices,
+              );
+              inserted += r.inserted;
+              skipped += r.skipped;
+              errors += r.errors;
+              hasSuccesses = true;
+              if (monthRetry.monthsFailed > 0) {
+                hasErrors = true;
+                const partialErr = `Schema error: ${monthRetry.monthsSucceeded}/${monthRetry.monthsSucceeded + monthRetry.monthsFailed} months OK`;
+                reasonCodes.push("AT_SCHEMA_RESPONSE_ERROR");
+                errorMessages.push(partialErr);
+              }
+              directionMetadata.compras = {
+                success: true,
+                totalRecords: monthRetry.totalRecords,
+                imported: r.inserted,
+                skipped: r.skipped,
+                errors: r.errors,
+                redirectedToSales: r.redirectedToSales,
+                monthByMonthRetry: {
+                  monthsSucceeded: monthRetry.monthsSucceeded,
+                  monthsFailed: monthRetry.monthsFailed,
+                  monthErrors: monthRetry.monthErrors,
+                  originalError: err,
+                },
+              };
+            } else {
+              // All months failed too — treat as normal error
+              hasErrors = true;
+              reasonCodes.push(rc);
+              errorMessages.push(err);
+              directionMetadata.compras = {
+                success: false,
+                totalRecords: q?.totalRecords || 0,
+                errorMessage: err,
+                reasonCode: rc,
+                monthByMonthRetry: {
+                  monthsSucceeded: 0,
+                  monthsFailed: monthRetry.monthsFailed,
+                  monthErrors: monthRetry.monthErrors,
+                },
+              };
+            }
+          } else {
+            hasErrors = true;
+            reasonCodes.push(rc);
+            errorMessages.push(err);
+            directionMetadata.compras = {
+              success: false,
+              totalRecords: q?.totalRecords || 0,
+              errorMessage: err,
+              reasonCode: rc,
+            };
+          }
         }
       }
 
@@ -1680,46 +1853,119 @@ Deno.serve(async (req: Request) => {
               : null,
           };
         } else {
-          if (recoveredViaRecibos) {
-            inserted += fallbackInserted;
-            skipped += fallbackSkipped;
-            errors += fallbackErrors;
-            hasSuccesses = true;
-            directionMetadata.vendas = {
-              success: true,
-              totalRecords: q?.totalRecords || 0,
-              errorMessage: vendasError,
-              reasonCode: vendasReasonCode,
-              recoveredViaRecibos: true,
-              recibosFallback: {
-                success: true,
-                reasonCode: recibosFallback?.reasonCode || null,
-                inserted: fallbackInserted,
-                skipped: fallbackSkipped,
-                errors: fallbackErrors,
-                message: recibosFallback?.message || null,
-              },
+          // Month-by-month retry for AT schema errors on vendas
+          let recoveredViaMonthRetry = false;
+          let monthRetryMeta: Record<string, unknown> | null = null;
+
+          if (vendasReasonCode === "AT_SCHEMA_RESPONSE_ERROR") {
+            console.warn(
+              `[sync-efatura] Vendas schema error for client ${clientId}, retrying month-by-month`,
+            );
+            const monthRetry = await retryConnectorMonthByMonth({
+              environment,
+              clientNif,
+              username: usedCredentials.username,
+              password: usedCredentials.password,
+              direction: "vendas",
+              startDate: effectiveStartDate,
+              endDate: effectiveEndDate,
+            });
+
+            monthRetryMeta = {
+              monthsSucceeded: monthRetry.monthsSucceeded,
+              monthsFailed: monthRetry.monthsFailed,
+              monthErrors: monthRetry.monthErrors,
+              originalError: vendasError,
             };
-          } else {
-            hasErrors = true;
-            reasonCodes.push(vendasReasonCode);
-            errorMessages.push(vendasError);
-            directionMetadata.vendas = {
-              success: false,
-              totalRecords: q?.totalRecords || 0,
-              errorMessage: vendasError,
-              reasonCode: vendasReasonCode,
-              recibosFallback: recibosFallback
-                ? {
-                  success: Boolean(recibosFallback.success),
-                  reasonCode: recibosFallback.reasonCode || null,
+
+            if (monthRetry.monthsSucceeded > 0) {
+              const r = await insertSalesInvoicesFromAT(
+                supabase,
+                clientId,
+                clientNif,
+                monthRetry.invoices,
+              );
+              inserted += r.inserted;
+              skipped += r.skipped;
+              errors += r.errors;
+              inserted += fallbackInserted;
+              skipped += fallbackSkipped;
+              errors += fallbackErrors;
+              hasSuccesses = true;
+              recoveredViaMonthRetry = true;
+
+              if (monthRetry.monthsFailed > 0) {
+                hasErrors = true;
+                const partialErr = `Schema error: ${monthRetry.monthsSucceeded}/${monthRetry.monthsSucceeded + monthRetry.monthsFailed} months OK`;
+                reasonCodes.push("AT_SCHEMA_RESPONSE_ERROR");
+                errorMessages.push(partialErr);
+              }
+
+              directionMetadata.vendas = {
+                success: true,
+                totalRecords: monthRetry.totalRecords,
+                imported: r.inserted,
+                skipped: r.skipped,
+                errors: r.errors,
+                monthByMonthRetry: monthRetryMeta,
+                recibosFallback: recibosFallback
+                  ? {
+                    success: Boolean(recibosFallback.success),
+                    reasonCode: recibosFallback.reasonCode || null,
+                    inserted: fallbackInserted,
+                    skipped: fallbackSkipped,
+                    errors: fallbackErrors,
+                    message: recibosFallback.message || recibosFallback.error || null,
+                  }
+                  : null,
+              };
+            }
+          }
+
+          if (!recoveredViaMonthRetry) {
+            if (recoveredViaRecibos) {
+              inserted += fallbackInserted;
+              skipped += fallbackSkipped;
+              errors += fallbackErrors;
+              hasSuccesses = true;
+              directionMetadata.vendas = {
+                success: true,
+                totalRecords: q?.totalRecords || 0,
+                errorMessage: vendasError,
+                reasonCode: vendasReasonCode,
+                recoveredViaRecibos: true,
+                monthByMonthRetry: monthRetryMeta,
+                recibosFallback: {
+                  success: true,
+                  reasonCode: recibosFallback?.reasonCode || null,
                   inserted: fallbackInserted,
                   skipped: fallbackSkipped,
                   errors: fallbackErrors,
-                  message: recibosFallback.message || recibosFallback.error || null,
-                }
-                : null,
-            };
+                  message: recibosFallback?.message || null,
+                },
+              };
+            } else {
+              hasErrors = true;
+              reasonCodes.push(vendasReasonCode);
+              errorMessages.push(vendasError);
+              directionMetadata.vendas = {
+                success: false,
+                totalRecords: q?.totalRecords || 0,
+                errorMessage: vendasError,
+                reasonCode: vendasReasonCode,
+                monthByMonthRetry: monthRetryMeta,
+                recibosFallback: recibosFallback
+                  ? {
+                    success: Boolean(recibosFallback.success),
+                    reasonCode: recibosFallback.reasonCode || null,
+                    inserted: fallbackInserted,
+                    skipped: fallbackSkipped,
+                    errors: fallbackErrors,
+                    message: recibosFallback.message || recibosFallback.error || null,
+                  }
+                  : null,
+              };
+            }
           }
         }
       }

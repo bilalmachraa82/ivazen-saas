@@ -3,6 +3,7 @@ import https from 'node:https';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { scrapeRecibosVerdes } from './portalScraper.js';
+import { scrapeRecibosVerdesPlaywright } from './playwrightScraper.js';
 
 const PORT = Number(process.env.PORT || 8787);
 const CONNECTOR_TOKEN = process.env.CONNECTOR_TOKEN || '';
@@ -687,13 +688,23 @@ const server = http.createServer(async (req, res) => {
     const startedAt = Date.now();
 
     try {
-      const result = await scrapeRecibosVerdes({
+      // Strategy: try HTTP scraper first (faster/lighter), fall back to Playwright
+      const scraperParams = {
         nif,
         password,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
         debug: debug || false,
-      });
+      };
+
+      let result = await scrapeRecibosVerdes(scraperParams);
+
+      if (!result.success) {
+        console.log(`[at-connector] HTTP scraper failed (${result.error}), trying Playwright...`);
+        const pwResult = await scrapeRecibosVerdesPlaywright(scraperParams);
+        pwResult.httpScraperError = result.error;
+        result = pwResult;
+      }
 
       result.timingMs = Date.now() - startedAt;
       return json(res, result.success ? 200 : 502, result);
