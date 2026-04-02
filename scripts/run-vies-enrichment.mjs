@@ -102,31 +102,39 @@ async function main() {
   console.log(`Limit: ${LIMIT} NIFs\n`);
 
   // Step 1: Get distinct business NIFs from invoices + sales_invoices
+  // Only fetch NIFs where supplier_name IS NULL (the ones that need enrichment).
+  // Paginate with steps of 10,000 to avoid the default 1000-row PostgREST cap.
   console.log('Fetching NIFs from invoices...');
-  const { data: invRows, error: invErr } = await supabase
-    .from('invoices')
-    .select('supplier_nif')
-    .not('supplier_nif', 'is', null);
-
-  if (invErr) { console.error('invoices query error:', invErr); return; }
-
-  const { data: salesRows, error: salesErr } = await supabase
-    .from('sales_invoices')
-    .select('supplier_nif')
-    .not('supplier_nif', 'is', null);
-
-  if (salesErr) { console.error('sales_invoices query error:', salesErr); return; }
-
   const allNifs = new Set();
-  for (const row of (invRows || [])) {
-    if (row.supplier_nif && isBusinessNif(row.supplier_nif)) {
-      allNifs.add(row.supplier_nif);
+  const PAGE = 10000;
+
+  for (let offset = 0; ; offset += PAGE) {
+    const { data: invRows, error: invErr } = await supabase
+      .from('invoices')
+      .select('supplier_nif')
+      .is('supplier_name', null)
+      .not('supplier_nif', 'is', null)
+      .range(offset, offset + PAGE - 1);
+    if (invErr) { console.error('invoices query error:', invErr); break; }
+    if (!invRows || invRows.length === 0) break;
+    for (const row of invRows) {
+      if (row.supplier_nif && isBusinessNif(row.supplier_nif)) allNifs.add(row.supplier_nif);
     }
+    if (invRows.length < PAGE) break;
   }
-  for (const row of (salesRows || [])) {
-    if (row.supplier_nif && isBusinessNif(row.supplier_nif)) {
-      allNifs.add(row.supplier_nif);
+
+  for (let offset = 0; ; offset += PAGE) {
+    const { data: salesRows, error: salesErr } = await supabase
+      .from('sales_invoices')
+      .select('supplier_nif')
+      .not('supplier_nif', 'is', null)
+      .range(offset, offset + PAGE - 1);
+    if (salesErr) { console.error('sales_invoices query error:', salesErr); break; }
+    if (!salesRows || salesRows.length === 0) break;
+    for (const row of salesRows) {
+      if (row.supplier_nif && isBusinessNif(row.supplier_nif)) allNifs.add(row.supplier_nif);
     }
+    if (salesRows.length < PAGE) break;
   }
 
   const uniqueNifs = Array.from(allNifs);

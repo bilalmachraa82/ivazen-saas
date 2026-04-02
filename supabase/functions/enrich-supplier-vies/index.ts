@@ -108,33 +108,39 @@ Deno.serve(async (req: Request) => {
     // Use RPC or raw query to find NIFs not yet in supplier_directory
     // with a reliable source, or with placeholder names.
 
-    // 1a. Get distinct business NIFs from invoices
-    const { data: invoiceNifs, error: invErr } = await supabase
-      .from("invoices")
-      .select("supplier_nif")
-      .not("supplier_nif", "is", null);
-
-    if (invErr) throw new Error(`invoices query: ${invErr.message}`);
-
-    // 1b. Also get from sales_invoices
-    const { data: salesNifs, error: salesErr } = await supabase
-      .from("sales_invoices")
-      .select("supplier_nif")
-      .not("supplier_nif", "is", null);
-
-    if (salesErr) throw new Error(`sales_invoices query: ${salesErr.message}`);
-
-    // Combine and deduplicate business NIFs
+    // 1a. Get distinct business NIFs from invoices where supplier_name IS NULL
+    // Paginate in steps of 10,000 to avoid the default 1000-row PostgREST cap.
     const allNifs = new Set<string>();
-    for (const row of invoiceNifs || []) {
-      if (row.supplier_nif && isBusinessNif(row.supplier_nif)) {
-        allNifs.add(row.supplier_nif);
+    const PAGE_SIZE = 10000;
+
+    for (let offset = 0; ; offset += PAGE_SIZE) {
+      const { data: invoiceNifs, error: invErr } = await supabase
+        .from("invoices")
+        .select("supplier_nif")
+        .is("supplier_name", null)
+        .not("supplier_nif", "is", null)
+        .range(offset, offset + PAGE_SIZE - 1);
+      if (invErr) throw new Error(`invoices query: ${invErr.message}`);
+      if (!invoiceNifs || invoiceNifs.length === 0) break;
+      for (const row of invoiceNifs) {
+        if (row.supplier_nif && isBusinessNif(row.supplier_nif)) allNifs.add(row.supplier_nif);
       }
+      if (invoiceNifs.length < PAGE_SIZE) break;
     }
-    for (const row of salesNifs || []) {
-      if (row.supplier_nif && isBusinessNif(row.supplier_nif)) {
-        allNifs.add(row.supplier_nif);
+
+    // 1b. Also get from sales_invoices (no supplier_name column — get all)
+    for (let offset = 0; ; offset += PAGE_SIZE) {
+      const { data: salesNifs, error: salesErr } = await supabase
+        .from("sales_invoices")
+        .select("supplier_nif")
+        .not("supplier_nif", "is", null)
+        .range(offset, offset + PAGE_SIZE - 1);
+      if (salesErr) throw new Error(`sales_invoices query: ${salesErr.message}`);
+      if (!salesNifs || salesNifs.length === 0) break;
+      for (const row of salesNifs) {
+        if (row.supplier_nif && isBusinessNif(row.supplier_nif)) allNifs.add(row.supplier_nif);
       }
+      if (salesNifs.length < PAGE_SIZE) break;
     }
 
     const uniqueNifs = Array.from(allNifs);
