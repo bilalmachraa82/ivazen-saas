@@ -235,18 +235,30 @@ export function useInvoices(externalClientId?: string | null) {
         return query;
       };
 
-      const buildFilteredQuery = () => {
+      const buildStatsQuery = () => {
+        return applyBaseFilters(
+          supabase
+            .from('invoices')
+            .select('status, requires_accountant_validation, accounting_excluded, created_at')
+            .order('created_at', { ascending: false }),
+        );
+      };
+
+      // 1. Paginated list query: fetch only the current page with exact count
+      const rangeFrom = page * PAGE_SIZE;
+      const rangeTo = rangeFrom + PAGE_SIZE - 1;
+
+      const buildPaginatedListQuery = () => {
         let query = applyBaseFilters(
           supabase
             .from('invoices')
-            .select('*')
+            .select('*', { count: 'exact' })
             .order('created_at', { ascending: false }),
         );
 
         if (filters.status === 'accounting_excluded') {
           query = query.eq('accounting_excluded', true);
         } else {
-          // Exclude accounting_excluded invoices from all non-excluded filters
           query = query.or('accounting_excluded.is.null,accounting_excluded.eq.false');
 
           if (filters.status === 'open') {
@@ -267,8 +279,6 @@ export function useInvoices(externalClientId?: string | null) {
           query = query.gte('created_at', recentCutoff);
         }
 
-        // Server-side search: ilike on supplier_name, supplier_nif, document_number
-        // Only apply when search has 2+ chars to avoid overly broad queries
         const rawSearch = filters.search.trim();
         if (rawSearch.length >= 2) {
           const escaped = escapeInvoiceSearchTerm(rawSearch);
@@ -277,23 +287,24 @@ export function useInvoices(externalClientId?: string | null) {
           );
         }
 
-        return query;
+        return query.range(rangeFrom, rangeTo);
       };
 
-      const buildStatsQuery = () => {
-        return applyBaseFilters(
-          supabase
-            .from('invoices')
-            .select('status, requires_accountant_validation, accounting_excluded, created_at')
-            .order('created_at', { ascending: false }),
-        );
-      };
-
-      const [data, statsRows] = await Promise.all([
-        fetchAllPages<Invoice>((from, to) => buildFilteredQuery().range(from, to)),
-        fetchAllPages<InvoiceStatsRow>((from, to) => buildStatsQuery().range(from, to)),
+      // 2. Stats query: lightweight fetch of ALL rows (only status columns)
+      const [listResult, statsRows] = await Promise.all([
+        buildPaginatedListQuery(),
+        fetchAllPages<InvoiceStatsRow>((f, t) => buildStatsQuery().range(f, t)),
       ]);
-      const enrichedData = await enrichSupplierNames(data);
+
+      if (listResult.error) throw listResult.error;
+
+      const pageData = (listResult.data ?? []) as Invoice[];
+      const serverCount = listResult.count ?? 0;
+
+      // Enrich supplier names only for the current page (not all data)
+      const enrichedData = await enrichSupplierNames(pageData);
+
+      // Client-side fallback for single-char searches (server ilike needs 2+ chars)
       const normalizedSearch = filters.search
         .trim()
         .normalize('NFD')
@@ -304,7 +315,7 @@ export function useInvoices(externalClientId?: string | null) {
         : enrichedData;
 
       setInvoices(filteredData);
-      setTotalCount(filteredData.length);
+      setTotalCount(normalizedSearch.length === 1 ? filteredData.length : serverCount);
       setStatsSummary(buildInvoiceStats(statsRows));
     } catch (error) {
       console.error('Error fetching invoices:', error);
@@ -314,6 +325,7 @@ export function useInvoices(externalClientId?: string | null) {
     }
   }, [
     user,
+    page,
     externalClientId,
     effectiveClientId,
     filters.status,

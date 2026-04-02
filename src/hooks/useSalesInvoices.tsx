@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { fetchAllPages } from '@/lib/supabasePagination';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 import { getRecentImportCutoff, type RecentImportWindow } from '@/lib/recentImports';
 import { expandQuarterToPeriods } from '@/lib/formatFiscalPeriod';
+import { escapeInvoiceSearchTerm } from '@/lib/invoiceSearch';
 
 
 type SalesInvoice = Tables<'sales_invoices'>;
@@ -91,63 +91,73 @@ export function useSalesInvoices(externalClientId?: string | null) {
 
     setLoading(true);
     try {
-      const buildQuery = () => {
-        let query = supabase
-          .from('sales_invoices')
-          .select('*')
-          .order('document_date', { ascending: false });
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
 
-        if (filters.status !== 'all') {
-          query = query.eq('status', filters.status);
-        }
+      let query = supabase
+        .from('sales_invoices')
+        .select('*', { count: 'exact' })
+        .order('document_date', { ascending: false });
 
-        if (filters.fiscalPeriod !== 'all') {
-          const periodValues = expandQuarterToPeriods(filters.fiscalPeriod);
-          query = periodValues.length === 1
-            ? query.eq('fiscal_period', periodValues[0])
-            : query.in('fiscal_period', periodValues);
-        }
+      if (filters.status !== 'all') {
+        query = query.eq('status', filters.status);
+      }
 
-        // Search is applied client-side after fetch to avoid PostgREST filter injection
-        // (filters.search could contain commas or filter syntax that corrupt the .or() string)
+      if (filters.fiscalPeriod !== 'all') {
+        const periodValues = expandQuarterToPeriods(filters.fiscalPeriod);
+        query = periodValues.length === 1
+          ? query.eq('fiscal_period', periodValues[0])
+          : query.in('fiscal_period', periodValues);
+      }
 
-        const recentCutoff = getRecentImportCutoff(filters.recentWindow || 'all');
-        if (recentCutoff) {
-          query = query.gte('created_at', recentCutoff);
-        }
+      // Server-side search: ilike on customer_name, customer_nif
+      // Only apply when search has 2+ chars to avoid overly broad queries
+      const rawSearch = (filters.search || '').trim();
+      if (rawSearch.length >= 2) {
+        const escaped = escapeInvoiceSearchTerm(rawSearch);
+        query = query.or(
+          `customer_name.ilike.%${escaped}%,customer_nif.ilike.%${escaped}%`,
+        );
+      }
 
-        if (effectiveClientId && effectiveClientId !== 'all') {
-          query = query.eq('client_id', effectiveClientId);
-        }
+      const recentCutoff = getRecentImportCutoff(filters.recentWindow || 'all');
+      if (recentCutoff) {
+        query = query.gte('created_at', recentCutoff);
+      }
 
-        return query;
-      };
+      if (effectiveClientId && effectiveClientId !== 'all') {
+        query = query.eq('client_id', effectiveClientId);
+      }
 
-      const data = await fetchAllPages<SalesInvoice>((from, to) => buildQuery().range(from, to));
+      const { data, error, count } = await query.range(from, to);
+
+      if (error) throw error;
+
+      const rows = (data ?? []) as SalesInvoice[];
 
       // Enrich customer_name for records that only have a NIF (AT sync doesn't always populate the name)
-      const enriched = await enrichCustomerNames(data);
+      const enriched = await enrichCustomerNames(rows);
 
-      // Client-side search filter (safe — avoids PostgREST filter injection)
+      // Client-side search fallback for 1-char searches (too broad for server-side ilike)
       const normalize = (s: string) =>
         s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-      const searchTerm = normalize((filters.search || '').trim());
-      const filtered = searchTerm
+      const normalizedSearch = normalize(rawSearch);
+      const filtered = normalizedSearch.length === 1
         ? enriched.filter(inv =>
-            normalize(inv.customer_name || '').includes(searchTerm) ||
-            (inv.customer_nif || '').toLowerCase().includes(searchTerm)
+            normalize(inv.customer_name || '').includes(normalizedSearch) ||
+            (inv.customer_nif || '').toLowerCase().includes(normalizedSearch)
           )
         : enriched;
 
       setInvoices(filtered);
-      setTotalCount(filtered.length);
+      setTotalCount(count ?? 0);
     } catch (error) {
       console.error('Error fetching sales invoices:', error);
       toast.error('Erro ao carregar facturas de vendas');
     } finally {
       setLoading(false);
     }
-  }, [user, filters.status, filters.fiscalPeriod, filters.search, filters.recentWindow, effectiveClientId, externalClientId]);
+  }, [user, page, filters.status, filters.fiscalPeriod, filters.search, filters.recentWindow, effectiveClientId, externalClientId]);
 
   const validateInvoice = async (invoiceId: string, category?: string, notes?: string) => {
     try {
