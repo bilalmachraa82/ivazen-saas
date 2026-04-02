@@ -109,9 +109,9 @@ Deno.serve(async (req: Request) => {
     // with a reliable source, or with placeholder names.
 
     // 1a. Get distinct business NIFs from invoices where supplier_name IS NULL
-    // Paginate in steps of 10,000 to avoid the default 1000-row PostgREST cap.
+    // PostgREST caps at 1000 rows per request — paginate in steps of 1000.
     const allNifs = new Set<string>();
-    const PAGE_SIZE = 10000;
+    const PAGE_SIZE = 1000;
 
     for (let offset = 0; ; offset += PAGE_SIZE) {
       const { data: invoiceNifs, error: invErr } = await supabase

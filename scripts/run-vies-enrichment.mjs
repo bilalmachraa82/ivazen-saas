@@ -106,7 +106,7 @@ async function main() {
   // Paginate with steps of 10,000 to avoid the default 1000-row PostgREST cap.
   console.log('Fetching NIFs from invoices...');
   const allNifs = new Set();
-  const PAGE = 10000;
+  const PAGE = 1000; // PostgREST max is 1000 rows per request
 
   for (let offset = 0; ; offset += PAGE) {
     const { data: invRows, error: invErr } = await supabase

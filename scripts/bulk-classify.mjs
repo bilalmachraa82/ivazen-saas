@@ -5,15 +5,15 @@
  * Phase 1 (Rules, free): Applies classification_rules locally to ALL 138K pending invoices.
  *   - Downloads all rules once, processes invoices in pages of 500
  *   - Batch-updates results (no edge function overhead)
- * Phase 2 (AI): Calls nightly-classify edge function in a loop until no more pending
- *   - Each call handles 30 AI invoices + 500ms gaps = ~15s per call
- *   - Runs up to MAX_AI_ROUNDS rounds with delay between
+ * Phase 2 (AI, unique-first): Classifies ONE invoice per (client_id, supplier_nif) pair first.
+ *   - Creates rules for each unique NIF → rules then cover all duplicates (Phase 1).
+ *   - ~1,500 unique NIF pairs → ~42 min at concurrency=3. Then rules handle 135K more.
+ *   - Direct calls to classify-invoice edge function (avoids nested edge timeouts).
  *
  * Usage:
- *   node scripts/bulk-classify.mjs                   # Phase 1 (rules) + Phase 2 (AI)
+ *   node scripts/bulk-classify.mjs                   # Phase 1 (rules) + Phase 2 (AI unique-first) + Phase 1 again
  *   node scripts/bulk-classify.mjs --rules-only       # Phase 1 only (free, fast)
- *   node scripts/bulk-classify.mjs --ai-only          # Phase 2 only
- *   node scripts/bulk-classify.mjs --ai-rounds=50     # Override AI rounds (default 200)
+ *   node scripts/bulk-classify.mjs --ai-only          # Phase 2 only (AI unique-first)
  *   node scripts/bulk-classify.mjs --dry-run          # Preview counts only
  */
 
@@ -223,73 +223,85 @@ async function runAIPhase() {
   console.log('\n=== PHASE 2: AI classification (nightly-classify loop) ===');
 
   let totalAIClassified = 0;
-  let round = 0;
+  let totalAIErrors = 0;
+  const CONCURRENCY = parseInt(args.find(a => a.startsWith('--concurrency='))?.split('=')[1] || '5');  // parallel AI calls
+  const PAGE_UNIQUE = 1000; // PostgREST max is 1000 rows per request
 
-  for (round = 0; round < MAX_AI_ROUNDS; round++) {
-    // Check how many pending remain
-    const { count, error: countErr } = await supabase
+  // Unique-first: get ONE representative invoice per (client_id, supplier_nif) pair.
+  // This minimises AI calls — classify one per NIF, rules handle the rest.
+  console.log('Fetching unique (client_id, supplier_nif) pairs from pending invoices...');
+  const seenPairs = new Set();
+  const uniqueInvoiceIds = [];
+
+  for (let offset = 0; ; offset += PAGE_UNIQUE) {
+    const { data: rows, error } = await supabase
       .from('invoices')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'pending');
-
-    if (countErr) {
-      console.error(`Count error: ${countErr.message}`);
-      break;
+      .select('id, client_id, supplier_nif')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true })
+      .range(offset, offset + PAGE_UNIQUE - 1);
+    if (error) { console.error(error.message); break; }
+    if (!rows || rows.length === 0) break;
+    for (const row of rows) {
+      const key = `${row.client_id}::${row.supplier_nif || 'null'}`;
+      if (!seenPairs.has(key)) {
+        seenPairs.add(key);
+        uniqueInvoiceIds.push(row.id);
+      }
     }
-
-    if ((count || 0) === 0) {
-      console.log('All invoices classified!');
-      break;
-    }
-
-    console.log(`Round ${round + 1}/${MAX_AI_ROUNDS}: ${count} pending remain...`);
-
-    if (DRY_RUN) {
-      console.log('  [DRY RUN] Would call nightly-classify');
-      break;
-    }
-
-    // Call nightly-classify (30 AI invoices per call)
-    const resp = await fetch(`${SUPABASE_URL}/functions/v1/nightly-classify`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ rules_batch_size: 0, ai_batch_size: 30, sales_batch_size: 0 }),
-    });
-
-    if (resp.status === 429) {
-      console.log('  Rate limited — waiting 60s...');
-      await sleep(60000);
-      continue;
-    }
-
-    if (!resp.ok) {
-      console.error(`  HTTP ${resp.status}`);
-      await sleep(5000);
-      continue;
-    }
-
-    const result = await resp.json().catch(() => ({}));
-    const classified = result.ai_classified || 0;
-    totalAIClassified += classified;
-
-    console.log(`  AI classified: ${classified} | total so far: ${totalAIClassified}`);
-
-    if (classified === 0) {
-      // No more to classify or AI refused all
-      const remaining = await supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('status', 'pending');
-      if ((remaining.count || 0) === 0) break;
-      console.log('  No AI progress this round, waiting 10s...');
-      await sleep(10000);
-    } else {
-      await sleep(2000); // 2s between rounds
-    }
+    if (rows.length < PAGE_UNIQUE) break;
   }
 
-  console.log(`\nPhase 2 complete: ${totalAIClassified} AI classified over ${round} rounds`);
-  return { aiClassified: totalAIClassified, rounds: round };
+  console.log(`Unique pairs: ${uniqueInvoiceIds.length} AI calls needed (covers all ${await (async () => { const {count} = await supabase.from('invoices').select('id',{count:'exact',head:true}).eq('status','pending'); return count; })()} pending via rule creation)`);
+
+  if (DRY_RUN) {
+    console.log(`[DRY RUN] Would classify ${uniqueInvoiceIds.length} unique invoices`);
+    return { aiClassified: 0, errors: 0 };
+  }
+
+  // Process unique invoices with concurrency
+  for (let i = 0; i < uniqueInvoiceIds.length; i += CONCURRENCY) {
+    const chunk = uniqueInvoiceIds.slice(i, i + CONCURRENCY);
+    const results = await Promise.all(chunk.map(async (id) => {
+      try {
+        const resp = await fetch(`${SUPABASE_URL}/functions/v1/classify-invoice`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invoice_id: id }),
+          signal: AbortSignal.timeout(30000),
+        });
+        if (resp.ok) { const r = await resp.json().catch(() => ({})); return r.success ? 'ok' : 'err'; }
+        if (resp.status === 429) return 'rate_limited';
+        return 'err';
+      } catch { return 'timeout'; }
+    }));
+
+    for (const r of results) {
+      if (r === 'ok') totalAIClassified++;
+      else if (r === 'rate_limited') { console.log('  Rate limited — waiting 30s...'); await sleep(30000); }
+      else totalAIErrors++;
+    }
+
+    if ((i / CONCURRENCY) % 10 === 0) {
+      process.stdout.write(`\r  Progress: ${i + chunk.length}/${uniqueInvoiceIds.length} (${totalAIClassified} ok, ${totalAIErrors} err)`);
+    }
+    await sleep(300);
+  }
+  console.log(`\n  Done unique pass.`);
+
+  // After unique pass, re-run rules to cover all duplicates
+  console.log('\n  Re-running rules pass to classify duplicates...');
+  const rulesResult = await runRulesPhase();
+  console.log(`  Rules pass after AI: ${rulesResult.applied} additional classified`);
+
+  // Any still pending need individual AI calls
+  const { count: stillPending } = await supabase.from('invoices').select('id',{count:'exact',head:true}).eq('status','pending');
+  if ((stillPending || 0) > 0) {
+    console.log(`  ${stillPending} still pending after rules — these need manual review or have no classifiable data`);
+  }
+
+  console.log(`\nPhase 2 complete: ${totalAIClassified} AI classified, ${totalAIErrors} errors`);
+  return { aiClassified: totalAIClassified, errors: totalAIErrors };
 }
 
 // ─── MAIN ────────────────────────────────────────────────────────────────────
