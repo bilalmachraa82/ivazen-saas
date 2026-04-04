@@ -346,7 +346,14 @@ export function InvoiceTable({ invoices, loading, onSelectInvoice, onExcludeFrom
                   {getSupplierDisplayName(invoice.supplier_name, invoice.supplier_nif)}
                 </TableCell>
                 <TableCell className="font-mono text-sm">
-                  {invoice.supplier_nif}
+                  <span className="inline-flex items-center gap-1">
+                    {invoice.supplier_nif}
+                    {invoice.supplier_nif === '999999990' && (
+                      <Badge variant="outline" className="ml-1 text-xs text-orange-600 border-orange-300">
+                        Cons. Final
+                      </Badge>
+                    )}
+                  </span>
                 </TableCell>
                 <TableCell className="text-right font-medium">
                   €{Number(invoice.total_amount).toFixed(2)}

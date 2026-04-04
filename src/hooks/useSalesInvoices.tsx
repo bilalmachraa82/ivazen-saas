@@ -13,6 +13,7 @@ type SalesInvoice = Tables<'sales_invoices'>;
 export interface SalesInvoiceFilters {
   status: string;
   fiscalPeriod: string;
+  year: string;
   search: string;
   clientId: string; // For accountants to filter by client
   recentWindow?: RecentImportWindow;
@@ -69,6 +70,7 @@ export function useSalesInvoices(externalClientId?: string | null) {
   const [filters, setFilters] = useState<SalesInvoiceFilters>({
     status: 'all',
     fiscalPeriod: 'all',
+    year: 'all',
     search: '',
     clientId: 'all',
     recentWindow: 'all',
@@ -108,6 +110,12 @@ export function useSalesInvoices(externalClientId?: string | null) {
         query = periodValues.length === 1
           ? query.eq('fiscal_period', periodValues[0])
           : query.in('fiscal_period', periodValues);
+      }
+
+      if (filters.year && filters.year !== 'all') {
+        query = query
+          .gte('document_date', `${filters.year}-01-01`)
+          .lte('document_date', `${filters.year}-12-31`);
       }
 
       // Server-side search: ilike on customer_name, customer_nif
@@ -157,7 +165,7 @@ export function useSalesInvoices(externalClientId?: string | null) {
     } finally {
       setLoading(false);
     }
-  }, [user, page, filters.status, filters.fiscalPeriod, filters.search, filters.recentWindow, effectiveClientId, externalClientId]);
+  }, [user, page, filters.status, filters.fiscalPeriod, filters.year, filters.search, filters.recentWindow, effectiveClientId, externalClientId]);
 
   const validateInvoice = async (invoiceId: string, category?: string, notes?: string) => {
     try {
@@ -255,7 +263,7 @@ export function useSalesInvoices(externalClientId?: string | null) {
   // Reset page when any filter changes
   useEffect(() => {
     setPage(0);
-  }, [filters.status, filters.fiscalPeriod, filters.search, filters.recentWindow, effectiveClientId]);
+  }, [filters.status, filters.fiscalPeriod, filters.year, filters.search, filters.recentWindow, effectiveClientId]);
 
   return {
     invoices,

@@ -506,7 +506,14 @@ export function InvoiceDetailDialog({
                           </div>
                           <div>
                             <p className="text-muted-foreground">NIF/VAT</p>
-                            <p className="font-mono font-medium">{invoice.supplier_nif}</p>
+                            <p className="font-mono font-medium inline-flex items-center gap-1">
+                              {invoice.supplier_nif}
+                              {invoice.supplier_nif === '999999990' && (
+                                <Badge variant="outline" className="ml-1 text-xs text-orange-600 border-orange-300">
+                                  Cons. Final
+                                </Badge>
+                              )}
+                            </p>
                           </div>
                           {invoice.supplier_cae && (
                             <div className="col-span-2">

@@ -7,11 +7,12 @@ interface SalesInvoiceFiltersProps {
   filters: {
     status: string;
     fiscalPeriod: string;
+    year: string;
     search: string;
     clientId: string;
     recentWindow?: string;
   };
-  onFiltersChange: (filters: { status: string; fiscalPeriod: string; search: string; clientId: string; recentWindow?: string }) => void;
+  onFiltersChange: (filters: { status: string; fiscalPeriod: string; year: string; search: string; clientId: string; recentWindow?: string }) => void;
   fiscalPeriods: string[];
 }
 
@@ -20,6 +21,8 @@ export function SalesInvoiceFilters({
   onFiltersChange, 
   fiscalPeriods,
 }: SalesInvoiceFiltersProps) {
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 4 }, (_, index) => String(currentYear - index));
   const quarterPeriods = groupPeriodsToQuarters(fiscalPeriods);
 
   return (
@@ -60,6 +63,23 @@ export function SalesInvoiceFilters({
           {quarterPeriods.map((quarter) => (
             <SelectItem key={quarter} value={quarter}>
               {formatFiscalPeriod(quarter)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={filters.year}
+        onValueChange={(value) => onFiltersChange({ ...filters, year: value })}
+      >
+        <SelectTrigger className="w-full sm:w-[160px]">
+          <SelectValue placeholder="Ano" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos os anos</SelectItem>
+          {yearOptions.map((year) => (
+            <SelectItem key={year} value={year}>
+              Ano {year}
             </SelectItem>
           ))}
         </SelectContent>

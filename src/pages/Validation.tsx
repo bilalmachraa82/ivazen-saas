@@ -21,7 +21,7 @@ import { ZenCard, ZenCardHeader, ZenHeader, ZenDecorations, ZenStatsCard, ZenLoa
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Clock, CheckCircle, FileText, AlertCircle, Copy, AlertTriangle, RefreshCw, CheckSquare, Download, Trash2, X, ArrowLeftRight, Users, Upload as UploadIcon } from 'lucide-react';
+import { Clock, CheckCircle, CheckCheck, FileText, AlertCircle, Copy, AlertTriangle, RefreshCw, CheckSquare, Download, Trash2, X, ArrowLeftRight, Users, Upload as UploadIcon } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -70,6 +70,7 @@ export default function Validation() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdatingAccountingBulk, setIsUpdatingAccountingBulk] = useState(false);
+  const [isBulkValidating, setIsBulkValidating] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -358,6 +359,38 @@ export default function Validation() {
     toast.success(`${success}/${classifiableInvoices.length} facturas reclassificadas`);
     setBulkReclassifying(false);
     refetch();
+  };
+
+  const handleBulkValidateAutoApproved = async () => {
+    if (statsSummary.autoApprovedCount === 0) return;
+    setIsBulkValidating(true);
+
+    let query = supabase
+      .from('invoices')
+      .update({
+        status: 'validated',
+        validated_at: new Date().toISOString(),
+        validated_by: user?.id,
+      })
+      .eq('status', 'classified')
+      .eq('requires_accountant_validation', false);
+
+    if (effectiveClientId) {
+      query = query.eq('client_id', effectiveClientId);
+    }
+
+    const { data, error } = await query.select('id');
+
+    if (error) {
+      toast.error('Erro ao validar facturas auto-aprovadas');
+      console.error('Bulk validate auto-approved error:', error);
+    } else {
+      toast.success(`${data.length} factura(s) auto-aprovadas validadas`);
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      refetch();
+    }
+
+    setIsBulkValidating(false);
   };
 
   const selectedClient = clients.find((client) => client.id === selectedClientId);
@@ -689,6 +722,18 @@ export default function Validation() {
                     >
                       <RefreshCw className={`h-3.5 w-3.5 ${bulkReclassifying ? 'animate-spin' : ''}`} />
                       Reclassificar Todas ({classifiableInvoices.length})
+                    </Button>
+                  )}
+                  {statsSummary.autoApprovedCount > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleBulkValidateAutoApproved}
+                      disabled={isBulkValidating}
+                      className="gap-1.5"
+                    >
+                      <CheckCheck className={`h-3.5 w-3.5 ${isBulkValidating ? 'animate-pulse' : ''}`} />
+                      Validar Auto-aprovadas ({statsSummary.autoApprovedCount})
                     </Button>
                   )}
                   {invoices.length > 0 && (

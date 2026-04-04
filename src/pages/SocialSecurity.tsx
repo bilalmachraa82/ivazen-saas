@@ -503,7 +503,7 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                     {getLabel(quarter)}
                   </Badge>
                 </div>
-                <p className="text-xs text-muted-foreground">Valores de base tributável (sem IVA)</p>
+                <p className="text-xs text-muted-foreground mt-1">Valores de base tributável (sem IVA), conforme exigido pela Segurança Social</p>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -577,7 +577,7 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card>
                 <CardHeader className="pb-2">
-                  <CardDescription>Total Rendimentos</CardDescription>
+                  <CardDescription>Total Rendimentos <span className="text-xs text-muted-foreground ml-1">(sem IVA)</span></CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center gap-2">
@@ -715,7 +715,7 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Total Rendimentos:</span>
+                      <span className="text-muted-foreground">Total Rendimentos <span className="text-xs">(sem IVA)</span>:</span>
                       <span className="font-medium">{totals.total.toFixed(2)}€</span>
                     </div>
                     <div className="flex justify-between text-sm">
