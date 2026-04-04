@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
 import { isServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
 import { parseJsonFromAI } from "../_shared/parseJsonFromAI.ts";
+import { normalizeSupplierTaxId, SAFE_GLOBAL_NIFS } from "../_shared/classificationHelpers.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://ivazen-saas.vercel.app',
@@ -155,50 +156,6 @@ interface ClassificationResult {
   reason: string;
 }
 
-// Only these supplier NIFs are safe for cross-client rule reuse.
-// Utilities/telecoms where classification is buyer-independent (Art. 20-21-23 CIVA).
-const SAFE_GLOBAL_NIFS = new Set([
-  // Electricity
-  '503504564', // EDP Comercial
-  '504172577', // EDP Serviço Universal
-  '503207430', // Endesa
-  '509534401', // Iberdrola
-  '513445311', // Galp Power
-  '509846830', // Goldenergy
-  '510329490', // SU Electricidade
-  // Water
-  '504812578', // Vimagua
-  '504075156', // Águas do Porto
-  '500077568', // EPAL
-  // Gas
-  '503474705', // Lisboagás
-  // Telecoms
-  '504453513', // NOS
-  '500019020', // MEO/PT
-  '502530830', // Vodafone
-  '505280740', // NOWO
-  '517424334', // Digi
-]);
-
-function normalizeSupplierTaxIdForRules(raw: string): string | null {
-  const s = (raw || '').trim().toUpperCase();
-  if (!s) return null;
-
-  // Keep only alphanumerics to normalize common OCR separators (spaces, dots, slashes).
-  const alnum = s.replace(/[^A-Z0-9]/g, '');
-
-  // PT VAT can appear as "PT123456789". Our rules store PT NIF as 9 digits.
-  if (/^PT\d{9}$/.test(alnum)) return alnum.slice(2);
-
-  // PT NIF: 9 digits
-  if (/^\d{9}$/.test(alnum)) return alnum;
-
-  // Foreign VAT ID: 2-letter country prefix + alphanumerics.
-  if (/^[A-Z]{2}[A-Z0-9]{2,}$/.test(alnum)) return alnum;
-
-  return null;
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -324,7 +281,7 @@ Deno.serve(async (req) => {
 
     const clientData: ClientData = invoice.profiles || {};
     const rawNif = (invoice.supplier_nif || '').trim();
-    const ruleSupplierTaxId = normalizeSupplierTaxIdForRules(rawNif);
+    const ruleSupplierTaxId = normalizeSupplierTaxId(rawNif);
 
     // ============================================================
     // NIF ENRICHMENT: If supplier_name is missing, look it up from

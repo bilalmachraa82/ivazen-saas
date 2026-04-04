@@ -52,15 +52,45 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
+    // --- Authorization: restrict who the caller can notify ---
+    const { data: roles } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id);
+    const isAdmin = roles?.some(r => r.role === 'admin') ?? false;
+
+    let allowedTargetIds: Set<string> | null = null; // null = unrestricted (admin)
+    if (!isAdmin) {
+      const { data: clients } = await supabase
+        .from('accountant_clients')
+        .select('client_id')
+        .eq('accountant_id', user.id);
+      const clientIds = clients?.map(c => c.client_id) || [];
+      allowedTargetIds = new Set([user.id, ...clientIds]);
+    }
+    // --- End authorization setup ---
+
     const { userId, userIds, title, body, type, data }: PushRequest = await req.json();
 
     console.log(`Sending push notification: ${type} - ${title} (by user ${user.id})`);
 
     // Get target user IDs
-    const targetUserIds = userIds || (userId ? [userId] : []);
+    const requestedUserIds = userIds || (userId ? [userId] : []);
+
+    if (requestedUserIds.length === 0) {
+      throw new Error("No target users specified");
+    }
+
+    // Filter targets to only those the caller is authorized to notify
+    const targetUserIds = allowedTargetIds
+      ? requestedUserIds.filter(id => allowedTargetIds!.has(id))
+      : requestedUserIds;
 
     if (targetUserIds.length === 0) {
-      throw new Error("No target users specified");
+      return new Response(
+        JSON.stringify({ error: 'Não tem permissão para enviar notificações a estes utilizadores' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Get push subscriptions for target users

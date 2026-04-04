@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const {
       invoiceIds,                      // array of invoice IDs (max 10)
-      model = 'gemini-2.5-flash',      // model name
+      model = 'gemini-3.1-flash-lite-preview',      // model name
       reasoningEffort = null,           // null | 'none' | 'minimal' | 'low' | 'medium' | 'high'
       useStructuredOutput = true,       // use response_format schema
     } = body;

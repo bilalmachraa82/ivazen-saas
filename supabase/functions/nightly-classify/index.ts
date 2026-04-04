@@ -11,38 +11,12 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
 import { isServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
+import { normalizeSupplierTaxId, SAFE_GLOBAL_NIFS } from "../_shared/classificationHelpers.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, content-type',
 };
-
-/** Normalize NIF/VAT ID for rule lookup (mirrors classify-invoice logic). */
-function normalizeSupplierTaxId(raw: string): string | null {
-  const s = (raw || '').trim().toUpperCase();
-  if (!s) return null;
-
-  const alnum = s.replace(/[^A-Z0-9]/g, '');
-
-  // PT VAT: "PT123456789" → 9 digits
-  if (/^PT\d{9}$/.test(alnum)) return alnum.slice(2);
-
-  // PT NIF: 9 digits
-  if (/^\d{9}$/.test(alnum)) return alnum;
-
-  // Foreign VAT ID: 2-letter country prefix + alphanumerics
-  if (/^[A-Z]{2}[A-Z0-9]{2,}$/.test(alnum)) return alnum;
-
-  return null;
-}
-
-// Only these supplier NIFs are safe for cross-client rule reuse (utilities/telecoms).
-const SAFE_GLOBAL_NIFS = new Set([
-  '503504564', '504172577', '503207430', '509534401', '513445311', '509846830', '510329490',
-  '504812578', '504075156', '500077568',
-  '503474705',
-  '504453513', '500019020', '502530830', '505280740', '517424334',
-]);
 
 interface RuleRow {
   id: string;

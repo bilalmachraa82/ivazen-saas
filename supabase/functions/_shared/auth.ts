@@ -1,11 +1,6 @@
 /**
  * Shared auth utilities for Supabase Edge Functions.
  *
- * Why JWT decode fallback?
- * constantTimeEquals(token, serviceRoleKey) can fail in Supabase Edge Runtime
- * (Deno). Decoding the JWT payload and checking payload.role === "service_role"
- * is a reliable alternative.
- *
  * Usage:
  *   import { isServiceRoleToken, verifyWebhookToken, constantTimeEquals } from "../_shared/auth.ts";
  */
@@ -29,7 +24,7 @@ export function constantTimeEquals(a: string, b: string): boolean {
 
 /**
  * Check if a Bearer token is a valid service-role token.
- * Uses constantTimeEquals first, then falls back to JWT payload decode.
+ * Uses constant-time comparison against the known service-role key.
  */
 export function isServiceRoleToken(
   token: string,
@@ -39,17 +34,6 @@ export function isServiceRoleToken(
 
   // Primary: constant-time comparison
   if (constantTimeEquals(token, serviceRoleKey)) return true;
-
-  // Fallback: JWT payload decode (constantTimeEquals can fail in edge runtime)
-  try {
-    const payloadB64 = token.split(".")[1];
-    if (payloadB64) {
-      const payload = JSON.parse(atob(payloadB64));
-      if (payload.role === "service_role") return true;
-    }
-  } catch {
-    // Invalid JWT
-  }
 
   return false;
 }
