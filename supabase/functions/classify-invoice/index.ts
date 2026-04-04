@@ -659,7 +659,7 @@ Responde APENAS com um objecto JSON válido no seguinte formato:
     }
 
     // Normalize AI output to avoid DB constraint failures and inconsistent values.
-    // (DB constraints: dp_field IN (20,21,22,23,24), deductibility IN (0,25,50,100), classification IN (...))
+    // (DB constraints: dp_field IN (10,20,21,22,23,24), deductibility IN (0,25,50,100), classification IN (...))
     const allowedClassifications = new Set(['ACTIVIDADE', 'PESSOAL', 'MISTA']);
     if (!allowedClassifications.has(classification.classification)) {
       console.warn('AI returned invalid classification:', classification.classification, '- defaulting to ACTIVIDADE');
@@ -668,8 +668,14 @@ Responde APENAS com um objecto JSON válido no seguinte formato:
       classification.reason = `${classification.reason || ''} (classification normalizada)`.trim();
     }
 
+    // PESSOAL invoices are non-deductible: no DP field, 0% deductibility
+    if (classification.classification === 'PESSOAL') {
+      classification.dp_field = null;
+      classification.deductibility = 0;
+    }
+
     const allowedDpFields = new Set([20, 21, 22, 23, 24]);
-    if (!allowedDpFields.has(classification.dp_field)) {
+    if (classification.dp_field !== null && !allowedDpFields.has(classification.dp_field)) {
       console.warn('AI returned invalid dp_field:', classification.dp_field, '- defaulting to 24');
       classification.dp_field = 24;
       classification.confidence = Math.min(Number(classification.confidence) || 0, 50);

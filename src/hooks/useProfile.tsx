@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { useSelectedClient } from '@/hooks/useSelectedClient';
 import { getCanonicalVatRegime, getVatCadence } from '@/lib/formatVatRegime';
 
 export interface Profile {
@@ -66,25 +67,30 @@ export interface SSProfileData {
 }
 
 export function useProfile() {
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
+  const { selectedClientId } = useSelectedClient();
   const queryClient = useQueryClient();
 
-  // Fetch current user's profile
+  // When accountant has a client selected, load the client's profile
+  const isAccountant = hasRole('accountant');
+  const effectiveId = (isAccountant && selectedClientId) ? selectedClientId : user?.id;
+
+  // Fetch effective profile (client's when selected, own otherwise)
   const { data: profile, isLoading: isLoadingProfile } = useQuery({
-    queryKey: ['profile', user?.id],
+    queryKey: ['profile', effectiveId],
     queryFn: async () => {
-      if (!user?.id) return null;
+      if (!effectiveId) return null;
 
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', user.id)
+        .eq('id', effectiveId)
         .maybeSingle();
 
       if (error) throw error;
       return data as Profile | null;
     },
-    enabled: !!user?.id,
+    enabled: !!effectiveId,
   });
 
   // Check if profile needs fiscal setup
@@ -108,10 +114,10 @@ export function useProfile() {
     enabled: !!profile?.accountant_id,
   });
 
-  // Update profile mutation
+  // Update profile mutation — targets effectiveId (client when selected)
   const updateProfileMutation = useMutation({
     mutationFn: async (formData: ProfileFormData) => {
-      if (!user?.id) throw new Error('User not authenticated');
+      if (!effectiveId) throw new Error('User not authenticated');
       const vatRegime = getCanonicalVatRegime(formData.vatRegime, formData.ivaCadence);
       const ivaCadence = getVatCadence(vatRegime, formData.ivaCadence);
 
@@ -127,7 +133,7 @@ export function useProfile() {
           vat_regime: vatRegime,
           iva_cadence: ivaCadence,
         })
-        .eq('id', user.id);
+        .eq('id', effectiveId);
 
       if (error) throw error;
     },
@@ -141,13 +147,13 @@ export function useProfile() {
     },
   });
 
-  // Update SS profile data
+  // Update SS profile data — targets effectiveId (client when selected)
   const updateSSProfileMutation = useMutation({
     mutationFn: async (data: Partial<SSProfileData>) => {
-      if (!user?.id) throw new Error('User not authenticated');
+      if (!effectiveId) throw new Error('User not authenticated');
 
       const updateData: Record<string, string | number | boolean> = {};
-      
+
       if (data.workerType !== undefined) updateData.worker_type = data.workerType;
       if (data.accountingRegime !== undefined) updateData.accounting_regime = data.accountingRegime;
       if (data.hasOtherEmployment !== undefined) updateData.has_other_employment = data.hasOtherEmployment;
@@ -160,7 +166,7 @@ export function useProfile() {
       const { error } = await supabase
         .from('profiles')
         .update(updateData)
-        .eq('id', user.id);
+        .eq('id', effectiveId);
 
       if (error) throw error;
     },
@@ -238,6 +244,7 @@ export function useProfile() {
 
   return {
     profile,
+    effectiveId,
     accountant,
     needsFiscalSetup,
     isLoading: isLoadingProfile || isLoadingAccountant,

@@ -46,6 +46,7 @@ export default function Settings() {
   const navigate = useNavigate();
   const {
     profile,
+    effectiveId,
     accountant,
     isLoading,
     updateProfile,
@@ -152,7 +153,7 @@ export default function Settings() {
   };
 
   const handleSaveSSSettings = async () => {
-    if (!user?.id) return;
+    if (!effectiveId) return;
 
     setIsSavingSS(true);
     try {
@@ -168,7 +169,7 @@ export default function Settings() {
           accounting_regime: accountingRegime,
           taxable_profit: accountingRegime === 'organized' ? parseFloat(taxableProfit) || 0 : 0,
         })
-        .eq('id', user.id);
+        .eq('id', effectiveId);
 
       if (error) throw error;
       toast.success('Definicoes SS guardadas');

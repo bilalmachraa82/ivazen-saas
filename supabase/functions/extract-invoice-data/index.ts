@@ -75,7 +75,7 @@ interface EdpVatComponentsResult {
   regularization?: unknown;
 }
 
-const GEMINI_DOCUMENT_MODEL = 'gemini-3-flash-preview';
+const GEMINI_DOCUMENT_MODEL = 'gemini-2.5-flash';
 
 // ============================================================
 // ARITHMETIC VALIDATION (deterministic, post-LLM)
