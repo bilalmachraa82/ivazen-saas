@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { ReconciliationSummary } from '@/hooks/useReconciliationData';
 import { enrichSupplierNames, getSupplierDisplayName } from '@/lib/supplierNameResolver';
+import { writeBackSupplierNames } from '@/lib/supplierNameWriteBack';
 
 // Pending purchase filter — same as useClientFiscalCenter
 const PENDING_PURCHASE_FILTER =
@@ -165,7 +166,9 @@ export function useReviewInbox(options: UseReviewInboxOptions) {
 
       // --- 1. Pending purchases ---
       const pendingCount = pendingPurchasesCountRes.count ?? 0;
-      const pendingPurchases = await enrichSupplierNames(pendingPurchasesRes.data || []);
+      const rawPendingPurchases = pendingPurchasesRes.data || [];
+      const pendingPurchases = await enrichSupplierNames(rawPendingPurchases);
+      writeBackSupplierNames(rawPendingPurchases, pendingPurchases);
       if (pendingCount > 0) {
         categories.push({
           type: 'pending_purchases',
@@ -184,7 +187,9 @@ export function useReviewInbox(options: UseReviewInboxOptions) {
       // --- 2. Low confidence classifications ---
       // Finding 1: same definition as summary card — not-validated + ai_confidence < 80
       const lowConfCount = lowConfidenceCountRes.count ?? 0;
-      const lowConf = await enrichSupplierNames(lowConfidenceRes.data || []);
+      const rawLowConf = lowConfidenceRes.data || [];
+      const lowConf = await enrichSupplierNames(rawLowConf);
+      writeBackSupplierNames(rawLowConf, lowConf);
       if (lowConfCount > 0) {
         categories.push({
           type: 'low_confidence',

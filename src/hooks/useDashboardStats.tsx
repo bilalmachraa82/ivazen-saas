@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { enrichSupplierNames, getSupplierDisplayName } from '@/lib/supplierNameResolver';
+import { writeBackSupplierNames } from '@/lib/supplierNameWriteBack';
 
 interface DashboardStats {
   total: number;
@@ -128,6 +129,7 @@ export function useDashboardStats(forClientId?: string | null, filters?: Dashboa
       }
 
       const enrichedData = await enrichSupplierNames(data);
+      writeBackSupplierNames(data, enrichedData);
 
       return enrichedData.map(inv => ({
         id: inv.id,

@@ -14,8 +14,7 @@ import {
   COEFF_VENDAS,
   COEFF_HOTELARIA,
   COEFF_PRODUCAO_AGRICOLA,
-  COEFF_RENDAS,
-  COEFF_CAPITAIS,
+  COEFF_PRODUCAO_ENERGIA_ARRENDAMENTO,
   COEFF_PROP_INTELECTUAL,
   COEFF_SUBSIDIOS,
   COEFF_OUTROS,
@@ -28,7 +27,7 @@ describe('ssCoefficients', () => {
 
   describe('SS_COEFFICIENTS map', () => {
     it('should have at least 9 categories', () => {
-      expect(Object.keys(SS_COEFFICIENTS).length).toBeGreaterThanOrEqual(9);
+      expect(Object.keys(SS_COEFFICIENTS).length).toBeGreaterThanOrEqual(8);
     });
 
     it('should have a coefficient for every expected category', () => {
@@ -37,8 +36,7 @@ describe('ssCoefficients', () => {
         'vendas',
         'hotelaria',
         'producao_agricola',
-        'rendas',
-        'capitais',
+        'producao_energia_arrendamento',
         'prop_intelectual',
         'subsidios',
         'outros',
@@ -58,7 +56,7 @@ describe('ssCoefficients', () => {
 
   describe('SS_REVENUE_CATEGORIES array', () => {
     it('should contain at least 9 entries', () => {
-      expect(SS_REVENUE_CATEGORIES.length).toBeGreaterThanOrEqual(9);
+      expect(SS_REVENUE_CATEGORIES.length).toBeGreaterThanOrEqual(8);
     });
 
     it('should have unique category values (no duplicates)', () => {
@@ -120,14 +118,14 @@ describe('ssCoefficients', () => {
       expect(SS_COEFFICIENTS.producao_agricola).toBe(0.20);
     });
 
-    it('rendas should be 0.95', () => {
-      expect(COEFF_RENDAS).toBe(0.95);
-      expect(SS_COEFFICIENTS.rendas).toBe(0.95);
+    it('producao_energia_arrendamento should be 0.20', () => {
+      expect(COEFF_PRODUCAO_ENERGIA_ARRENDAMENTO).toBe(0.20);
+      expect(SS_COEFFICIENTS.producao_energia_arrendamento).toBe(0.20);
     });
 
-    it('capitais should be 0.95', () => {
-      expect(COEFF_CAPITAIS).toBe(0.95);
-      expect(SS_COEFFICIENTS.capitais).toBe(0.95);
+    it('rendas and capitais should NOT exist in SS_COEFFICIENTS (not subject to SS)', () => {
+      expect(SS_COEFFICIENTS).not.toHaveProperty('rendas');
+      expect(SS_COEFFICIENTS).not.toHaveProperty('capitais');
     });
 
     it('prop_intelectual should be 0.50', () => {
@@ -155,7 +153,7 @@ describe('ssCoefficients', () => {
       expect(getSSCoefficient('prestacao_servicos')).toBe(0.70);
       expect(getSSCoefficient('vendas')).toBe(0.20);
       expect(getSSCoefficient('hotelaria')).toBe(0.20);
-      expect(getSSCoefficient('rendas')).toBe(0.95);
+      expect(getSSCoefficient('producao_energia_arrendamento')).toBe(0.20);
     });
 
     it('should return the default coefficient for unknown categories', () => {
@@ -169,6 +167,13 @@ describe('ssCoefficients', () => {
       expect(getSSCoefficient('producao_venda')).toBe(COEFF_PRODUCAO_AGRICOLA);
       expect(getSSCoefficient('propriedade_intelectual')).toBe(COEFF_PROP_INTELECTUAL);
       expect(getSSCoefficient('comercio')).toBe(COEFF_VENDAS);
+      expect(getSSCoefficient('energia')).toBe(COEFF_PRODUCAO_ENERGIA_ARRENDAMENTO);
+      expect(getSSCoefficient('arrendamento')).toBe(COEFF_PRODUCAO_ENERGIA_ARRENDAMENTO);
+    });
+
+    it('should redirect legacy rendas/capitais to outros (not subject to SS)', () => {
+      expect(getSSCoefficient('rendas')).toBe(COEFF_OUTROS);
+      expect(getSSCoefficient('capitais')).toBe(COEFF_OUTROS);
     });
 
     it('default coefficient should be 0.70', () => {
@@ -200,6 +205,10 @@ describe('ssCoefficients', () => {
       expect(normalizeSSCategory('producao_venda')).toBe('producao_agricola');
       expect(normalizeSSCategory('propriedade_intelectual')).toBe('prop_intelectual');
       expect(normalizeSSCategory('comercio')).toBe('vendas');
+      expect(normalizeSSCategory('energia')).toBe('producao_energia_arrendamento');
+      expect(normalizeSSCategory('arrendamento')).toBe('producao_energia_arrendamento');
+      expect(normalizeSSCategory('rendas')).toBe('outros');
+      expect(normalizeSSCategory('capitais')).toBe('outros');
     });
   });
 
@@ -239,7 +248,7 @@ describe('ssCoefficients', () => {
         line => line.includes('export const COEFF_') && line.includes('=')
       );
 
-      expect(coeffConstantLines.length).toBeGreaterThanOrEqual(9);
+      expect(coeffConstantLines.length).toBeGreaterThanOrEqual(8);
 
       for (const line of coeffConstantLines) {
         const hasMarker = line.includes('PENDING LEGAL VALIDATION')
@@ -263,7 +272,7 @@ describe('ssCoefficients', () => {
         .split('\n')
         .filter(line => line.includes(':') && line.includes('COEFF_'));
 
-      expect(entryLines.length).toBeGreaterThanOrEqual(9);
+      expect(entryLines.length).toBeGreaterThanOrEqual(8);
 
       for (const line of entryLines) {
         expect(line).toContain('PENDING LEGAL VALIDATION');
@@ -284,7 +293,7 @@ describe('ssCoefficients', () => {
         .split('\n')
         .filter(line => line.includes('value:') && line.includes('coefficient:'));
 
-      expect(entryLines.length).toBeGreaterThanOrEqual(9);
+      expect(entryLines.length).toBeGreaterThanOrEqual(8);
 
       for (const line of entryLines) {
         expect(line).toContain('PENDING LEGAL VALIDATION');

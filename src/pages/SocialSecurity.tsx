@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useClientFiscalProfile } from '@/hooks/useClientFiscalProfile';
@@ -6,6 +6,7 @@ import { useClientManagement } from '@/hooks/useClientManagement';
 import { useSelectedClient } from '@/hooks/useSelectedClient';
 import { useSocialSecurity, REVENUE_CATEGORIES, REVENUE_COEFFICIENTS, getQuarterLabel } from '@/hooks/useSocialSecurity';
 import { getSSCoefficient } from '@/lib/ssCoefficients';
+import { detectCategoryFromCAE } from '@/lib/csvParser';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -111,9 +112,19 @@ export default function SocialSecurity() {
     isDeadlineMonth,
     getQuarterLabel: getLabel,
     calculatedContribution,
-  } = useSocialSecurity(undefined, effectiveClientId);
+  } = useSocialSecurity(undefined, effectiveClientId, variationPercent);
 
+  const [variationPercent, setVariationPercent] = useState(-25);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+
+  // Auto-detect default category from client's CAE
+  const detectedCategory = useMemo(() => {
+    if (profile?.cae || profile?.activity_description) {
+      return detectCategoryFromCAE(profile?.cae, profile?.activity_description);
+    }
+    return null;
+  }, [profile?.cae, profile?.activity_description]);
+
   const [newCategory, setNewCategory] = useState('prestacao_servicos');
   const [newAmount, setNewAmount] = useState('');
   const [newNotes, setNewNotes] = useState('');
@@ -335,6 +346,7 @@ export default function SocialSecurity() {
 Período: ${getLabel(quarter)}
 Total de Rendimentos: ${totals.total.toFixed(2)}€
 Base de Incidência Contributiva: ${contributionBase.toFixed(2)}€
+Variação: ${variationPercent > 0 ? '+' : ''}${variationPercent}%
 Taxa Contributiva: ${contributionRate}%
 Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
 
@@ -491,6 +503,7 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                     {getLabel(quarter)}
                   </Badge>
                 </div>
+                <p className="text-xs text-muted-foreground">Valores de base tributável (sem IVA)</p>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -576,7 +589,9 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
 
               <Card>
                 <CardHeader className="pb-2">
-                  <CardDescription>Base Incidência (70%)</CardDescription>
+                  <CardDescription>
+                    Base Incidência ({totals.total > 0 ? (totals.relevantIncome / totals.total * 100).toFixed(0) : '70'}%)
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center gap-2">
@@ -673,6 +688,29 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                   </TableBody>
                 </Table>
 
+                {/* Variation selector */}
+                <div className="pt-4 border-t">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium">Percentagem de variação</Label>
+                      <p className="text-xs text-muted-foreground">(aplicar sobre o rendimento declarado)</p>
+                    </div>
+                    <Select
+                      value={String(variationPercent)}
+                      onValueChange={(v) => setVariationPercent(Number(v))}
+                    >
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="-25">-25%</SelectItem>
+                        <SelectItem value="0">0% (sem variação)</SelectItem>
+                        <SelectItem value="25">+25%</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
                 {/* Calculation Summary */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
                   <div className="space-y-3">
@@ -683,6 +721,10 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Base de Incidência (ponderada):</span>
                       <span className="font-medium">{contributionBase.toFixed(2)}€</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Variação aplicada:</span>
+                      <span className="font-medium">{variationPercent > 0 ? '+' : ''}{variationPercent}%</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Taxa Contributiva:</span>
@@ -721,6 +763,9 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                       toast.error(readOnlyQuarterMessage);
                       return;
                     }
+                    if (nextOpen && detectedCategory) {
+                      setNewCategory(detectedCategory.category);
+                    }
                     setAddDialogOpen(nextOpen);
                   }}
                 >
@@ -752,6 +797,11 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                             ))}
                           </SelectContent>
                         </Select>
+                        {detectedCategory && detectedCategory.confidence !== 'low' && (
+                          <p className="text-xs text-muted-foreground">
+                            Sugestão: {REVENUE_CATEGORIES.find(c => c.value === detectedCategory.category)?.label || detectedCategory.category} ({detectedCategory.reason})
+                          </p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label>Valor (€)</Label>

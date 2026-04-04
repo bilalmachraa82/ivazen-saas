@@ -15,6 +15,7 @@ import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { enrichSupplierNames, getSupplierDisplayName } from '@/lib/supplierNameResolver';
+import { writeBackSupplierNames } from '@/lib/supplierNameWriteBack';
 import { pickDuplicateKeepIndex } from '@/lib/duplicateResolution';
 
 interface DuplicateGroup {
@@ -65,6 +66,7 @@ export function DuplicateManager({ onCleanupComplete }: DuplicateManagerProps) {
       if (!data) return;
 
       const enrichedData = await enrichSupplierNames(data);
+      writeBackSupplierNames(data, enrichedData);
 
       // Group by ATCUD or (NIF + doc_number + date)
       const groupMap = new Map<string, typeof enrichedData>();

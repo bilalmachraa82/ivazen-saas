@@ -79,12 +79,13 @@ describe('Coeficientes de Rendimento Relevante', () => {
     expect(REVENUE_COEFFICIENTS.producao_agricola).toBe(0.20);
   });
 
-  it('rendas = 95%', () => {
-    expect(REVENUE_COEFFICIENTS.rendas).toBe(0.95);
+  it('rendas and capitais are NOT in SS_COEFFICIENTS (not subject to SS)', () => {
+    expect(REVENUE_COEFFICIENTS.rendas).toBeUndefined();
+    expect(REVENUE_COEFFICIENTS.capitais).toBeUndefined();
   });
 
-  it('capitais = 95%', () => {
-    expect(REVENUE_COEFFICIENTS.capitais).toBe(0.95);
+  it('producao_energia_arrendamento = 20%', () => {
+    expect(REVENUE_COEFFICIENTS.producao_energia_arrendamento).toBe(0.20);
   });
 
   it('propriedade intelectual = 50%', () => {
@@ -362,6 +363,7 @@ describe('Arredondamento de contribuições', () => {
       otherEmploymentSalary: 0,
       contributionRate: 21.4,
       quarterYear: 2025,
+      variationPercent: 0,
     });
 
     expect(result).toEqual({
@@ -385,10 +387,12 @@ describe('Conformidade com Código Contributivo', () => {
     expect(categories).toContain('vendas');
     expect(categories).toContain('hotelaria');
     expect(categories).toContain('producao_agricola');
-    expect(categories).toContain('rendas');
-    expect(categories).toContain('capitais');
+    expect(categories).toContain('producao_energia_arrendamento');
     expect(categories).toContain('prop_intelectual');
     expect(categories).toContain('subsidios');
+    // rendas and capitais removed — Cat. F and Cat. E are NOT subject to SS
+    expect(categories).not.toContain('rendas');
+    expect(categories).not.toContain('capitais');
   });
 
   it('coeficientes devem estar entre 0 e 1', () => {

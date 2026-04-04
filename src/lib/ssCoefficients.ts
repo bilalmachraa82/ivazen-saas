@@ -30,16 +30,9 @@ export const COEFF_HOTELARIA = 0.20; // VALIDATED: Art. 162.º n.2 al. b) — me
 /** SS coefficient for Producao Agricola */
 export const COEFF_PRODUCAO_AGRICOLA = 0.20; // PENDING LEGAL VALIDATION
 
-/** SS coefficient for Rendimentos Prediais (Cat. F)
- *  NOTA: Art. 162.º Código Contributivo aplica-se APENAS a Cat. B (trabalhadores independentes).
- *  Cat. F (rendas) NÃO entra no cálculo de rendimento relevante para SS.
- *  Este valor é usado apenas para estimativas na UI — NÃO é base legal. */
-export const COEFF_RENDAS = 0.95; // NÃO é Art. 162.º — Cat. F não sujeita a SS via coeficientes
-
-/** SS coefficient for Rendimentos de Capitais (Cat. E)
- *  NOTA: Art. 162.º aplica-se APENAS a Cat. B. Cat. E NÃO entra no cálculo SS.
- *  Este valor é usado apenas para estimativas na UI — NÃO é base legal. */
-export const COEFF_CAPITAIS = 0.95; // NÃO é Art. 162.º — Cat. E não sujeita a SS via coeficientes
+/** SS coefficient for Produção de energia para autoconsumo e contratos de arrendamento e alojamento local
+ *  Art. 162.º n.2 al. b) Código Contributivo — equiparado a produção/venda = 20% */
+export const COEFF_PRODUCAO_ENERGIA_ARRENDAMENTO = 0.20; // PENDING LEGAL VALIDATION
 
 /** SS coefficient for Propriedade Intelectual (primeira transmissao) */
 export const COEFF_PROP_INTELECTUAL = 0.50; // PENDING LEGAL VALIDATION
@@ -63,8 +56,7 @@ export const SS_COEFFICIENTS: Record<string, number> = {
   vendas: COEFF_VENDAS,                           // PENDING LEGAL VALIDATION
   hotelaria: COEFF_HOTELARIA,                     // PENDING LEGAL VALIDATION
   producao_agricola: COEFF_PRODUCAO_AGRICOLA,      // PENDING LEGAL VALIDATION
-  rendas: COEFF_RENDAS,                           // PENDING LEGAL VALIDATION
-  capitais: COEFF_CAPITAIS,                       // PENDING LEGAL VALIDATION
+  producao_energia_arrendamento: COEFF_PRODUCAO_ENERGIA_ARRENDAMENTO, // PENDING LEGAL VALIDATION
   prop_intelectual: COEFF_PROP_INTELECTUAL,        // PENDING LEGAL VALIDATION
   subsidios: COEFF_SUBSIDIOS,                     // PENDING LEGAL VALIDATION
   outros: COEFF_OUTROS,                           // PENDING LEGAL VALIDATION
@@ -79,6 +71,11 @@ const SS_CATEGORY_ALIASES: Record<string, string> = {
   producao_venda: 'producao_agricola',
   propriedade_intelectual: 'prop_intelectual',
   comercio: 'vendas',
+  energia: 'producao_energia_arrendamento',
+  arrendamento: 'producao_energia_arrendamento',
+  // Cat. F and Cat. E are NOT subject to SS contributions — redirect legacy data to 'outros'
+  rendas: 'outros',
+  capitais: 'outros',
 };
 
 // ---------------------------------------------------------------------------
@@ -105,8 +102,7 @@ export const SS_REVENUE_CATEGORIES: readonly SSCategoryMeta[] = [
   { value: 'vendas',             label: 'Vendas de Produtos',            coefficient: COEFF_VENDAS,              irsCategoryCode: 'B' },   // PENDING LEGAL VALIDATION
   { value: 'hotelaria',          label: 'Hotelaria e Restauracao',       coefficient: COEFF_HOTELARIA,           irsCategoryCode: 'B' },   // PENDING LEGAL VALIDATION
   { value: 'producao_agricola',  label: 'Producao Agricola',             coefficient: COEFF_PRODUCAO_AGRICOLA,   irsCategoryCode: 'B' },   // PENDING LEGAL VALIDATION
-  { value: 'rendas',             label: 'Rendimentos Prediais (Cat. F)', coefficient: COEFF_RENDAS,              irsCategoryCode: 'F' },   // PENDING LEGAL VALIDATION
-  { value: 'capitais',           label: 'Rendimentos de Capitais (Cat. E)', coefficient: COEFF_CAPITAIS,         irsCategoryCode: 'E' },   // PENDING LEGAL VALIDATION
+  { value: 'producao_energia_arrendamento', label: 'Produção de energia e arrendamento', coefficient: COEFF_PRODUCAO_ENERGIA_ARRENDAMENTO, irsCategoryCode: 'B' }, // PENDING LEGAL VALIDATION
   { value: 'prop_intelectual',   label: 'Propriedade Intelectual',       coefficient: COEFF_PROP_INTELECTUAL },                            // PENDING LEGAL VALIDATION
   { value: 'subsidios',          label: 'Subsidios',                     coefficient: COEFF_SUBSIDIOS },                                   // PENDING LEGAL VALIDATION
   { value: 'outros',             label: 'Outros Rendimentos',            coefficient: COEFF_OUTROS },                                      // PENDING LEGAL VALIDATION

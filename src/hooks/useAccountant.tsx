@@ -11,6 +11,7 @@ import {
 } from '@/lib/fiscalStatus';
 import { getPurchaseDeductibleVat } from '@/lib/purchaseDeductibility';
 import { enrichSupplierNames } from '@/lib/supplierNameResolver';
+import { writeBackSupplierNames } from '@/lib/supplierNameWriteBack';
 
 interface ClientInvoice {
   id: string;
@@ -126,7 +127,9 @@ export function useAccountant(detailedClientId?: string | null) {
       const recentInvoices = rows
         .sort((left, right) => right.document_date.localeCompare(left.document_date));
 
-      return enrichSupplierNames(recentInvoices);
+      const enriched = await enrichSupplierNames(recentInvoices);
+      writeBackSupplierNames(recentInvoices, enriched);
+      return enriched;
     },
     enabled: !!user?.id && !!detailedClientId,
   });

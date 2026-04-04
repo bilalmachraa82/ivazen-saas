@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { enrichSupplierNames, getSupplierDisplayName } from '@/lib/supplierNameResolver';
+import { writeBackSupplierNames } from '@/lib/supplierNameWriteBack';
 
 interface ReconciliationTabProps {
   clientId: string;
@@ -259,7 +260,10 @@ export function ReconciliationTab({
       query = query.order('document_date', { ascending: false });
       const { data, error } = await query;
       if (error) throw error;
-      return enrichSupplierNames((data || []) as InvoiceMatch[]);
+      const rawInvoices = (data || []) as InvoiceMatch[];
+      const enriched = await enrichSupplierNames(rawInvoices);
+      writeBackSupplierNames(rawInvoices, enriched);
+      return enriched;
     },
     enabled: !!clientId,
   });

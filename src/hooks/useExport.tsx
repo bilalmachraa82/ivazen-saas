@@ -17,6 +17,7 @@ import {
   isFiscallyEffectivePurchase,
 } from '@/lib/fiscalStatus';
 import { enrichSupplierNames } from '@/lib/supplierNameResolver';
+import { writeBackSupplierNames } from '@/lib/supplierNameWriteBack';
 
 type InvoiceRow = Database['public']['Tables']['invoices']['Row'];
 type SalesInvoiceRow = Database['public']['Tables']['sales_invoices']['Row'];
@@ -95,7 +96,9 @@ export function useExport(clientId?: string) {
         ).then(r => r)
       );
 
-      return enrichSupplierNames(invoices);
+      const enriched = await enrichSupplierNames(invoices);
+      writeBackSupplierNames(invoices, enriched);
+      return enriched;
     },
     enabled: fiscalPeriods.length > 0 && !!clientId,
   });

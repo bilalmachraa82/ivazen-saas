@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 import { enrichSupplierNames } from '@/lib/supplierNameResolver';
+import { writeBackSupplierNames } from '@/lib/supplierNameWriteBack';
 
 type Invoice = Tables<'invoices'>;
 type SalesInvoice = Tables<'sales_invoices'>;
@@ -100,7 +101,9 @@ export function useAllDocuments() {
         console.error('Error fetching withholdings:', withholdingsResult.error);
       }
 
-      const enrichedInvoices = await enrichSupplierNames(invoicesResult.data || []);
+      const rawInvoices = invoicesResult.data || [];
+      const enrichedInvoices = await enrichSupplierNames(rawInvoices);
+      writeBackSupplierNames(rawInvoices, enrichedInvoices);
 
       setInvoices(enrichedInvoices);
       setSalesInvoices(salesResult.data || []);

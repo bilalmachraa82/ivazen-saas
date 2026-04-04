@@ -8,6 +8,7 @@ import { deriveFiscalPeriodFromDocumentDate, normalizeDocumentDate } from '@/lib
 import { fetchAllPages } from '@/lib/supabasePagination';
 import { isTemporarySupplierTaxId, normalizeSupplierTaxId, normalizeSupplierVatId } from '@/lib/taxId';
 import { enrichSupplierNames } from '@/lib/supplierNameResolver';
+import { writeBackSupplierNames } from '@/lib/supplierNameWriteBack';
 import { applyClientInvoiceSearchFallback, escapeInvoiceSearchTerm } from '@/lib/invoiceSearch';
 import {
   getRecentImportCutoff,
@@ -303,6 +304,9 @@ export function useInvoices(externalClientId?: string | null) {
 
       // Enrich supplier names only for the current page (not all data)
       const enrichedData = await enrichSupplierNames(pageData);
+
+      // Write back newly resolved names to the database (fire-and-forget)
+      writeBackSupplierNames(pageData, enrichedData);
 
       // Client-side fallback for single-char searches (server ilike needs 2+ chars)
       const normalizedSearch = filters.search

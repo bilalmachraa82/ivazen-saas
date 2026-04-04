@@ -144,6 +144,8 @@ interface ContributionAmountsInput {
   otherEmploymentSalary: number;
   contributionRate: number;
   quarterYear: number;
+  /** Variation percentage applied to the contribution base (-25, 0, or +25). Default: -25 */
+  variationPercent?: number;
 }
 
 interface ContributionAmountsResult {
@@ -207,11 +209,13 @@ export function calculateContributionAmounts(
 
   let contributionBase = 0;
 
+  const variationFactor = 1 + (input.variationPercent ?? -25) / 100;
+
   if (input.accountingRegime === 'organized') {
     const monthlyBase = input.taxableProfit / 12;
     contributionBase = Math.max(monthlyBase, quarterLimits.MIN_BASE_ORGANIZED);
     contributionBase = Math.min(contributionBase, quarterLimits.MAX_BASE);
-    contributionBase = roundToCents(contributionBase);
+    contributionBase = roundToCents(contributionBase * variationFactor);
   } else {
     const monthlyRelevantIncome = input.relevantIncome / 3;
 
@@ -231,8 +235,9 @@ export function calculateContributionAmounts(
       };
     }
 
+    const adjustedBase = monthlyRelevantIncome * variationFactor;
     contributionBase = roundToCents(
-      Math.min(monthlyRelevantIncome, quarterLimits.MAX_BASE),
+      Math.min(adjustedBase, quarterLimits.MAX_BASE),
     );
   }
 
@@ -337,7 +342,7 @@ export function checkTCOExemption(
   return otherEmploymentSalary >= limits.IAS && monthlyRelevantIncome < limits.TCO_EXEMPTION_LIMIT;
 }
 
-export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: string) {
+export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: string, variationPercent = -25) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [quarter, setQuarter] = useState(selectedQuarter || getDeclarationQuarterForDate());
@@ -451,7 +456,7 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
 
     // Group sales by revenue_category using all Art. 162 coefficients
     // Supports: prestacao_servicos (70%), vendas (20%), hotelaria (20%),
-    // producao_agricola (20%), rendas (95%), capitais (95%),
+    // producao_agricola (20%), producao_energia_arrendamento (20%),
     // prop_intelectual (50%), subsidios (70%), outros (70%)
     salesInvoices.forEach(inv => {
       const amount = getSalesInvoiceRevenueAmount(inv);
@@ -509,8 +514,9 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
       otherEmploymentSalary,
       contributionRate,
       quarterYear,
+      variationPercent,
     });
-  }, [activeProfile, quarter, totals.relevantIncome]);
+  }, [activeProfile, quarter, totals.relevantIncome, variationPercent]);
 
   // Add revenue entry
   const addRevenueMutation = useMutation({
