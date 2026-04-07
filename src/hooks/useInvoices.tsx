@@ -5,14 +5,12 @@ import { toast } from 'sonner';
 import type { Tables, Database } from '@/integrations/supabase/types';
 import { detectMimeType } from '@/lib/mime';
 import { deriveFiscalPeriodFromDocumentDate, normalizeDocumentDate } from '@/lib/fiscalPeriod';
-import { fetchAllPages } from '@/lib/supabasePagination';
 import { isTemporarySupplierTaxId, normalizeSupplierTaxId, normalizeSupplierVatId } from '@/lib/taxId';
 import { enrichSupplierNames } from '@/lib/supplierNameResolver';
 import { writeBackSupplierNames } from '@/lib/supplierNameWriteBack';
 import { applyClientInvoiceSearchFallback, escapeInvoiceSearchTerm } from '@/lib/invoiceSearch';
 import {
   getRecentImportCutoff,
-  matchesRecentImportWindow,
   type RecentImportWindow,
 } from '@/lib/recentImports';
 import { expandQuarterToPeriods } from '@/lib/formatFiscalPeriod';
@@ -27,13 +25,6 @@ interface InvoiceFilters {
   clientId: string; // For accountants to filter by client
   reviewFilter?: string; // 'all' | 'needs_review' | 'auto_approved'
   recentWindow?: RecentImportWindow;
-}
-
-interface InvoiceStatsRow {
-  status: string | null;
-  requires_accountant_validation?: boolean | null;
-  accounting_excluded?: boolean | null;
-  created_at: string;
 }
 
 interface InvoiceStatsSummary {
@@ -140,40 +131,6 @@ const EMPTY_INVOICE_STATS: InvoiceStatsSummary = {
   recentImportsCount: 0,
 };
 
-function buildInvoiceStats(rows: InvoiceStatsRow[]): InvoiceStatsSummary {
-  return rows.reduce<InvoiceStatsSummary>((stats, row) => {
-    if (matchesRecentImportWindow(row.created_at, '24h')) {
-      stats.recentImportsCount += 1;
-    }
-
-    if (row.accounting_excluded) {
-      stats.excludedCount += 1;
-      return stats;
-    }
-
-    if (row.status === 'pending') {
-      stats.pendingCount += 1;
-      return stats;
-    }
-
-    if (row.status === 'classified') {
-      stats.classifiedCount += 1;
-      if (row.requires_accountant_validation === false) {
-        stats.autoApprovedCount += 1;
-      } else {
-        stats.needsReviewCount += 1;
-      }
-      return stats;
-    }
-
-    if (row.status === 'validated') {
-      stats.validatedCount += 1;
-    }
-
-    return stats;
-  }, { ...EMPTY_INVOICE_STATS });
-}
-
 export function useInvoices(externalClientId?: string | null) {
   const { user } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -236,14 +193,13 @@ export function useInvoices(externalClientId?: string | null) {
         return query;
       };
 
-      const buildStatsQuery = () => {
-        return applyBaseFilters(
+      // Stats: server-side counts (no row transfer)
+      const buildStatsCountQuery = () =>
+        applyBaseFilters(
           supabase
             .from('invoices')
-            .select('status, requires_accountant_validation, accounting_excluded, created_at')
-            .order('created_at', { ascending: false }),
+            .select('*', { count: 'exact', head: true }),
         );
-      };
 
       // 1. Paginated list query: fetch only the current page with exact count
       const rangeFrom = page * PAGE_SIZE;
@@ -291,10 +247,44 @@ export function useInvoices(externalClientId?: string | null) {
         return query.range(rangeFrom, rangeTo);
       };
 
-      // 2. Stats query: lightweight fetch of ALL rows (only status columns)
-      const [listResult, statsRows] = await Promise.all([
+      // 2. Stats: 6 parallel server-side count queries (zero row transfer)
+      const recentCutoff24h = getRecentImportCutoff('24h');
+
+      const [
+        listResult,
+        pendingResult,
+        reviewResult,
+        autoResult,
+        validatedResult,
+        excludedResult,
+        recentResult,
+      ] = await Promise.all([
         buildPaginatedListQuery(),
-        fetchAllPages<InvoiceStatsRow>((f, t) => buildStatsQuery().range(f, t)),
+        // pending, not excluded
+        buildStatsCountQuery()
+          .eq('status', 'pending')
+          .or('accounting_excluded.is.null,accounting_excluded.eq.false'),
+        // classified + needs review, not excluded
+        buildStatsCountQuery()
+          .eq('status', 'classified')
+          .or('requires_accountant_validation.is.null,requires_accountant_validation.eq.true')
+          .or('accounting_excluded.is.null,accounting_excluded.eq.false'),
+        // classified + auto-approved, not excluded
+        buildStatsCountQuery()
+          .eq('status', 'classified')
+          .eq('requires_accountant_validation', false)
+          .or('accounting_excluded.is.null,accounting_excluded.eq.false'),
+        // validated, not excluded
+        buildStatsCountQuery()
+          .eq('status', 'validated')
+          .or('accounting_excluded.is.null,accounting_excluded.eq.false'),
+        // excluded
+        buildStatsCountQuery()
+          .eq('accounting_excluded', true),
+        // recent imports (all statuses, last 24h)
+        recentCutoff24h
+          ? buildStatsCountQuery().gte('created_at', recentCutoff24h)
+          : Promise.resolve({ count: 0 }),
       ]);
 
       if (listResult.error) throw listResult.error;
@@ -320,7 +310,15 @@ export function useInvoices(externalClientId?: string | null) {
 
       setInvoices(filteredData);
       setTotalCount(normalizedSearch.length === 1 ? filteredData.length : serverCount);
-      setStatsSummary(buildInvoiceStats(statsRows));
+      setStatsSummary({
+        pendingCount: pendingResult.count ?? 0,
+        classifiedCount: (reviewResult.count ?? 0) + (autoResult.count ?? 0),
+        validatedCount: validatedResult.count ?? 0,
+        needsReviewCount: reviewResult.count ?? 0,
+        autoApprovedCount: autoResult.count ?? 0,
+        excludedCount: excludedResult.count ?? 0,
+        recentImportsCount: recentResult.count ?? 0,
+      });
     } catch (error) {
       console.error('Error fetching invoices:', error);
       toast.error('Erro ao carregar facturas');

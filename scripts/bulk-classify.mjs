@@ -45,6 +45,7 @@ const RULES_ONLY = args.includes('--rules-only');
 const AI_ONLY = args.includes('--ai-only');
 const DRY_RUN = args.includes('--dry-run');
 const MAX_AI_ROUNDS = parseInt(args.find(a => a.startsWith('--ai-rounds='))?.split('=')[1] || '200');
+const YEAR_FILTER = args.find(a => a.startsWith('--year='))?.split('=')[1] || null;
 
 const PAGE_SIZE = 500;   // invoices per page
 const UPDATE_BATCH = 100; // bulk update batch size
@@ -127,10 +128,12 @@ async function runRulesPhase() {
     const from = page * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
 
-    const { data: invoices, error: fetchErr } = await supabase
+    let query = supabase
       .from('invoices')
       .select('id, supplier_nif, client_id')
-      .eq('status', 'pending')
+      .eq('status', 'pending');
+    if (YEAR_FILTER) query = query.gte('document_date', `${YEAR_FILTER}-01-01`).lte('document_date', `${YEAR_FILTER}-12-31`);
+    const { data: invoices, error: fetchErr } = await query
       .order('created_at', { ascending: true })
       .range(from, to);
 
@@ -234,10 +237,12 @@ async function runAIPhase() {
   const uniqueInvoiceIds = [];
 
   for (let offset = 0; ; offset += PAGE_UNIQUE) {
-    const { data: rows, error } = await supabase
+    let uq = supabase
       .from('invoices')
       .select('id, client_id, supplier_nif')
-      .eq('status', 'pending')
+      .eq('status', 'pending');
+    if (YEAR_FILTER) uq = uq.gte('document_date', `${YEAR_FILTER}-01-01`).lte('document_date', `${YEAR_FILTER}-12-31`);
+    const { data: rows, error } = await uq
       .order('created_at', { ascending: true })
       .range(offset, offset + PAGE_UNIQUE - 1);
     if (error) { console.error(error.message); break; }
@@ -309,13 +314,16 @@ async function runAIPhase() {
 async function main() {
   console.log(`=== IVAzen Bulk Classification ===`);
   console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : RULES_ONLY ? 'rules-only' : AI_ONLY ? 'ai-only' : 'full'}`);
+  console.log(`Year: ${YEAR_FILTER || 'all'}`);
   console.log(`Time: ${new Date().toISOString()}`);
 
   // Check initial state
-  const { count: initialPending } = await supabase
+  let initQuery = supabase
     .from('invoices')
     .select('id', { count: 'exact', head: true })
     .eq('status', 'pending');
+  if (YEAR_FILTER) initQuery = initQuery.gte('document_date', `${YEAR_FILTER}-01-01`).lte('document_date', `${YEAR_FILTER}-12-31`);
+  const { count: initialPending } = await initQuery;
 
   console.log(`\nInitial pending invoices: ${initialPending}`);
 
