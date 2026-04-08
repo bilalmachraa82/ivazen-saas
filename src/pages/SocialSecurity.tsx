@@ -4,8 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useClientFiscalProfile } from '@/hooks/useClientFiscalProfile';
 import { useClientManagement } from '@/hooks/useClientManagement';
 import { useSelectedClient } from '@/hooks/useSelectedClient';
-import { useSocialSecurity, REVENUE_CATEGORIES, REVENUE_COEFFICIENTS, getQuarterLabel } from '@/hooks/useSocialSecurity';
-import { getSSCoefficient } from '@/lib/ssCoefficients';
+import { useSocialSecurity, REVENUE_CATEGORIES } from '@/hooks/useSocialSecurity';
 import { detectCategoryFromCAE } from '@/lib/csvParser';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,30 +51,22 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   AlertCircle,
-  BarChart3,
   Calculator,
-  CalendarClock,
   CheckCircle2,
-  Copy,
-  Euro,
-  ExternalLink,
-  FileSpreadsheet,
   FileText,
   History,
   Loader2,
   Plus,
-  RefreshCw,
-  Send,
   Trash2,
-  TrendingUp,
   Upload,
   Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { RevenueImporter } from '@/components/social-security/RevenueImporter';
 import { PortalLinks } from '@/components/social-security/PortalLinks';
-import { SubmissionGuide } from '@/components/social-security/SubmissionGuide';
 import { RevenueCharts } from '@/components/social-security/RevenueCharts';
+import { SSRevenueBreakdown } from '@/components/social-security/SSRevenueBreakdown';
+import { SSCalculationSummary } from '@/components/social-security/SSCalculationSummary';
 import { SubmissionSuccessDialog } from '@/components/social-security/SubmissionSuccessDialog';
 import { ZenEmptyState } from '@/components/zen';
 import { ClientSearchSelector } from '@/components/ui/client-search-selector';
@@ -467,7 +458,7 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
         )}
 
         <Tabs defaultValue="declaration" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
+          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
             <TabsTrigger value="declaration" className="gap-2">
               <Calculator className="h-4 w-4" />
               <span className="hidden sm:inline">Declaração</span>
@@ -476,564 +467,141 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
               <Upload className="h-4 w-4" />
               <span className="hidden sm:inline">Importar</span>
             </TabsTrigger>
-            <TabsTrigger value="submit" className="gap-2">
-              <Send className="h-4 w-4" />
-              <span className="hidden sm:inline">Submeter</span>
-            </TabsTrigger>
-            <TabsTrigger value="charts" className="gap-2">
-              <BarChart3 className="h-4 w-4" />
-              <span className="hidden sm:inline">Gráficos</span>
-            </TabsTrigger>
             <TabsTrigger value="history" className="gap-2">
               <History className="h-4 w-4" />
               <span className="hidden sm:inline">Histórico</span>
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="declaration" className="space-y-6">
-            {/* Revenue Sources Overview Card */}
-            <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-background to-accent/5">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-primary" />
-                    <CardTitle className="text-lg">Fontes de Receita</CardTitle>
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    {getLabel(quarter)}
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Valores de base tributável (sem IVA), conforme exigido pela Segurança Social</p>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {/* Manual Entries */}
-                  <div className="p-4 rounded-lg bg-background/50 border border-border/50 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 rounded-lg bg-blue-500/10">
-                        <FileText className="h-4 w-4 text-blue-600" />
-                      </div>
-                      <span className="text-sm font-medium">Manual</span>
-                    </div>
-                    <p className="text-2xl font-bold">
-                      {revenueEntries.reduce((sum, e) => sum + Number(e.amount), 0).toFixed(2)}€
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {revenueEntries.length} entrada{revenueEntries.length !== 1 ? 's' : ''}
-                    </p>
-                  </div>
+          <TabsContent value="declaration" className="space-y-4">
+            {calculatedContribution.isExempt ? (
+              <SSCalculationSummary
+                totals={totals}
+                contributionBase={0}
+                contributionAmount={0}
+                contributionRate={contributionRate}
+                variationPercent={variationPercent}
+                onVariationChange={setVariationPercent}
+                isExempt={true}
+                exemptReason={calculatedContribution.exemptReason}
+                quarterLabel={getLabel(quarter)}
+                clientName={selectedClient?.full_name || profile?.full_name || ''}
+                clientNif={selectedClient?.nif || profile?.nif || ''}
+                monthlyBreakdown={totals.monthlyBreakdown}
+                onMarkSubmitted={() => handleSaveDeclaration('submitted')}
+                isSubmittedLocked={isSubmittedQuarterLocked}
+                isSaving={isSavingDeclaration}
+              />
+            ) : (
+              <>
+                {/* Section 2: Monthly Revenue Breakdown */}
+                <SSRevenueBreakdown
+                  monthlyBreakdown={totals.monthlyBreakdown}
+                  quarterLabel={getLabel(quarter)}
+                />
 
-                  {/* Sales Invoices */}
-                  <div className="p-4 rounded-lg bg-background/50 border border-green-500/30 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 rounded-lg bg-green-500/10">
-                        <FileSpreadsheet className="h-4 w-4 text-green-600" />
-                      </div>
-                      <span className="text-sm font-medium">Facturas Vendas</span>
-                      <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
-                        Auto
-                      </Badge>
-                    </div>
-                    <p className="text-2xl font-bold text-green-600">
-                      {totals.salesInvoicesTotal?.toFixed(2) || '0.00'}€
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs text-muted-foreground">
-                        {totals.salesInvoicesCount || 0} factura{(totals.salesInvoicesCount || 0) !== 1 ? 's' : ''} validada{(totals.salesInvoicesCount || 0) !== 1 ? 's' : ''}
-                      </p>
-                      {(totals.salesInvoicesCount || 0) > 0 && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-6 text-xs px-2 text-green-600 hover:text-green-700"
-                          onClick={() => navigate('/sales')}
-                        >
-                          Ver →
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Total */}
-                  <div className="p-4 rounded-lg bg-primary/5 border border-primary/30 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        <Euro className="h-4 w-4 text-primary" />
-                      </div>
-                      <span className="text-sm font-medium">Total Receitas</span>
-                    </div>
-                    <p className="text-2xl font-bold text-primary">
-                      {totals.total.toFixed(2)}€
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Base: {totals.relevantIncome.toFixed(2)}€ (coef. por categoria)
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardDescription>Total Rendimentos <span className="text-xs text-muted-foreground ml-1">(sem IVA)</span></CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2">
-                    <Euro className="h-5 w-5 text-muted-foreground" />
-                    <span className="text-2xl font-bold">{totals.total.toFixed(2)}€</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardDescription>
-                    Base Incidência ({totals.total > 0 ? (totals.relevantIncome / totals.total * 100).toFixed(0) : '70'}%)
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-muted-foreground" />
-                    <span className="text-2xl font-bold">{contributionBase.toFixed(2)}€</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardDescription>Taxa Contributiva</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <span className="text-2xl font-bold">{contributionRate}%</span>
-                </CardContent>
-              </Card>
-
-              <Card className="border-primary/50 bg-primary/5">
-                <CardHeader className="pb-2">
-                  <CardDescription>A Pagar</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2">
-                    <Euro className="h-5 w-5 text-primary" />
-                    <span className="text-2xl font-bold text-primary">
-                      {contributionAmount.toFixed(2)}€
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Detailed Calculation Card */}
-            <Card className="border-primary/30 bg-gradient-to-br from-primary/5 via-background to-primary/10">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Calculator className="h-5 w-5 text-primary" />
-                    <CardTitle className="text-lg">Cálculo Detalhado da Contribuição</CardTitle>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      // Trigger refetch of data
-                      toast.info('A recalcular...');
+                {/* Manual entry button */}
+                <div className="flex justify-end">
+                  <Dialog
+                    open={addDialogOpen}
+                    onOpenChange={(nextOpen) => {
+                      if (nextOpen && isSubmittedQuarterLocked) {
+                        toast.error(readOnlyQuarterMessage);
+                        return;
+                      }
+                      if (nextOpen && detectedCategory) {
+                        setNewCategory(detectedCategory.category);
+                      }
+                      setAddDialogOpen(nextOpen);
                     }}
-                    className="gap-2"
                   >
-                    <RefreshCw className="h-4 w-4" />
-                    Recalcular
-                  </Button>
-                </div>
-                <CardDescription>
-                  Breakdown do cálculo por categoria de rendimento
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Breakdown by Category */}
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Categoria</TableHead>
-                      <TableHead className="text-right">Rendimento</TableHead>
-                      <TableHead className="text-center">Coef.</TableHead>
-                      <TableHead className="text-right">Base Incidência</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {REVENUE_CATEGORIES.filter(cat => (totals.byCategory[cat.value] || 0) > 0).map((cat) => {
-                      const categoryTotal = totals.byCategory[cat.value] || 0;
-                      const coefficient = getSSCoefficient(cat.value);
-                      const categoryBase = categoryTotal * coefficient;
-                      
-                      return (
-                        <TableRow key={cat.value}>
-                          <TableCell className="font-medium">{cat.label}</TableCell>
-                          <TableCell className="text-right">{categoryTotal.toFixed(2)}€</TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant="outline">{(coefficient * 100).toFixed(0)}%</Badge>
-                          </TableCell>
-                          <TableCell className="text-right font-medium">{categoryBase.toFixed(2)}€</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                    {Object.keys(totals.byCategory).filter(k => (totals.byCategory[k] || 0) > 0).length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-center text-muted-foreground py-4">
-                          Sem rendimentos registados — importe recibos verdes na página de Importação
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-
-                {/* Variation selector */}
-                <div className="pt-4 border-t">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-sm font-medium">Percentagem de variação</Label>
-                      <p className="text-xs text-muted-foreground">(aplicar sobre o rendimento declarado)</p>
-                    </div>
-                    <Select
-                      value={String(variationPercent)}
-                      onValueChange={(v) => setVariationPercent(Number(v))}
-                    >
-                      <SelectTrigger className="w-[160px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="-25">-25%</SelectItem>
-                        <SelectItem value="0">0% (sem variação)</SelectItem>
-                        <SelectItem value="25">+25%</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Calculation Summary */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Total Rendimentos <span className="text-xs">(sem IVA)</span>:</span>
-                      <span className="font-medium">{totals.total.toFixed(2)}€</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Base de Incidência (ponderada):</span>
-                      <span className="font-medium">{contributionBase.toFixed(2)}€</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Variação aplicada:</span>
-                      <span className="font-medium">{variationPercent > 0 ? '+' : ''}{variationPercent}%</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Taxa Contributiva:</span>
-                      <span className="font-medium">{contributionRate}%</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-center p-4 rounded-lg bg-primary/10 border border-primary/30">
-                    <div className="text-center">
-                      <p className="text-sm text-muted-foreground mb-1">Contribuição a Pagar</p>
-                      <p className="text-3xl font-bold text-primary">
-                        {contributionAmount.toFixed(2)}€
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {contributionBase.toFixed(2)}€ × {contributionRate}%
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Revenue by Category */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Rendimentos por Categoria</CardTitle>
-                  <CardDescription>
-                    Adicione os seus rendimentos do trimestre
-                  </CardDescription>
-                </div>
-                <Dialog
-                  open={addDialogOpen}
-                  onOpenChange={(nextOpen) => {
-                    if (nextOpen && isSubmittedQuarterLocked) {
-                      toast.error(readOnlyQuarterMessage);
-                      return;
-                    }
-                    if (nextOpen && detectedCategory) {
-                      setNewCategory(detectedCategory.category);
-                    }
-                    setAddDialogOpen(nextOpen);
-                  }}
-                >
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="gap-2" disabled={isSubmittedQuarterLocked}>
-                      <Plus className="h-4 w-4" />
-                      Adicionar
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Adicionar Rendimento</DialogTitle>
-                      <DialogDescription>
-                        Introduza o valor do rendimento para a categoria seleccionada
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label>Categoria</Label>
-                        <Select value={newCategory} onValueChange={setNewCategory}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {REVENUE_CATEGORIES.map((cat) => (
-                              <SelectItem key={cat.value} value={cat.value}>
-                                {cat.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {detectedCategory && detectedCategory.confidence !== 'low' && (
-                          <p className="text-xs text-muted-foreground">
-                            Sugestão: {REVENUE_CATEGORIES.find(c => c.value === detectedCategory.category)?.label || detectedCategory.category} ({detectedCategory.reason})
-                          </p>
-                        )}
+                    <DialogTrigger asChild>
+                      <Button size="sm" className="gap-2" disabled={isSubmittedQuarterLocked}>
+                        <Plus className="h-4 w-4" />
+                        Adicionar rendimento manual
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Adicionar Rendimento</DialogTitle>
+                        <DialogDescription>
+                          Introduza o valor do rendimento para a categoria seleccionada
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label>Categoria</Label>
+                          <Select value={newCategory} onValueChange={setNewCategory}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {REVENUE_CATEGORIES.map((cat) => (
+                                <SelectItem key={cat.value} value={cat.value}>
+                                  {cat.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {detectedCategory && detectedCategory.confidence !== 'low' && (
+                            <p className="text-xs text-muted-foreground">
+                              Sugestão: {REVENUE_CATEGORIES.find(c => c.value === detectedCategory.category)?.label || detectedCategory.category} ({detectedCategory.reason})
+                            </p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Valor (€)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            value={newAmount}
+                            onChange={(e) => setNewAmount(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Notas (opcional)</Label>
+                          <Textarea
+                            placeholder="Descrição opcional..."
+                            value={newNotes}
+                            onChange={(e) => setNewNotes(e.target.value)}
+                          />
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Valor (€)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="0.00"
-                          value={newAmount}
-                          onChange={(e) => setNewAmount(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Notas (opcional)</Label>
-                        <Textarea
-                          placeholder="Descrição opcional..."
-                          value={newNotes}
-                          onChange={(e) => setNewNotes(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
+                      <DialogFooter>
                         <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
                           Cancelar
                         </Button>
-                      <Button onClick={handleAddRevenue} disabled={isAddingRevenue || isSubmittedQuarterLocked}>
-                        {isAddingRevenue && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Adicionar
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Categoria</TableHead>
-                      <TableHead>Notas</TableHead>
-                      <TableHead className="text-right">Valor</TableHead>
-                      <TableHead className="w-[50px]"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {revenueEntries.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                          Sem rendimentos registados para este trimestre — importe recibos verdes na página de Importação
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      revenueEntries.map((entry) => (
-                        <TableRow key={entry.id}>
-                          <TableCell>
-                            {REVENUE_CATEGORIES.find(c => c.value === entry.category)?.label || entry.category}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-sm">
-                            {entry.notes || '-'}
-                          </TableCell>
-                          <TableCell className="text-right font-medium">
-                            {Number(entry.amount).toFixed(2)}€
-                          </TableCell>
-                          <TableCell>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-destructive hover:text-destructive"
-                                  disabled={isSubmittedQuarterLocked}
-                                  aria-label="Eliminar rendimento"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Eliminar Rendimento?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Esta acção não pode ser revertida. O valor de <strong>{Number(entry.amount).toFixed(2)}€</strong> será removido do trimestre.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => deleteRevenue(entry.id)}
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  >
-                                    Eliminar
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-
-                {/* Sales Invoices Integration */}
-                {salesInvoices.length > 0 && (
-                  <div className="mt-4 p-4 rounded-lg bg-primary/5 border border-primary/20">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <FileSpreadsheet className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium">Facturas de Vendas</span>
-                        <Badge variant="secondary" className="text-xs">
-                          Auto
-                        </Badge>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">{totals.salesInvoicesTotal?.toFixed(2)}€</p>
-                        <p className="text-xs text-muted-foreground">
-                          {totals.salesInvoicesCount} factura{totals.salesInvoicesCount !== 1 ? 's' : ''} validada{totals.salesInvoicesCount !== 1 ? 's' : ''}
-                        </p>
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Facturas de vendas validadas são incluídas automaticamente na categoria definida em cada documento; se faltar, a app infere serviços para FR/FS-FR e vendas nos restantes casos.
-                    </p>
-                    <Button 
-                      variant="link" 
-                      size="sm" 
-                      className="h-auto p-0 mt-1"
-                      onClick={() => navigate('/sales')}
-                    >
-                      Ver facturas de vendas →
-                    </Button>
-                  </div>
-                )}
-
-                {/* Category Totals */}
-                <div className="mt-6 pt-4 border-t space-y-2">
-                  {REVENUE_CATEGORIES.map((cat) => {
-                    const categoryTotal = totals.byCategory[cat.value] || 0;
-                    const hasSalesInvoices = cat.value === 'vendas' && totals.salesInvoicesCount > 0;
-                    
-                    return (
-                      <div key={cat.value} className="flex justify-between text-sm">
-                        <span className="text-muted-foreground flex items-center gap-2">
-                          {cat.label}
-                          {hasSalesInvoices && (
-                            <Badge variant="outline" className="text-[10px] px-1 py-0">
-                              inclui facturas
-                            </Badge>
-                          )}
-                        </span>
-                        <span className="font-medium">{categoryTotal.toFixed(2)}€</span>
-                      </div>
-                    );
-                  })}
-                  <div className="flex justify-between font-semibold pt-2 border-t">
-                    <span>Total</span>
-                    <span>{totals.total.toFixed(2)}€</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Acções</CardTitle>
-                <CardDescription>
-                  Guarde a declaração ou copie os dados para a SS Directa
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Notas da Declaração</Label>
-                  <Textarea
-                    placeholder="Notas opcionais..."
-                    value={declarationNotes}
-                    onChange={(e) => setDeclarationNotes(e.target.value)}
-                    disabled={isSubmittedQuarterLocked}
-                  />
+                        <Button onClick={handleAddRevenue} disabled={isAddingRevenue || isSubmittedQuarterLocked}>
+                          {isAddingRevenue && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Adicionar
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
 
-                <div className="flex flex-wrap gap-3">
-                  <Button
-                    variant="outline"
-                    className="gap-2"
-                    onClick={copyToClipboard}
-                  >
-                    <Copy className="h-4 w-4" />
-                    Copiar Dados
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    onClick={() => handleSaveDeclaration('draft')}
-                    disabled={isSavingDeclaration || isSubmittedQuarterLocked}
-                  >
-                    {isSavingDeclaration && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Guardar Rascunho
-                  </Button>
-
-                  <Button
-                    onClick={() => handleSaveDeclaration('submitted')}
-                    disabled={isSavingDeclaration || totals.total === 0 || isSubmittedQuarterLocked}
-                    className="gap-2"
-                  >
-                    {isSavingDeclaration && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    <CheckCircle2 className="h-4 w-4" />
-                    Marcar como Submetida
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    className="gap-2"
-                    onClick={() => window.open('https://app.seg-social.pt/sso/login', '_blank')}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    Abrir SS Directa
-                  </Button>
-                </div>
-
-                {declaration && (
-                  <div className="flex items-center gap-2 pt-2">
-                    <Badge variant={declaration.status === 'submitted' ? 'default' : 'secondary'}>
-                      {declaration.status === 'submitted' ? 'Submetida' : 'Rascunho'}
-                    </Badge>
-                    {declaration.submitted_at && (
-                      <span className="text-sm text-muted-foreground">
-                        em {new Date(declaration.submitted_at).toLocaleDateString('pt-PT')}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                {/* Section 3: Calculation + Actions */}
+                <SSCalculationSummary
+                  totals={totals}
+                  contributionBase={contributionBase}
+                  contributionAmount={contributionAmount}
+                  contributionRate={contributionRate}
+                  variationPercent={variationPercent}
+                  onVariationChange={setVariationPercent}
+                  isExempt={false}
+                  exemptReason=""
+                  quarterLabel={getLabel(quarter)}
+                  clientName={selectedClient?.full_name || profile?.full_name || ''}
+                  clientNif={selectedClient?.nif || profile?.nif || ''}
+                  monthlyBreakdown={totals.monthlyBreakdown}
+                  onMarkSubmitted={() => handleSaveDeclaration('submitted')}
+                  isSubmittedLocked={isSubmittedQuarterLocked}
+                  isSaving={isSavingDeclaration}
+                />
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="import" className="space-y-6">
@@ -1088,27 +656,11 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
             )}
           </TabsContent>
 
-          <TabsContent value="submit" className="space-y-6">
-            <SubmissionGuide
-              quarter={quarter}
-              quarterLabel={getLabel(quarter)}
-              totalRevenue={totals.total}
-              contributionBase={contributionBase}
-              contributionAmount={contributionAmount}
-              contributionRate={contributionRate}
-              hasAccountantSS={profile?.has_accountant_ss}
-              isSubmitted={declaration?.status === 'submitted'}
-            />
-          </TabsContent>
-
-          <TabsContent value="charts" className="space-y-6">
-            <RevenueCharts 
+          <TabsContent value="history" className="space-y-6">
+            <RevenueCharts
               declarationsHistory={declarationsHistory}
               getQuarterLabel={getLabel}
             />
-          </TabsContent>
-
-          <TabsContent value="history">
             <Card>
               <CardHeader>
                 <CardTitle>Histórico de Declarações</CardTitle>
