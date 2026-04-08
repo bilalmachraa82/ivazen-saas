@@ -11,6 +11,7 @@ import {
   getSalesInvoiceRevenueAmount,
   getSalesInvoiceRevenueCategory,
 } from '@/lib/socialSecurityRevenue';
+import { buildMonthlyBreakdown } from '@/lib/ssMonthlyBreakdown';
 export {
   getSalesInvoiceRevenueAmount,
   getSalesInvoiceRevenueCategory,
@@ -476,14 +477,17 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
     });
     const relevantIncome = manualRelevantIncome + salesRelevantIncome;
 
+    const monthlyBreakdown = buildMonthlyBreakdown(salesInvoices, revenueEntries, quarter);
+
     return {
       byCategory,
       total,
       relevantIncome,
       salesInvoicesTotal: salesInvoices.reduce((sum, inv) => sum + getSalesInvoiceRevenueAmount(inv), 0),
       salesInvoicesCount: salesInvoices.length,
+      monthlyBreakdown,
     };
-  }, [revenueEntries, salesInvoices]);
+  }, [revenueEntries, salesInvoices, quarter]);
 
   // Calculate contribution base and amount based on active profile (client or own)
   const calculatedContribution = useMemo(() => {
