@@ -2338,6 +2338,10 @@ export type Database = {
         Args: { p_client_id?: string; p_table_name?: string }
         Returns: string[]
       }
+      get_sales_invoices_total_amount: {
+        Args: { p_client_id?: string; p_fiscal_periods?: string[]; p_year?: number }
+        Returns: number
+      }
       get_my_accountant_request: {
         Args: never
         Returns: {

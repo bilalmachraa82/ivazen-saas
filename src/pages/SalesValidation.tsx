@@ -13,9 +13,13 @@ import { SalesInvoiceFilters } from '@/components/sales/SalesInvoiceFilters';
 import { SalesInvoiceTable } from '@/components/sales/SalesInvoiceTable';
 import { SalesInvoiceDetailDialog } from '@/components/sales/SalesInvoiceDetailDialog';
 import { ClientSearchSelector } from '@/components/ui/client-search-selector';
-import { CardContent } from '@/components/ui/card';
 import { Clock, CheckCircle, TrendingUp, Users } from 'lucide-react';
 import { StepNavigator } from '@/components/dashboard/StepNavigator';
+import { SalesValidationPagination } from '@/components/sales/SalesValidationPagination';
+import {
+  buildSalesValidationSearchParams,
+  parseSalesValidationSearchParams,
+} from '@/lib/salesValidationFilters';
 import type { Tables } from '@/integrations/supabase/types';
 
 type SalesInvoice = Tables<'sales_invoices'>;
@@ -45,6 +49,11 @@ export default function SalesValidation() {
     getSignedUrl,
     getFiscalPeriods,
     refetch,
+    page,
+    setPage,
+    totalCount,
+    totalPages,
+    pageSize,
   } = useSalesInvoices(effectiveClientId);
 
   // Navigation between invoices
@@ -65,12 +74,11 @@ export default function SalesValidation() {
     : false;
 
   useEffect(() => {
-    const status = searchParams.get('status') || 'all';
-    const recent = searchParams.get('recent') || 'all';
+    const { status, recentWindow } = parseSalesValidationSearchParams(searchParams);
     setFilters((prev) => (
-      prev.status === status && (prev.recentWindow || 'all') === recent
+      prev.status === status && (prev.recentWindow || 'all') === recentWindow
         ? prev
-        : { ...prev, status, recentWindow: recent as 'all' | '24h' | '7d' }
+        : { ...prev, status, recentWindow }
     ));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParamsKey, setFilters]);
@@ -170,7 +178,9 @@ export default function SalesValidation() {
           variant={statsSummary.pendingCount > 0 ? 'warning' : 'default'}
           onClick={() => {
             setFilters((prev) => ({ ...prev, status: 'pending', recentWindow: 'all' }));
-            setSearchParams({ status: 'pending' });
+            setSearchParams(
+              buildSalesValidationSearchParams({ status: 'pending', recentWindow: 'all' }),
+            );
           }}
         />
         <ZenStatsCard
@@ -180,7 +190,9 @@ export default function SalesValidation() {
           variant="success"
           onClick={() => {
             setFilters((prev) => ({ ...prev, status: 'validated', recentWindow: 'all' }));
-            setSearchParams({ status: 'validated' });
+            setSearchParams(
+              buildSalesValidationSearchParams({ status: 'validated', recentWindow: 'all' }),
+            );
           }}
         />
         <ZenStatsCard
@@ -190,7 +202,9 @@ export default function SalesValidation() {
           variant="default"
           onClick={() => {
             setFilters((prev) => ({ ...prev, status: 'all', recentWindow: 'all' }));
-            setSearchParams({});
+            setSearchParams(
+              buildSalesValidationSearchParams({ status: 'all', recentWindow: 'all' }),
+            );
           }}
         />
         <ZenStatsCard
@@ -200,7 +214,9 @@ export default function SalesValidation() {
           variant="default"
           onClick={() => {
             setFilters((prev) => ({ ...prev, status: 'all', recentWindow: '24h' }));
-            setSearchParams({ recent: '24h' });
+            setSearchParams(
+              buildSalesValidationSearchParams({ status: 'all', recentWindow: '24h' }),
+            );
           }}
         />
       </div>
@@ -221,6 +237,14 @@ export default function SalesValidation() {
               setSelectedInvoice(invoice);
               setDialogOpen(true);
             }}
+          />
+
+          <SalesValidationPagination
+            page={page}
+            totalPages={totalPages}
+            totalCount={totalCount}
+            pageSize={pageSize}
+            onPageChange={setPage}
           />
         </div>
       </ZenCard>

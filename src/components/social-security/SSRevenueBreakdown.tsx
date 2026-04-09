@@ -14,7 +14,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { type MonthlyBreakdown, getMonthLabel } from '@/lib/ssMonthlyBreakdown';
-import { SS_REVENUE_CATEGORIES, getSSCoefficient } from '@/lib/ssCoefficients';
+import { getSSCoefficient } from '@/lib/ssCoefficients';
+import { getVisibleSSRevenueCategories } from '@/lib/socialSecurityViewState';
 
 interface SSRevenueBreakdownProps {
   monthlyBreakdown: MonthlyBreakdown;
@@ -47,10 +48,7 @@ export function SSRevenueBreakdown({
   const [draftValue, setDraftValue] = useState('');
   const [savingCellKey, setSavingCellKey] = useState<string | null>(null);
 
-  const activeCategories = SS_REVENUE_CATEGORIES.filter(cat =>
-    cat.value === detectedCategory
-      || monthKeys.some(mk => (monthlyBreakdown[mk]?.[cat.value] ?? 0) > 0),
-  );
+  const activeCategories = getVisibleSSRevenueCategories(monthlyBreakdown, detectedCategory);
 
   if (activeCategories.length === 0) {
     return (

@@ -6,7 +6,7 @@ import type { Tables } from '@/integrations/supabase/types';
 import { getRecentImportCutoff, type RecentImportWindow } from '@/lib/recentImports';
 import { expandQuarterToPeriods } from '@/lib/formatFiscalPeriod';
 import { escapeInvoiceSearchTerm } from '@/lib/invoiceSearch';
-import { fetchAllPages } from '@/lib/supabasePagination';
+import { buildSalesInvoicesTotalAmountParams } from '@/lib/salesInvoicesStats';
 
 
 type SalesInvoice = Tables<'sales_invoices'>;
@@ -171,7 +171,7 @@ export function useSalesInvoices(externalClientId?: string | null) {
         pendingResult,
         validatedResult,
         recentResult,
-        totalAmountRows,
+        totalAmountResult,
       ] = await Promise.all([
         query.range(from, to),
         applyBaseFilters(
@@ -192,17 +192,18 @@ export function useSalesInvoices(externalClientId?: string | null) {
             .select('*', { count: 'exact', head: true })
             .gte('created_at', recentCutoff24h!),
         ),
-        fetchAllPages<{ total_amount: number | null }>((rangeFrom, rangeTo) =>
-          applyBaseFilters(
-            supabase
-              .from('sales_invoices')
-              .select('total_amount')
-              .order('document_date', { ascending: false }),
-          ).range(rangeFrom, rangeTo),
+        supabase.rpc(
+          'get_sales_invoices_total_amount',
+          buildSalesInvoicesTotalAmountParams({
+            effectiveClientId,
+            fiscalPeriod: filters.fiscalPeriod,
+            year: filters.year,
+          }),
         ),
       ]);
 
       if (listResult.error) throw listResult.error;
+      if (totalAmountResult.error) throw totalAmountResult.error;
 
       const rows = (listResult.data ?? []) as SalesInvoice[];
 
@@ -225,7 +226,7 @@ export function useSalesInvoices(externalClientId?: string | null) {
       setStatsSummary({
         pendingCount: pendingResult.count ?? 0,
         validatedCount: validatedResult.count ?? 0,
-        totalAmount: totalAmountRows.reduce((sum, row) => sum + Number(row.total_amount || 0), 0),
+        totalAmount: Number(totalAmountResult.data ?? 0),
         recentImportsCount: recentResult.count ?? 0,
       });
     } catch (error) {

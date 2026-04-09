@@ -20,6 +20,7 @@ import { FiscalDeadlines } from '@/components/accountant/FiscalDeadlines';
 import { useClientReadiness } from '@/hooks/useClientReadiness';
 import { PortfolioReadinessCard } from '@/components/dashboard/PortfolioReadinessCard';
 import { supabase } from '@/integrations/supabase/client';
+import { resolveDashboardVatContext } from '@/lib/dashboardVatContext';
 import {
   FileText,
   Clock,
@@ -77,18 +78,14 @@ export default function Dashboard() {
   const { myRequest } = useAccountantRequest();
   const { clients: accountantClients, summary, totalClients, readinessMap, isLoading: readinessLoading } = useClientReadiness();
   const navigate = useNavigate();
-  const rawVatRegime = isAccountant
-    ? (selectedClientTaxProfile?.vat_regime ?? null)
-    : (profile?.vat_regime ?? null);
-  const vatRegime = rawVatRegime;
-  // Infer cadence from vat_regime when iva_cadence is not explicitly set
-  const rawCadence = isAccountant
-    ? (selectedClientTaxProfile?.iva_cadence ?? null)
-    : (profile?.iva_cadence ?? null);
-  const ivaCadence: 'monthly' | 'quarterly' | 'both' = rawCadence
-    ?? (rawVatRegime === 'normal_monthly' ? 'monthly'
-      : rawVatRegime === 'normal_quarterly' ? 'quarterly'
-      : 'quarterly');
+  const { vatRegime, ivaCadence } = resolveDashboardVatContext({
+    isAccountant,
+    ownProfile: {
+      vat_regime: profile?.vat_regime ?? null,
+      iva_cadence: profile?.iva_cadence ?? null,
+    },
+    selectedClientTaxProfile,
+  });
 
   const hasPendingRequest = myRequest?.status === 'pending';
   const showAccountantPromo = !isAccountant && !hasPendingRequest;

@@ -6,6 +6,7 @@ import { useClientManagement } from '@/hooks/useClientManagement';
 import { useSelectedClient } from '@/hooks/useSelectedClient';
 import { useSocialSecurity, REVENUE_CATEGORIES } from '@/hooks/useSocialSecurity';
 import { detectCategoryFromCAE } from '@/lib/csvParser';
+import { shouldShowSSDeadlineAlert } from '@/lib/socialSecurityViewState';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -448,7 +449,7 @@ export default function SocialSecurity() {
         )}
 
         {/* Deadline Alert */}
-        {isDeadlineMonth && !isSubmittedQuarterLocked && (
+        {shouldShowSSDeadlineAlert({ isDeadlineMonth, isSubmittedQuarterLocked }) && (
           <Card className="border-destructive/50 bg-destructive/5">
             <CardContent className="pt-4">
               <div className="flex items-center gap-3">
