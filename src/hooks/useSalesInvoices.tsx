@@ -6,6 +6,7 @@ import type { Tables } from '@/integrations/supabase/types';
 import { getRecentImportCutoff, type RecentImportWindow } from '@/lib/recentImports';
 import { expandQuarterToPeriods } from '@/lib/formatFiscalPeriod';
 import { escapeInvoiceSearchTerm } from '@/lib/invoiceSearch';
+import { fetchAllPages } from '@/lib/supabasePagination';
 
 
 type SalesInvoice = Tables<'sales_invoices'>;
@@ -18,6 +19,20 @@ export interface SalesInvoiceFilters {
   clientId: string; // For accountants to filter by client
   recentWindow?: RecentImportWindow;
 }
+
+interface SalesInvoiceStatsSummary {
+  pendingCount: number;
+  validatedCount: number;
+  totalAmount: number;
+  recentImportsCount: number;
+}
+
+const EMPTY_SALES_STATS: SalesInvoiceStatsSummary = {
+  pendingCount: 0,
+  validatedCount: 0,
+  totalAmount: 0,
+  recentImportsCount: 0,
+};
 
 const PAGE_SIZE = 50;
 
@@ -63,6 +78,7 @@ async function enrichCustomerNames(invoices: SalesInvoice[]): Promise<SalesInvoi
 export function useSalesInvoices(externalClientId?: string | null) {
   const { user } = useAuth();
   const [invoices, setInvoices] = useState<SalesInvoice[]>([]);
+  const [statsSummary, setStatsSummary] = useState<SalesInvoiceStatsSummary>(EMPTY_SALES_STATS);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
@@ -86,6 +102,7 @@ export function useSalesInvoices(externalClientId?: string | null) {
     // If externalClientId is explicitly null, don't fetch
     if (externalClientId === null) {
       setInvoices([]);
+      setStatsSummary(EMPTY_SALES_STATS);
       setTotalCount(0);
       setLoading(false);
       return;
@@ -93,29 +110,44 @@ export function useSalesInvoices(externalClientId?: string | null) {
 
     setLoading(true);
     try {
+      const applyBaseFilters = <T extends {
+        eq(column: string, value: unknown): T;
+        gte(column: string, value: unknown): T;
+        lte(column: string, value: unknown): T;
+        in(column: string, values: unknown[]): T;
+      }>(query: T): T => {
+        if (filters.fiscalPeriod !== 'all') {
+          const periodValues = expandQuarterToPeriods(filters.fiscalPeriod);
+          query = periodValues.length === 1
+            ? query.eq('fiscal_period', periodValues[0])
+            : query.in('fiscal_period', periodValues);
+        }
+
+        if (filters.year && filters.year !== 'all') {
+          query = query
+            .gte('document_date', `${filters.year}-01-01`)
+            .lte('document_date', `${filters.year}-12-31`);
+        }
+
+        if (effectiveClientId && effectiveClientId !== 'all') {
+          query = query.eq('client_id', effectiveClientId);
+        }
+
+        return query;
+      };
+
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
-      let query = supabase
-        .from('sales_invoices')
-        .select('*', { count: 'exact' })
-        .order('document_date', { ascending: false });
+      let query = applyBaseFilters(
+        supabase
+          .from('sales_invoices')
+          .select('*', { count: 'exact' })
+          .order('document_date', { ascending: false }),
+      );
 
       if (filters.status !== 'all') {
         query = query.eq('status', filters.status);
-      }
-
-      if (filters.fiscalPeriod !== 'all') {
-        const periodValues = expandQuarterToPeriods(filters.fiscalPeriod);
-        query = periodValues.length === 1
-          ? query.eq('fiscal_period', periodValues[0])
-          : query.in('fiscal_period', periodValues);
-      }
-
-      if (filters.year && filters.year !== 'all') {
-        query = query
-          .gte('document_date', `${filters.year}-01-01`)
-          .lte('document_date', `${filters.year}-12-31`);
       }
 
       // Server-side search: ilike on customer_name, customer_nif
@@ -132,16 +164,47 @@ export function useSalesInvoices(externalClientId?: string | null) {
       if (recentCutoff) {
         query = query.gte('created_at', recentCutoff);
       }
+      const recentCutoff24h = getRecentImportCutoff('24h');
 
-      if (effectiveClientId && effectiveClientId !== 'all') {
-        query = query.eq('client_id', effectiveClientId);
-      }
+      const [
+        listResult,
+        pendingResult,
+        validatedResult,
+        recentResult,
+        totalAmountRows,
+      ] = await Promise.all([
+        query.range(from, to),
+        applyBaseFilters(
+          supabase
+            .from('sales_invoices')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'pending'),
+        ),
+        applyBaseFilters(
+          supabase
+            .from('sales_invoices')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'validated'),
+        ),
+        applyBaseFilters(
+          supabase
+            .from('sales_invoices')
+            .select('*', { count: 'exact', head: true })
+            .gte('created_at', recentCutoff24h!),
+        ),
+        fetchAllPages<{ total_amount: number | null }>((rangeFrom, rangeTo) =>
+          applyBaseFilters(
+            supabase
+              .from('sales_invoices')
+              .select('total_amount')
+              .order('document_date', { ascending: false }),
+          ).range(rangeFrom, rangeTo),
+        ),
+      ]);
 
-      const { data, error, count } = await query.range(from, to);
+      if (listResult.error) throw listResult.error;
 
-      if (error) throw error;
-
-      const rows = (data ?? []) as SalesInvoice[];
+      const rows = (listResult.data ?? []) as SalesInvoice[];
 
       // Enrich customer_name for records that only have a NIF (AT sync doesn't always populate the name)
       const enriched = await enrichCustomerNames(rows);
@@ -158,7 +221,13 @@ export function useSalesInvoices(externalClientId?: string | null) {
         : enriched;
 
       setInvoices(filtered);
-      setTotalCount(count ?? 0);
+      setTotalCount(listResult.count ?? 0);
+      setStatsSummary({
+        pendingCount: pendingResult.count ?? 0,
+        validatedCount: validatedResult.count ?? 0,
+        totalAmount: totalAmountRows.reduce((sum, row) => sum + Number(row.total_amount || 0), 0),
+        recentImportsCount: recentResult.count ?? 0,
+      });
     } catch (error) {
       console.error('Error fetching sales invoices:', error);
       toast.error('Erro ao carregar facturas de vendas');
@@ -274,6 +343,7 @@ export function useSalesInvoices(externalClientId?: string | null) {
     getSignedUrl,
     getFiscalPeriods,
     refetch: fetchInvoices,
+    statsSummary,
     // Pagination
     page,
     setPage,

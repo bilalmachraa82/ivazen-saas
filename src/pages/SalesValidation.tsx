@@ -15,7 +15,6 @@ import { SalesInvoiceDetailDialog } from '@/components/sales/SalesInvoiceDetailD
 import { ClientSearchSelector } from '@/components/ui/client-search-selector';
 import { CardContent } from '@/components/ui/card';
 import { Clock, CheckCircle, TrendingUp, Users } from 'lucide-react';
-import { matchesRecentImportWindow } from '@/lib/recentImports';
 import { StepNavigator } from '@/components/dashboard/StepNavigator';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -38,6 +37,7 @@ export default function SalesValidation() {
     : (isAccountant ? (selectedClientId || null) : undefined);
   const {
     invoices,
+    statsSummary,
     loading,
     filters,
     setFilters,
@@ -150,14 +150,6 @@ export default function SalesValidation() {
     );
   }
 
-  // Calculate stats
-  const pendingCount = invoices.filter((inv) => inv.status === 'pending').length;
-  const validatedCount = invoices.filter((inv) => inv.status === 'validated').length;
-  const totalAmount = invoices.reduce((sum, inv) => sum + Number(inv.total_amount), 0);
-  const recentImportsCount = invoices.filter((invoice) =>
-    matchesRecentImportWindow(invoice.created_at, '24h'),
-  ).length;
-
   return (
     <DashboardLayout>
       <ZenDecorations />
@@ -173,37 +165,37 @@ export default function SalesValidation() {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
         <ZenStatsCard
           label="Pendentes"
-          value={pendingCount}
+          value={statsSummary.pendingCount}
           icon={Clock}
-          variant={pendingCount > 0 ? 'warning' : 'default'}
+          variant={statsSummary.pendingCount > 0 ? 'warning' : 'default'}
           onClick={() => {
-            setFilters((prev) => ({ ...prev, status: 'pending' }));
-            setSearchParams({ status: 'pending', ...(filters.recentWindow && filters.recentWindow !== 'all' ? { recent: filters.recentWindow } : {}) });
+            setFilters((prev) => ({ ...prev, status: 'pending', recentWindow: 'all' }));
+            setSearchParams({ status: 'pending' });
           }}
         />
         <ZenStatsCard
           label="Validadas"
-          value={validatedCount}
+          value={statsSummary.validatedCount}
           icon={CheckCircle}
           variant="success"
           onClick={() => {
-            setFilters((prev) => ({ ...prev, status: 'validated' }));
-            setSearchParams({ status: 'validated', ...(filters.recentWindow && filters.recentWindow !== 'all' ? { recent: filters.recentWindow } : {}) });
+            setFilters((prev) => ({ ...prev, status: 'validated', recentWindow: 'all' }));
+            setSearchParams({ status: 'validated' });
           }}
         />
         <ZenStatsCard
           label="Total Receitas"
-          value={`€${totalAmount.toFixed(2)}`}
+          value={`€${statsSummary.totalAmount.toFixed(2)}`}
           icon={TrendingUp}
           variant="default"
           onClick={() => {
-            setFilters((prev) => ({ ...prev, status: 'all' }));
-            setSearchParams(filters.recentWindow && filters.recentWindow !== 'all' ? { recent: filters.recentWindow } : {});
+            setFilters((prev) => ({ ...prev, status: 'all', recentWindow: 'all' }));
+            setSearchParams({});
           }}
         />
         <ZenStatsCard
           label="Importadas 24h"
-          value={recentImportsCount}
+          value={statsSummary.recentImportsCount}
           icon={TrendingUp}
           variant="default"
           onClick={() => {

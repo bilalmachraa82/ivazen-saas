@@ -57,6 +57,34 @@ describe('buildMonthlyBreakdown', () => {
       expect(result[month]['vendas']).toBeCloseTo(100);
     }
   });
+
+  it('places monthly manual entries in their exact month without distributing them', () => {
+    const manualEntries = [
+      { category: 'prestacao_servicos', amount: 450, entry_month: '2026-01' },
+      { category: 'prestacao_servicos', amount: 150, entry_month: '2026-03' },
+    ];
+
+    const result = buildMonthlyBreakdown([], manualEntries, '2026-Q1');
+
+    expect(result['2026-01']['prestacao_servicos']).toBeCloseTo(450);
+    expect(result['2026-02']['prestacao_servicos'] ?? 0).toBeCloseTo(0);
+    expect(result['2026-03']['prestacao_servicos']).toBeCloseTo(150);
+  });
+
+  it('prefers monthly manual entries over legacy quarterly fallback for the same category', () => {
+    const manualEntries = [
+      { category: 'prestacao_servicos', amount: 900 },
+      { category: 'prestacao_servicos', amount: 500, entry_month: '2026-01' },
+      { category: 'prestacao_servicos', amount: 250, entry_month: '2026-02' },
+      { category: 'prestacao_servicos', amount: 150, entry_month: '2026-03' },
+    ];
+
+    const result = buildMonthlyBreakdown([], manualEntries, '2026-Q1');
+
+    expect(result['2026-01']['prestacao_servicos']).toBeCloseTo(500);
+    expect(result['2026-02']['prestacao_servicos']).toBeCloseTo(250);
+    expect(result['2026-03']['prestacao_servicos']).toBeCloseTo(150);
+  });
 });
 
 describe('getMonthLabel', () => {

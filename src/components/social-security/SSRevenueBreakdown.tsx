@@ -1,6 +1,10 @@
+import { useState } from 'react';
 import { FileSpreadsheet } from 'lucide-react';
+import { toast } from 'sonner';
+
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -14,19 +18,38 @@ import { SS_REVENUE_CATEGORIES, getSSCoefficient } from '@/lib/ssCoefficients';
 
 interface SSRevenueBreakdownProps {
   monthlyBreakdown: MonthlyBreakdown;
-  quarterLabel: string; // e.g. "Janeiro - Março 2026"
+  autoMonthlyBreakdown?: MonthlyBreakdown;
+  quarterLabel: string;
+  detectedCategory?: string | null;
+  onCellSave?: (category: string, monthKey: string, value: number) => void | Promise<void>;
+  isReadOnly?: boolean;
+}
+
+interface EditingCell {
+  category: string;
+  monthKey: string;
 }
 
 function formatAmount(value: number): string {
   return value.toFixed(2) + '€';
 }
 
-export function SSRevenueBreakdown({ monthlyBreakdown, quarterLabel }: SSRevenueBreakdownProps) {
+export function SSRevenueBreakdown({
+  monthlyBreakdown,
+  autoMonthlyBreakdown = {},
+  quarterLabel,
+  detectedCategory = null,
+  onCellSave,
+  isReadOnly = false,
+}: SSRevenueBreakdownProps) {
   const monthKeys = Object.keys(monthlyBreakdown).sort();
+  const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
+  const [draftValue, setDraftValue] = useState('');
+  const [savingCellKey, setSavingCellKey] = useState<string | null>(null);
 
-  // Determine which categories have any revenue > 0 in any month
   const activeCategories = SS_REVENUE_CATEGORIES.filter(cat =>
-    monthKeys.some(mk => (monthlyBreakdown[mk]?.[cat.value] ?? 0) > 0),
+    cat.value === detectedCategory
+      || monthKeys.some(mk => (monthlyBreakdown[mk]?.[cat.value] ?? 0) > 0),
   );
 
   if (activeCategories.length === 0) {
@@ -39,7 +62,6 @@ export function SSRevenueBreakdown({ monthlyBreakdown, quarterLabel }: SSRevenue
     );
   }
 
-  // Pre-compute row totals and column totals
   const rowTotals: Record<string, number> = {};
   const colTotals: Record<string, number> = {};
   let grandTotal = 0;
@@ -55,6 +77,40 @@ export function SSRevenueBreakdown({ monthlyBreakdown, quarterLabel }: SSRevenue
     grandTotal += rowSum;
   }
 
+  const startEditing = (category: string, monthKey: string, currentValue: number) => {
+    if (!onCellSave || isReadOnly) return;
+    setEditingCell({ category, monthKey });
+    setDraftValue(currentValue.toFixed(2));
+  };
+
+  const cancelEditing = () => {
+    setEditingCell(null);
+    setDraftValue('');
+  };
+
+  const commitEditingCell = async () => {
+    if (!editingCell || !onCellSave || savingCellKey) return;
+
+    const normalized = draftValue.replace(',', '.').trim();
+    const nextValue = Number(normalized);
+    if (!Number.isFinite(nextValue) || nextValue < 0) {
+      toast.error('Introduza um valor mensal válido');
+      return;
+    }
+
+    const cellKey = `${editingCell.category}:${editingCell.monthKey}`;
+    setSavingCellKey(cellKey);
+
+    try {
+      await onCellSave(editingCell.category, editingCell.monthKey, nextValue);
+      cancelEditing();
+    } catch {
+      // The caller surfaces the actual failure reason.
+    } finally {
+      setSavingCellKey(null);
+    }
+  };
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -63,9 +119,14 @@ export function SSRevenueBreakdown({ monthlyBreakdown, quarterLabel }: SSRevenue
           <CardTitle className="text-base">Rendimentos por mês</CardTitle>
           <Badge variant="secondary">{quarterLabel}</Badge>
         </div>
-        <p className="text-xs text-muted-foreground mt-1">
+        <p className="mt-1 text-xs text-muted-foreground">
           Valores sem IVA (base tributável) — calculados das facturas de vendas validadas
         </p>
+        {onCellSave && !isReadOnly && (
+          <p className="text-xs text-muted-foreground">
+            Clique num valor para corrigir o total mensal. Não é permitido baixar abaixo do valor automático das facturas.
+          </p>
+        )}
       </CardHeader>
       <CardContent className="p-0 pb-2">
         <Table>
@@ -88,10 +149,51 @@ export function SSRevenueBreakdown({ monthlyBreakdown, quarterLabel }: SSRevenue
                 <TableRow key={cat.value}>
                   <TableCell className="pl-4 font-medium">{cat.label}</TableCell>
                   {monthKeys.map(mk => {
-                    const v = monthlyBreakdown[mk]?.[cat.value] ?? 0;
+                    const value = monthlyBreakdown[mk]?.[cat.value] ?? 0;
+                    const autoValue = autoMonthlyBreakdown?.[mk]?.[cat.value] ?? 0;
+                    const isEditing =
+                      editingCell?.category === cat.value && editingCell?.monthKey === mk;
+                    const cellKey = `${cat.value}:${mk}`;
+
                     return (
                       <TableCell key={mk} className="text-right tabular-nums">
-                        {formatAmount(v)}
+                        {isEditing ? (
+                          <Input
+                            autoFocus
+                            type="number"
+                            min={autoValue}
+                            step="0.01"
+                            value={draftValue}
+                            disabled={savingCellKey === cellKey}
+                            onChange={event => setDraftValue(event.target.value)}
+                            onBlur={() => void commitEditingCell()}
+                            onKeyDown={event => {
+                              if (event.key === 'Enter') {
+                                event.preventDefault();
+                                void commitEditingCell();
+                              }
+                              if (event.key === 'Escape') {
+                                event.preventDefault();
+                                cancelEditing();
+                              }
+                            }}
+                            className="ml-auto h-8 w-28 text-right tabular-nums"
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            className="w-full rounded px-1 py-1 text-right transition hover:bg-muted/60 disabled:cursor-default disabled:hover:bg-transparent"
+                            disabled={!onCellSave || isReadOnly}
+                            onClick={() => startEditing(cat.value, mk, value)}
+                            title={
+                              onCellSave && !isReadOnly
+                                ? `Editar ${getMonthLabel(mk)} (${formatAmount(value)})`
+                                : undefined
+                            }
+                          >
+                            {formatAmount(value)}
+                          </button>
+                        )}
                       </TableCell>
                     );
                   })}
@@ -105,7 +207,6 @@ export function SSRevenueBreakdown({ monthlyBreakdown, quarterLabel }: SSRevenue
               );
             })}
 
-            {/* Totals row */}
             <TableRow className="border-t-2 font-bold">
               <TableCell className="pl-4">Total</TableCell>
               {monthKeys.map(mk => (

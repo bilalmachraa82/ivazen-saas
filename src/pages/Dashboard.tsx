@@ -52,7 +52,7 @@ export default function Dashboard() {
       if (!selectedClientId) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select('vat_regime')
+        .select('vat_regime, iva_cadence')
         .eq('id', selectedClientId)
         .maybeSingle();
 
@@ -83,7 +83,7 @@ export default function Dashboard() {
   const vatRegime = rawVatRegime;
   // Infer cadence from vat_regime when iva_cadence is not explicitly set
   const rawCadence = isAccountant
-    ? (selectedClient?.iva_cadence ?? null)
+    ? (selectedClientTaxProfile?.iva_cadence ?? null)
     : (profile?.iva_cadence ?? null);
   const ivaCadence: 'monthly' | 'quarterly' | 'both' = rawCadence
     ?? (rawVatRegime === 'normal_monthly' ? 'monthly'

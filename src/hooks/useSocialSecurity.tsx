@@ -11,7 +11,12 @@ import {
   getSalesInvoiceRevenueAmount,
   getSalesInvoiceRevenueCategory,
 } from '@/lib/socialSecurityRevenue';
-import { buildMonthlyBreakdown } from '@/lib/ssMonthlyBreakdown';
+import {
+  buildManualMonthlyBreakdown,
+  buildMonthlyBreakdown,
+  getEffectiveManualCategoryTotals,
+  getQuarterMonthKeys,
+} from '@/lib/ssMonthlyBreakdown';
 export {
   getSalesInvoiceRevenueAmount,
   getSalesInvoiceRevenueCategory,
@@ -23,6 +28,7 @@ interface RevenueEntry {
   period_quarter: string;
   category: string;
   amount: number;
+  entry_month?: string | null;
   source: string;
   notes: string | null;
   created_at: string;
@@ -447,11 +453,13 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
 
   // Calculate totals with proper coefficients (including sales invoices)
   const totals = useMemo(() => {
-    // Calculate totals from manual revenue entries
+    const manualByCategory = getEffectiveManualCategoryTotals(revenueEntries, quarter);
+    const manualMonthlyBreakdown = buildManualMonthlyBreakdown(revenueEntries, quarter);
+    const salesMonthlyBreakdown = buildMonthlyBreakdown(salesInvoices, [], quarter);
+
+    // Calculate totals from manual revenue entries using month-aware overrides when present
     const byCategory = REVENUE_CATEGORIES.reduce((acc, cat) => {
-      acc[cat.value] = revenueEntries
-        .filter(e => e.category === cat.value)
-        .reduce((sum, e) => sum + Number(e.amount), 0);
+      acc[cat.value] = manualByCategory[cat.value] || 0;
       return acc;
     }, {} as Record<string, number>);
 
@@ -468,7 +476,9 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
     const total = Object.values(byCategory).reduce((sum, val) => sum + val, 0);
 
     // Calculate relevant income with correct coefficients per category (Art. 162 Código Contributivo)
-    const manualRelevantIncome = calculateRelevantIncome(revenueEntries);
+    const manualRelevantIncome = Object.entries(manualByCategory).reduce((sum, [category, amount]) => {
+      return sum + (Number(amount) * getSSCoefficient(category));
+    }, 0);
     let salesRelevantIncome = 0;
     salesInvoices.forEach(inv => {
       const amount = getSalesInvoiceRevenueAmount(inv);
@@ -485,6 +495,8 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
       relevantIncome,
       salesInvoicesTotal: salesInvoices.reduce((sum, inv) => sum + getSalesInvoiceRevenueAmount(inv), 0),
       salesInvoicesCount: salesInvoices.length,
+      salesMonthlyBreakdown,
+      manualMonthlyBreakdown,
       monthlyBreakdown,
     };
   }, [revenueEntries, salesInvoices, quarter]);
@@ -623,6 +635,82 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
     onError: (error) => {
       console.error('Delete revenue error:', error);
       toast.error('Erro ao remover receita');
+    },
+  });
+
+  const setMonthlyRevenueMutation = useMutation({
+    mutationFn: async (data: { category: string; monthKey: string; amount: number; notes?: string }) => {
+      if (!effectiveClientId) throw new Error('No client selected');
+      ensureQuarterEditable('edições mensais');
+
+      const monthKeys = getQuarterMonthKeys(quarter);
+      if (!monthKeys.includes(data.monthKey)) {
+        throw new Error(`O mês ${data.monthKey} não pertence ao trimestre ${quarter}.`);
+      }
+
+      const existingMonthlyEntries = revenueEntries.filter(
+        entry => entry.category === data.category && !!entry.entry_month && monthKeys.includes(entry.entry_month),
+      );
+      const manualMonthlyBreakdown = buildManualMonthlyBreakdown(revenueEntries, quarter);
+      const nextAmountsByMonth = Object.fromEntries(
+        monthKeys.map(monthKey => [
+          monthKey,
+          roundToCents(manualMonthlyBreakdown[monthKey]?.[data.category] ?? 0),
+        ]),
+      ) as Record<string, number>;
+
+      nextAmountsByMonth[data.monthKey] = roundToCents(data.amount);
+
+      const existingByMonth = Object.fromEntries(
+        existingMonthlyEntries.map(entry => [entry.entry_month as string, entry]),
+      ) as Record<string, RevenueEntry>;
+
+      const idsToDelete = monthKeys
+        .filter(monthKey => nextAmountsByMonth[monthKey] <= 0)
+        .map(monthKey => existingByMonth[monthKey]?.id)
+        .filter(Boolean);
+
+      if (idsToDelete.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('revenue_entries')
+          .delete()
+          .in('id', idsToDelete);
+
+        if (deleteError) throw deleteError;
+      }
+
+      const rowsToUpsert = monthKeys
+        .filter(monthKey => nextAmountsByMonth[monthKey] > 0)
+        .map(monthKey => {
+          const existing = existingByMonth[monthKey];
+          return {
+            client_id: effectiveClientId,
+            period_quarter: quarter,
+            category: data.category,
+            amount: nextAmountsByMonth[monthKey],
+            entry_month: monthKey,
+            source: existing?.source || 'manual',
+            notes: monthKey === data.monthKey
+              ? (data.notes ?? existing?.notes ?? null)
+              : (existing?.notes ?? null),
+          };
+        });
+
+      if (rowsToUpsert.length > 0) {
+        const { error: upsertError } = await supabase
+          .from('revenue_entries')
+          .upsert(rowsToUpsert, { onConflict: 'client_id,period_quarter,category,entry_month' });
+
+        if (upsertError) throw upsertError;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['revenue-entries', effectiveClientId, quarter] });
+      toast.success('Rendimento mensal actualizado');
+    },
+    onError: (error) => {
+      console.error('Set monthly revenue error:', error);
+      toast.error('Erro ao actualizar rendimento mensal');
     },
   });
 
@@ -834,6 +922,8 @@ export function useSocialSecurity(selectedQuarter?: string, selectedClientId?: s
     isUpdatingRevenue: updateRevenueMutation.isPending,
     deleteRevenue: deleteRevenueMutation.mutate,
     isDeletingRevenue: deleteRevenueMutation.isPending,
+    setMonthlyRevenue: setMonthlyRevenueMutation.mutateAsync,
+    isSettingMonthlyRevenue: setMonthlyRevenueMutation.isPending,
     saveDeclaration: saveDeclarationMutation.mutate,
     isSavingDeclaration: saveDeclarationMutation.isPending,
     bulkImport: bulkImportMutation.mutateAsync,

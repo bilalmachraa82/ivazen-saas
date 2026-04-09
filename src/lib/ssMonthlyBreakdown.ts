@@ -6,9 +6,10 @@ import {
 
 export type MonthlyBreakdown = Record<string, Record<string, number>>;
 
-interface ManualEntryLike {
+export interface ManualEntryLike {
   category: string;
   amount: number;
+  entry_month?: string | null;
 }
 
 const PORTUGUESE_MONTH_NAMES: Record<number, string> = {
@@ -29,7 +30,7 @@ const PORTUGUESE_MONTH_NAMES: Record<number, string> = {
 /**
  * Returns the 3 month keys for a given quarter string (e.g. "2026-Q1" → ["2026-01", "2026-02", "2026-03"]).
  */
-function getQuarterMonthKeys(quarter: string): string[] {
+export function getQuarterMonthKeys(quarter: string): string[] {
   const [yearStr, qStr] = quarter.split('-Q');
   const year = parseInt(yearStr, 10);
   const q = parseInt(qStr, 10);
@@ -62,13 +63,8 @@ export function buildMonthlyBreakdown(
   manualEntries: ManualEntryLike[],
   quarter: string,
 ): MonthlyBreakdown {
+  const breakdown = buildManualMonthlyBreakdown(manualEntries, quarter);
   const monthKeys = getQuarterMonthKeys(quarter);
-
-  // Initialise the result with empty category maps for each month
-  const breakdown: MonthlyBreakdown = {};
-  for (const mk of monthKeys) {
-    breakdown[mk] = {};
-  }
 
   // Group sales invoices into the matching month bucket
   const validMonthSet = new Set(monthKeys);
@@ -84,16 +80,64 @@ export function buildMonthlyBreakdown(
     breakdown[monthKey][category] = (breakdown[monthKey][category] || 0) + amount;
   }
 
-  // Distribute manual entries evenly across the 3 months
+  return breakdown;
+}
+
+export function buildManualMonthlyBreakdown(
+  manualEntries: ManualEntryLike[],
+  quarter: string,
+): MonthlyBreakdown {
+  const monthKeys = getQuarterMonthKeys(quarter);
+  const breakdown: MonthlyBreakdown = {};
+
+  for (const mk of monthKeys) {
+    breakdown[mk] = {};
+  }
+
+  const validMonthSet = new Set(monthKeys);
+  const categoriesWithMonthlyEntries = new Set(
+    manualEntries
+      .filter(entry => entry.entry_month && validMonthSet.has(entry.entry_month))
+      .map(entry => entry.category),
+  );
+
   for (const entry of manualEntries) {
+    const monthKey = entry.entry_month;
+    if (!monthKey || !validMonthSet.has(monthKey)) continue;
+
+    const amount = Number(entry.amount) || 0;
+    if (amount === 0) continue;
+    breakdown[monthKey][entry.category] = (breakdown[monthKey][entry.category] || 0) + amount;
+  }
+
+  for (const entry of manualEntries) {
+    if (entry.entry_month || categoriesWithMonthlyEntries.has(entry.category)) continue;
+
     const share = Number(entry.amount) / 3;
     if (share === 0) continue;
+
     for (const mk of monthKeys) {
       breakdown[mk][entry.category] = (breakdown[mk][entry.category] || 0) + share;
     }
   }
 
   return breakdown;
+}
+
+export function getEffectiveManualCategoryTotals(
+  manualEntries: ManualEntryLike[],
+  quarter: string,
+): Record<string, number> {
+  const breakdown = buildManualMonthlyBreakdown(manualEntries, quarter);
+  const totals: Record<string, number> = {};
+
+  for (const categories of Object.values(breakdown)) {
+    for (const [category, amount] of Object.entries(categories)) {
+      totals[category] = (totals[category] || 0) + amount;
+    }
+  }
+
+  return totals;
 }
 
 /**

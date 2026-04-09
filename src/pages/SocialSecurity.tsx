@@ -81,13 +81,10 @@ export default function SocialSecurity() {
   const effectiveClientId = isAccountant ? selectedClientId : undefined;
   const { profile, isLoading: profileLoading } = useClientFiscalProfile(effectiveClientId);
   const selectedClient = clients.find((client) => client.id === selectedClientId);
-  
+  const [variationPercent, setVariationPercent] = useState(-25);
   const {
     quarter,
     setQuarter,
-    revenueEntries,
-    salesInvoices,
-    declaration,
     declarationsHistory,
     totals,
     availableQuarters,
@@ -95,7 +92,8 @@ export default function SocialSecurity() {
     isSubmittedQuarterLocked,
     addRevenue,
     isAddingRevenue,
-    deleteRevenue,
+    setMonthlyRevenue,
+    isSettingMonthlyRevenue,
     saveDeclaration,
     isSavingDeclaration,
     bulkImport,
@@ -104,8 +102,6 @@ export default function SocialSecurity() {
     getQuarterLabel: getLabel,
     calculatedContribution,
   } = useSocialSecurity(undefined, effectiveClientId, variationPercent);
-
-  const [variationPercent, setVariationPercent] = useState(-25);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
 
   // Auto-detect default category from client's CAE
@@ -119,7 +115,6 @@ export default function SocialSecurity() {
   const [newCategory, setNewCategory] = useState('prestacao_servicos');
   const [newAmount, setNewAmount] = useState('');
   const [newNotes, setNewNotes] = useState('');
-  const [declarationNotes, setDeclarationNotes] = useState('');
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const readOnlyQuarterMessage = `O trimestre ${getLabel(quarter)} já foi marcado como submetido e está em modo só leitura.`;
 
@@ -309,6 +304,32 @@ export default function SocialSecurity() {
     setAddDialogOpen(false);
   };
 
+  const handleMonthlyBreakdownSave = async (category: string, monthKey: string, totalValue: number) => {
+    if (isSubmittedQuarterLocked) {
+      toast.error(readOnlyQuarterMessage);
+      return;
+    }
+
+    if (Number.isNaN(totalValue) || totalValue < 0) {
+      toast.error('Introduza um valor mensal válido');
+      return;
+    }
+
+    const automaticAmount = totals.salesMonthlyBreakdown[monthKey]?.[category] ?? 0;
+    if (totalValue < automaticAmount) {
+      toast.error(
+        `O valor não pode ser inferior aos ${automaticAmount.toFixed(2)}€ calculados automaticamente nas facturas de venda.`,
+      );
+      return;
+    }
+
+    await setMonthlyRevenue({
+      category,
+      monthKey,
+      amount: Number((totalValue - automaticAmount).toFixed(2)),
+    });
+  };
+
   const handleSaveDeclaration = (status: 'draft' | 'submitted') => {
     if (isSubmittedQuarterLocked) {
       toast.error(readOnlyQuarterMessage);
@@ -318,7 +339,6 @@ export default function SocialSecurity() {
     saveDeclaration({
       contributionRate,
       status,
-      notes: declarationNotes || undefined,
     }, {
       onSuccess: () => {
         if (status === 'submitted') {
@@ -330,19 +350,6 @@ export default function SocialSecurity() {
 
   const openSSPortal = () => {
     window.open('https://app.seg-social.pt/', '_blank', 'noopener,noreferrer');
-  };
-
-  const copyToClipboard = () => {
-    const text = `Declaração Trimestral Segurança Social
-Período: ${getLabel(quarter)}
-Total de Rendimentos: ${totals.total.toFixed(2)}€
-Base de Incidência Contributiva: ${contributionBase.toFixed(2)}€
-Variação: ${variationPercent > 0 ? '+' : ''}${variationPercent}%
-Taxa Contributiva: ${contributionRate}%
-Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
-
-    navigator.clipboard.writeText(text);
-    toast.success('Dados copiados para a área de transferência');
   };
 
   return (
@@ -441,7 +448,7 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
         )}
 
         {/* Deadline Alert */}
-        {isDeadlineMonth && !declaration?.status?.includes('submitted') && (
+        {isDeadlineMonth && !isSubmittedQuarterLocked && (
           <Card className="border-destructive/50 bg-destructive/5">
             <CardContent className="pt-4">
               <div className="flex items-center gap-3">
@@ -497,7 +504,11 @@ Contribuição a Pagar: ${contributionAmount.toFixed(2)}€`;
                 {/* Section 2: Monthly Revenue Breakdown */}
                 <SSRevenueBreakdown
                   monthlyBreakdown={totals.monthlyBreakdown}
+                  autoMonthlyBreakdown={totals.salesMonthlyBreakdown}
                   quarterLabel={getLabel(quarter)}
+                  detectedCategory={detectedCategory?.category ?? null}
+                  onCellSave={handleMonthlyBreakdownSave}
+                  isReadOnly={isSubmittedQuarterLocked || isSettingMonthlyRevenue}
                 />
 
                 {/* Manual entry button */}

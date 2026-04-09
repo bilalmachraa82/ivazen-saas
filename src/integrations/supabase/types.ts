@@ -1625,6 +1625,7 @@ export type Database = {
           category: string
           client_id: string
           created_at: string | null
+          entry_month: string | null
           id: string
           notes: string | null
           period_quarter: string
@@ -1637,6 +1638,7 @@ export type Database = {
           category: string
           client_id: string
           created_at?: string | null
+          entry_month?: string | null
           id?: string
           notes?: string | null
           period_quarter: string
@@ -1649,6 +1651,7 @@ export type Database = {
           category?: string
           client_id?: string
           created_at?: string | null
+          entry_month?: string | null
           id?: string
           notes?: string | null
           period_quarter?: string
