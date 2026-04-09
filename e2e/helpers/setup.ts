@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 // ── Config — all required via env vars, no hardcoded credentials ──
 // Support both DEMO_EMAIL/DEMO_PASSWORD and TEST_USER_EMAIL/TEST_USER_PASSWORD
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8080';
+const BOOTSTRAP_URL = process.env.E2E_BOOTSTRAP_URL || BASE_URL;
 const EMAIL = process.env.DEMO_EMAIL || process.env.TEST_USER_EMAIL;
 const PASSWORD = process.env.DEMO_PASSWORD || process.env.TEST_USER_PASSWORD;
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
@@ -47,6 +48,18 @@ export async function authenticateAndSetup(
 
   const storageKey = `sb-${new URL(supabaseUrl).hostname.split('.')[0]}-auth-token`;
   const sessionPayload = JSON.stringify(data.session);
+  const clearClientCaches = async () => {
+    await page.evaluate(async () => {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const r of regs) await r.unregister();
+      }
+      if ('caches' in window) {
+        const names = await caches.keys();
+        for (const n of names) await caches.delete(n);
+      }
+    });
+  };
 
   await context.addInitScript(
     ({ authKey, authValue, cid, cname }) => {
@@ -69,17 +82,16 @@ export async function authenticateAndSetup(
   const page = await context.newPage();
 
   // Clear service worker cache
-  await page.goto(BASE_URL, { waitUntil: 'commit', timeout: 15_000 });
-  await page.evaluate(async () => {
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      for (const r of regs) await r.unregister();
+  await page.goto(BOOTSTRAP_URL, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  try {
+    await clearClientCaches();
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes('Execution context was destroyed')) {
+      throw error;
     }
-    if ('caches' in window) {
-      const names = await caches.keys();
-      for (const n of names) await caches.delete(n);
-    }
-  });
+    await page.waitForLoadState('domcontentloaded', { timeout: 10_000 }).catch(() => undefined);
+    await clearClientCaches();
+  }
 
   return page;
 }
