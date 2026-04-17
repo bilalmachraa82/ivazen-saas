@@ -48,3 +48,21 @@ jobs:
           name: build-${{ github.sha }}
           path: dist/
           retention-days: 7
+
+      # Authenticated smoke E2E. The wrapper (scripts/e2e-smoke-gate.mjs) exits
+      # cleanly with a warning when DEMO_EMAIL/DEMO_PASSWORD are absent, so the
+      # job is non-blocking until the secrets are wired. Once set, every push to
+      # main runs the smoke journey against the configured base URL.
+      - name: Install Playwright browsers
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: npx playwright install --with-deps chromium
+
+      - name: Run smoke E2E (release gate)
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: npm run e2e:smoke
+        env:
+          DEMO_EMAIL: ${{ secrets.DEMO_EMAIL }}
+          DEMO_PASSWORD: ${{ secrets.DEMO_PASSWORD }}
+          VITE_SUPABASE_URL: ${{ secrets.SMOKE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SMOKE_SUPABASE_ANON_KEY }}
+          E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
