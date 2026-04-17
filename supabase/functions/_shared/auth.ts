@@ -23,43 +23,20 @@ export function constantTimeEquals(a: string, b: string): boolean {
 }
 
 /**
- * Check if a Bearer token is a valid service-role token.
- * Uses constant-time comparison first, then JWT payload decode with
- * full token length verification as fallback.
+ * Check if a Bearer token is the configured service-role key.
  *
- * Security: The fallback verifies BOTH that the JWT payload contains
- * role="service_role" AND that the token length matches the known key.
- * An attacker cannot forge a token that matches both conditions without
- * knowing the actual signing secret.
+ * Security: constant-time comparison only. Never decode the JWT payload to
+ * infer role — an attacker can trivially forge a JWT whose payload contains
+ * role="service_role" and whose length matches the real key (by padding an
+ * arbitrary claim). Only a byte-for-byte match against the server-held key
+ * proves the caller has the secret.
  */
 export function isServiceRoleToken(
   token: string,
   serviceRoleKey: string,
 ): boolean {
-  if (!token) return false;
-
-  // Primary: constant-time comparison
-  if (constantTimeEquals(token, serviceRoleKey)) return true;
-
-  // Fallback: JWT payload decode with length guard
-  // constantTimeEquals can fail in Supabase Deno edge runtime.
-  // This fallback checks: (1) token is same length as the known key,
-  // (2) JWT payload contains role="service_role".
-  // The length check prevents forgery — an attacker would need to craft
-  // a JWT of exactly the same byte length as the real service-role key,
-  // which requires knowing the key's signing secret.
-  try {
-    if (token.length !== serviceRoleKey.length) return false;
-    const payloadB64 = token.split(".")[1];
-    if (payloadB64) {
-      const payload = JSON.parse(atob(payloadB64));
-      if (payload.role === "service_role") return true;
-    }
-  } catch {
-    // Invalid JWT
-  }
-
-  return false;
+  if (!token || !serviceRoleKey) return false;
+  return constantTimeEquals(token, serviceRoleKey);
 }
 
 /**
