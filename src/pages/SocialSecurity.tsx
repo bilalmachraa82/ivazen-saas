@@ -618,12 +618,12 @@ export default function SocialSecurity() {
 
           <TabsContent value="import" className="space-y-6">
             {/* Quick Upload Sales Invoice */}
-            <Card className="border-green-500/30 bg-gradient-to-br from-green-500/5 to-transparent">
+            <Card className="border-primary/20 bg-primary/5 dark:border-primary/30 dark:bg-primary/10">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-green-500/10">
-                      <Upload className="h-5 w-5 text-green-600" />
+                    <div className="rounded-lg bg-primary/10 p-2 dark:bg-primary/20">
+                      <Upload className="h-5 w-5 text-primary" />
                     </div>
                     <div>
                       <CardTitle className="text-base">Carregar Factura de Venda</CardTitle>
@@ -632,10 +632,10 @@ export default function SocialSecurity() {
                       </CardDescription>
                     </div>
                   </div>
-                  <Button 
-                    onClick={() => navigate('/upload?type=sales')} 
+                  <Button
+                    onClick={() => navigate('/upload?type=sales')}
                     disabled={isSubmittedQuarterLocked}
-                    className="gap-2 bg-green-600 hover:bg-green-700"
+                    className="gap-2"
                   >
                     <Upload className="h-4 w-4" />
                     Carregar Factura
@@ -644,7 +644,7 @@ export default function SocialSecurity() {
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <CheckCircle2 className="h-4 w-4 text-primary/70" />
                   <span>Facturas validadas são automaticamente incluídas nas receitas do trimestre</span>
                 </div>
               </CardContent>
@@ -714,8 +714,8 @@ export default function SocialSecurity() {
                           <TableCell className="font-medium">
                             {getLabel(decl.period_quarter)}
                           </TableCell>
-                          <TableCell>{Number(decl.total_revenue).toFixed(2)}€</TableCell>
-                          <TableCell>{Number(decl.contribution_amount).toFixed(2)}€</TableCell>
+                          <TableCell className="tabular-nums">{Number(decl.total_revenue).toFixed(2)}€</TableCell>
+                          <TableCell className="tabular-nums">{Number(decl.contribution_amount).toFixed(2)}€</TableCell>
                           <TableCell>
                             <Badge variant={decl.status === 'submitted' ? 'default' : 'secondary'}>
                               {decl.status === 'submitted' ? 'Submetida' : 'Rascunho'}

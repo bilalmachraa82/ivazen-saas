@@ -87,13 +87,13 @@ export function SSCalculationSummary({
 }: SSCalculationSummaryProps) {
   if (isExempt) {
     return (
-      <Card className="border-green-200 bg-green-50">
+      <Card className="border-emerald-200 bg-emerald-50/60 dark:border-emerald-800/50 dark:bg-emerald-950/30">
         <CardContent className="flex items-center gap-3 py-4">
-          <CheckCircle className="h-5 w-5 shrink-0 text-green-600" />
+          <CheckCircle className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
           <div>
-            <p className="font-medium text-green-800">Contribuição isenta</p>
+            <p className="font-medium text-emerald-900 dark:text-emerald-100">Contribuição isenta</p>
             {exemptReason && (
-              <p className="text-sm text-green-700">{exemptReason}</p>
+              <p className="text-sm text-emerald-700 dark:text-emerald-300">{exemptReason}</p>
             )}
           </div>
         </CardContent>
@@ -126,13 +126,13 @@ export function SSCalculationSummary({
     <Card>
       <CardContent className="p-4">
         {/* Calculation grid */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:grid-rows-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {/* Rendimento relevante */}
           <div className="flex flex-col gap-1">
             <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Rendimento relevante
             </span>
-            <span className="text-sm font-semibold">
+            <span className="tabular-nums text-sm font-semibold text-foreground">
               {totals.relevantIncome.toFixed(2)} €
             </span>
           </div>
@@ -142,7 +142,7 @@ export function SSCalculationSummary({
             <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Base incidência
             </span>
-            <span className="text-sm font-semibold">
+            <span className="tabular-nums text-sm font-semibold text-foreground">
               {contributionBase.toFixed(2)} €
             </span>
           </div>
@@ -167,21 +167,21 @@ export function SSCalculationSummary({
               </SelectContent>
             </Select>
           </div>
+        </div>
 
-          {/* Contribuição mensal */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Contribuição / mês
+        {/* Contribuição mensal — headline KPI, full width */}
+        <div className="mt-4 flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 dark:border-primary/30 dark:bg-primary/10">
+          <span className="text-sm font-medium text-muted-foreground">
+            Contribuição / mês
+          </span>
+          <div className="flex items-baseline gap-1.5">
+            <Euro className="mb-0.5 h-5 w-5 shrink-0 text-primary" />
+            <span className="tabular-nums text-2xl font-bold text-primary">
+              {contributionAmount.toFixed(2)}
             </span>
-            <div className="flex items-baseline gap-1">
-              <Euro className="mb-0.5 h-4 w-4 shrink-0 text-primary" />
-              <span className="text-xl font-bold text-primary">
-                {contributionAmount.toFixed(2)}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {contributionRate}%
-              </span>
-            </div>
+            <span className="text-xs text-muted-foreground">
+              ({contributionRate}%)
+            </span>
           </div>
         </div>
 
@@ -199,12 +199,12 @@ export function SSCalculationSummary({
 
           <div className="ml-auto">
             {isSubmittedLocked ? (
-              <Button size="sm" disabled>
+              <Button size="sm" variant="secondary" disabled>
                 <CheckCircle className="mr-1.5 h-4 w-4" />
                 Submetido
               </Button>
             ) : (
-              <Button size="sm" onClick={onMarkSubmitted} disabled={isSaving}>
+              <Button size="sm" variant="default" onClick={onMarkSubmitted} disabled={isSaving}>
                 <CheckCircle className="mr-1.5 h-4 w-4" />
                 Marcar submetido
               </Button>

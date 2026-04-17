@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileSpreadsheet } from 'lucide-react';
+import { FileSpreadsheet, BarChart2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -53,8 +53,12 @@ export function SSRevenueBreakdown({
   if (activeCategories.length === 0) {
     return (
       <Card>
-        <CardContent className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-          Sem rendimentos registados para {quarterLabel}
+        <CardContent className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+          <BarChart2 className="h-8 w-8 text-muted-foreground/40" />
+          <p className="text-sm font-medium text-muted-foreground">Sem rendimentos registados</p>
+          <p className="text-xs text-muted-foreground/70">
+            Adicione rendimentos manualmente ou importe recibos verdes para {quarterLabel}.
+          </p>
         </CardContent>
       </Card>
     );
@@ -205,7 +209,7 @@ export function SSRevenueBreakdown({
               );
             })}
 
-            <TableRow className="border-t-2 font-bold">
+            <TableRow className="border-t-2 bg-muted/40 font-bold dark:bg-muted/20">
               <TableCell className="pl-4">Total</TableCell>
               {monthKeys.map(mk => (
                 <TableCell key={mk} className="text-right tabular-nums">
