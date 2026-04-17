@@ -182,7 +182,7 @@ const { data, error } = await supabase.functions.invoke('function-name', {
 ```
 
 ### Edge Function Auth
-All service-role auth uses `_shared/auth.ts` (shared module). Pattern: `isServiceRoleToken()` (constant-time + JWT decode fallback) + `verifyWebhookToken()` for cron. Raw `===` comparison FAILS in Supabase edge runtime.
+All service-role auth uses `_shared/auth.ts` (shared module). Pattern: `isServiceRoleToken()` — **constant-time byte-for-byte compare only** (no JWT payload decode: a forged JWT with `role:"service_role"` padded to matching length would slip through) + `verifyWebhookToken()` for cron. Raw `===` comparison FAILS in Supabase edge runtime; always use `constantTimeEquals`.
 
 ### Design Tokens
 Centralized in `src/lib/design-tokens.ts`. Primary palette: Rose Pink (hsl 335). Fonts: Inter (body), Poppins (display).
