@@ -23,6 +23,7 @@ import {
 } from "../_shared/connectorFallback.ts";
 import { resolveActiveAccountantConfig } from "../_shared/resolveAccountantConfig.ts";
 import { validateSyncEfaturaRequest } from "../_shared/syncEfaturaRequest.ts";
+import { getPreviousQuarterStart } from "./dateRange.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://ivazen-saas.vercel.app",
@@ -1062,16 +1063,15 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Default date range: current quarter up to today (never future dates)
+    // Default date range: previous quarter start up to today. Re-fetches the
+    // tail of the previous quarter every run so documents emitted near the
+    // boundary never fall out of scope. Dedup in the insertion helpers
+    // makes the overlap idempotent.
     const now = new Date();
-    const currentQuarter = Math.ceil((now.getMonth() + 1) / 3);
-    const quarterStart = new Date(
-      now.getFullYear(),
-      (currentQuarter - 1) * 3,
-      1,
-    );
     const todayIso = getTodayISODate();
-    const defaultStartDate = quarterStart.toISOString().slice(0, 10);
+    const defaultStartDate = getPreviousQuarterStart(now)
+      .toISOString()
+      .slice(0, 10);
 
     const requestedStartDate = startDate || defaultStartDate;
     const requestedEndDate = endDate || todayIso;
