@@ -24,6 +24,7 @@ import {
 import { resolveActiveAccountantConfig } from "../_shared/resolveAccountantConfig.ts";
 import { validateSyncEfaturaRequest } from "../_shared/syncEfaturaRequest.ts";
 import { getPreviousQuarterStart } from "./dateRange.ts";
+import { decideSyncStatus } from "./syncStatus.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://ivazen-saas.vercel.app",
@@ -82,6 +83,7 @@ type SyncReasonCode =
   | "AT_AUTH_FAILED"
   | "AT_TIME_WINDOW"
   | "AT_SCHEMA_RESPONSE_ERROR"
+  | "AT_ZERO_RESULTS_SUSPICIOUS"
   | "INVALID_CLIENT_NIF"
   | "YEAR_IN_FUTURE"
   | "UNKNOWN_AT_ERROR";
@@ -159,6 +161,46 @@ function parseFiscalYear(startDate: string): number | null {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Returns true when the client has at least one row in `sales_invoices`
+ * with document_date within the past 180 days. Used by decideSyncStatus
+ * to tell a legitimate first-timer ("no data, nothing to fetch") apart
+ * from a suspicious silent miss ("has data, AT returned zero").
+ */
+async function clientHasPriorSales(
+  supabase: any,
+  clientId: string,
+): Promise<boolean> {
+  const cutoff = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const { count } = await supabase
+    .from("sales_invoices")
+    .select("*", { count: "exact", head: true })
+    .eq("client_id", clientId)
+    .gte("document_date", cutoff);
+  return (count ?? 0) > 0;
+}
+
+/**
+ * Returns true when the client has at least one row in `invoices`
+ * (purchases) with document_date within the past 180 days.
+ */
+async function clientHasPriorPurchases(
+  supabase: any,
+  clientId: string,
+): Promise<boolean> {
+  const cutoff = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const { count } = await supabase
+    .from("invoices")
+    .select("*", { count: "exact", head: true })
+    .eq("client_id", clientId)
+    .gte("document_date", cutoff);
+  return (count ?? 0) > 0;
 }
 
 function isRetryableConnectorError(error: unknown): boolean {
@@ -1617,12 +1659,19 @@ Deno.serve(async (req: Request) => {
       let skipped = 0;
       let errors = 0;
 
+      // Raw counts of invoices returned by AT SOAP before dedup, per direction.
+      // Used by decideSyncStatus to flag a suspicious empty response when the
+      // client is known to have historical activity.
+      let comprasReturnedCount = 0;
+      let vendasReturnedCount = 0;
+
       const reasonCodes: SyncReasonCode[] = [];
       const errorMessages: string[] = [];
       const directionMetadata: Record<string, unknown> = {};
 
       if (wantCompras) {
         const q = connectorResp.compras;
+        comprasReturnedCount = q?.invoices?.length ?? 0;
         const emptyList = !q?.success && isAtEmptyListMessage(q?.errorMessage);
 
         if (q?.success || emptyList) {
@@ -1733,6 +1782,7 @@ Deno.serve(async (req: Request) => {
 
       if (wantVendas) {
         const q = connectorResp.vendas;
+        vendasReturnedCount = q?.invoices?.length ?? 0;
         const emptyList = !q?.success && isAtEmptyListMessage(q?.errorMessage);
         const vendasError = q?.errorMessage || connectorResp.error ||
           "Consulta vendas falhou";
@@ -1778,6 +1828,7 @@ Deno.serve(async (req: Request) => {
           inserted += fallbackInserted;
           skipped += fallbackSkipped;
           errors += fallbackErrors;
+          vendasReturnedCount += fallbackInserted + fallbackSkipped;
           hasSuccesses = true;
           if (emptyList) reasonCodes.push("AT_EMPTY_LIST");
           directionMetadata.vendas = {
@@ -1838,6 +1889,7 @@ Deno.serve(async (req: Request) => {
               inserted += fallbackInserted;
               skipped += fallbackSkipped;
               errors += fallbackErrors;
+              vendasReturnedCount += monthRetry.invoices?.length ?? 0;
               hasSuccesses = true;
               recoveredViaMonthRetry = true;
 
@@ -1874,6 +1926,7 @@ Deno.serve(async (req: Request) => {
               inserted += fallbackInserted;
               skipped += fallbackSkipped;
               errors += fallbackErrors;
+              vendasReturnedCount += fallbackInserted + fallbackSkipped;
               hasSuccesses = true;
               directionMetadata.vendas = {
                 success: true,
@@ -1917,6 +1970,23 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      // Silent-success kill: check whether an empty SOAP response for either
+      // direction is suspicious, i.e. the client has prior activity but AT
+      // returned zero records. Direction-specific so a compras-only or
+      // vendas-only client is not falsely flagged on the unused direction.
+      const [hasPriorCompras, hasPriorVendas] = await Promise.all([
+        wantCompras ? clientHasPriorPurchases(supabase, clientId) : Promise.resolve(false),
+        wantVendas ? clientHasPriorSales(supabase, clientId) : Promise.resolve(false),
+      ]);
+      const comprasDecision = wantCompras
+        ? decideSyncStatus({ atReturnedCount: comprasReturnedCount, hasPriorData: hasPriorCompras })
+        : { status: "success" as const, reasonCode: null };
+      const vendasDecision = wantVendas
+        ? decideSyncStatus({ atReturnedCount: vendasReturnedCount, hasPriorData: hasPriorVendas })
+        : { status: "success" as const, reasonCode: null };
+      const hasSuspiciousEmpty =
+        comprasDecision.status === "partial" || vendasDecision.status === "partial";
+
       let overallStatus: "success" | "partial" | "error" = "success";
       let overallError: string | null = null;
       let reasonCode: SyncReasonCode | null = null;
@@ -1930,6 +2000,12 @@ Deno.serve(async (req: Request) => {
         overallStatus = "partial";
         overallError = [...new Set(errorMessages)].join("; ") || null;
         reasonCode = pickReasonCode(reasonCodes, overallError);
+      } else if (hasSuspiciousEmpty) {
+        // No SOAP errors, but AT returned zero for a direction that normally
+        // has activity — surface as partial so the dashboard flags the client.
+        overallStatus = "partial";
+        reasonCode = (comprasDecision.reasonCode ||
+          vendasDecision.reasonCode) as SyncReasonCode | null;
       } else if (reasonCodes.length > 0) {
         reasonCode = pickReasonCode(reasonCodes, null);
       }
@@ -1941,6 +2017,7 @@ Deno.serve(async (req: Request) => {
           records_imported: inserted,
           records_skipped: skipped,
           records_errors: errors,
+          invoices_returned_by_at: comprasReturnedCount + vendasReturnedCount,
           reason_code: reasonCode,
           error_message: overallError,
           completed_at: new Date().toISOString(),
