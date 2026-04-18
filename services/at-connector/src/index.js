@@ -704,6 +704,26 @@ const server = http.createServer(async (req, res) => {
         const pwResult = await scrapeRecibosVerdesPlaywright(scraperParams);
         pwResult.httpScraperError = result.error;
         result = pwResult;
+      } else if ((result.records?.length ?? 0) === 0) {
+        // HTTP scraper authenticated but produced zero records. Try Playwright
+        // as a diversity fallback — it executes the portal's client-side JS,
+        // which sometimes succeeds where the raw JSON endpoint returns empty.
+        console.log('[at-connector] HTTP scraper returned 0 records; trying Playwright as diversity fallback...');
+        try {
+          const pwResult = await scrapeRecibosVerdesPlaywright(scraperParams);
+          if (pwResult.success && (pwResult.records?.length ?? 0) > 0) {
+            pwResult.httpScraperEmptyFirst = true;
+            pwResult.httpScraperAttempts = result.attempts ?? null;
+            result = pwResult;
+          } else {
+            // Keep the HTTP result but annotate so callers can see Playwright was tried.
+            result.playwrightAlsoEmpty = true;
+            result.playwrightAttempts = pwResult?.attempts ?? null;
+          }
+        } catch (pwErr) {
+          console.log('[at-connector] Playwright fallback threw:', pwErr?.message ?? pwErr);
+          result.playwrightError = pwErr?.message ?? String(pwErr);
+        }
       }
 
       result.timingMs = Date.now() - startedAt;
