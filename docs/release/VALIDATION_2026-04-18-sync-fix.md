@@ -85,8 +85,25 @@ Security is preserved — byte-for-byte compare against each allowed key; JWT pa
 - Bilal's own run lands `partial + AT_ZERO_RESULTS_SUSPICIOUS` — the pipeline correctly surfaces his credential limitation instead of hiding it.
 - Multi-key auth fix deployed — legacy JWT invokers (CLI, GitHub Action) work again without regressing the byte-compare security.
 
+## Code review (post-ship)
+
+Full-diff review of `76a1f5e..HEAD` by a dedicated code-reviewer subagent.
+
+**Verdict: APPROVE_WITH_OBSERVATIONS** — zero CRITICAL or IMPORTANT issues.
+
+Six observations, all defence-in-depth or cosmetic:
+1. `constantTimeEquals` iterates `max(a.length, b.length)` — attacker-controlled input can lengthen the loop. Length-mismatch XOR at line 16 still guarantees rejection, but a cap on `token.length` would be extra depth.
+2. `isConfiguredServiceRoleToken` re-reads env per invocation — memoisation possible, not material.
+3. **Pre-existing hardcoded service-role JWT in 7 files under `scripts/migration/*.mjs`** — this JWT is on `main`. Not introduced in this session, but worth rotating in a follow-up.
+4. `clientHasPriorSales/Purchases` use `select('*', {head: true})` — `id` would be clearer intent. Nit.
+5. No integration test asserts the happy-path (non-suspicious) `status=success` is preserved. 30 live prod rows already validate it.
+6. Recibos-fallback path counts post-dedup (`fallbackInserted + fallbackSkipped`) rather than raw pre-dedup. Column comment says "raw"; slight semantic drift, does not affect the zero-vs-nonzero decision.
+
+All six tracked as follow-ups, none block Phase 1.
+
 **Outstanding (operational, not Phase 1 code):**
 1. Bilal's credential needs a SIRE subuser to restore `fatshareFaturas` vendas flow. Operational fix by the accountant / user.
 2. Morning-after sweep on the 06:00 Lisbon cron (automated via `.github/workflows/nightly-sync-health.yml`).
-3. 17 other edge functions still use `isServiceRoleToken` with a single key. They work today (internal calls share the same env var) but could be migrated to `isConfiguredServiceRoleToken` for consistency — nice-to-have, not blocker.
+3. 17 other edge functions still use `isServiceRoleToken` with a single key. They work today (internal calls share the same env var) but could be migrated to `isConfiguredServiceRoleToken` for consistency.
 4. Phase 1.5 (SalesHealth dashboard) can proceed — spec at `docs/superpowers/specs/2026-04-18-sales-health-dashboard-design.md`.
+5. Rotate and de-hardcode the service-role JWT in `scripts/migration/*.mjs` (code-reviewer observation #3).
