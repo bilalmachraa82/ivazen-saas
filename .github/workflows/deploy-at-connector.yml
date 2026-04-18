@@ -1,0 +1,127 @@
+name: Deploy at-connector to VPS
+
+# Rebuilds and redeploys the at-connector Docker container on the VPS
+# whenever the service code changes on `main`, or via manual dispatch.
+#
+# Required repository secrets:
+#   VPS_SSH_HOST      — IP or hostname of the at-connector VPS (e.g. 137.74.112.68)
+#   VPS_SSH_USER      — SSH user (e.g. ubuntu)
+#   VPS_SSH_KEY       — private SSH key authorised on the VPS (ed25519 preferred)
+#   VPS_APP_DIR       — absolute path to the at-connector checkout on the VPS
+#                       (defaults to /home/ubuntu/at-connector if not set)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/at-connector/**'
+      - '.github/workflows/deploy-at-connector.yml'
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force no-cache Docker rebuild'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-at-connector
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VPS_APP_DIR: ${{ secrets.VPS_APP_DIR || '/home/ubuntu/at-connector' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        run: |
+          missing=()
+          [ -n "${{ secrets.VPS_SSH_HOST }}" ] || missing+=(VPS_SSH_HOST)
+          [ -n "${{ secrets.VPS_SSH_USER }}" ] || missing+=(VPS_SSH_USER)
+          [ -n "${{ secrets.VPS_SSH_KEY }}" ]  || missing+=(VPS_SSH_KEY)
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -H "${{ secrets.VPS_SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Rsync service code to VPS
+        run: |
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new" \
+            services/at-connector/ \
+            "${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_SSH_HOST }}:${VPS_APP_DIR}/"
+
+      - name: Rebuild and restart container
+        run: |
+          FORCE="${{ github.event.inputs.force_rebuild }}"
+          ssh -i ~/.ssh/id_deploy \
+              -o StrictHostKeyChecking=accept-new \
+              "${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_SSH_HOST }}" \
+              "bash -s" <<EOF
+          set -euo pipefail
+          cd "${VPS_APP_DIR}"
+
+          # Prefer docker compose if compose file exists, else Dockerfile.playwright, else Dockerfile.
+          if [ -f docker-compose.yml ] || [ -f docker-compose.yaml ]; then
+            FLAG=""
+            [ "${FORCE}" = "true" ] && FLAG="--no-cache"
+            docker compose build \$FLAG at-connector 2>/dev/null || docker compose build \$FLAG
+            docker compose up -d
+          else
+            CONTAINER=\$(docker ps -a --format '{{.Names}}' | grep -i at-connector | head -1 || true)
+            [ -z "\$CONTAINER" ] && CONTAINER="at-connector"
+            IMAGE="at-connector:latest"
+            DOCKERFILE="Dockerfile.playwright"
+            [ -f Dockerfile.playwright ] || DOCKERFILE="Dockerfile"
+            FLAG=""
+            [ "${FORCE}" = "true" ] && FLAG="--no-cache"
+            docker build \$FLAG -f \$DOCKERFILE -t \$IMAGE .
+            docker stop \$CONTAINER 2>/dev/null || true
+            docker rm \$CONTAINER 2>/dev/null || true
+            # Preserve env via file if present, else require the caller to manage env externally.
+            ENV_FLAG=""
+            [ -f .env ] && ENV_FLAG="--env-file .env"
+            docker run -d --name \$CONTAINER --restart unless-stopped \$ENV_FLAG -p 8788:8788 \$IMAGE
+          fi
+
+          echo "Running containers:"
+          docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+          EOF
+
+      - name: Health check
+        run: |
+          # Give the container a moment to bind the port.
+          sleep 5
+          curl -sS --max-time 10 \
+            "http://${{ secrets.VPS_SSH_HOST }}:8788/health" \
+            -o /tmp/health.out -w "HTTP %{http_code}\n" || true
+          cat /tmp/health.out || true
+          # Expecting a 401/unauthorized (no bearer) or a JSON ack.
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## at-connector deploy"
+            echo ""
+            echo "- Host: \`${{ secrets.VPS_SSH_HOST }}\`"
+            echo "- App dir: \`${VPS_APP_DIR}\`"
+            echo "- Commit: ${{ github.sha }}"
+            echo "- Force rebuild: \`${{ github.event.inputs.force_rebuild || 'false' }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
