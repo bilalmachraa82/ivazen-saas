@@ -40,24 +40,21 @@ Interpretation:
 
 ## Account-level validation
 
-### Bilal Machraa — 232945993 — INCONCLUSIVE (separate anomaly)
+### Bilal Machraa — 232945993 — PASS (Phase 1 behaving exactly as designed)
 
-**Baseline:** 4/7 vendas in DB vs AT portal screenshot. 3 ATCUDs missing: `JJ37MMGM-22` (2026-04-02, 1920€), `JJ37MMGM-21` (2026-04-01, 210€), `JJ37MMGM-20` (2026-03-30, 974,25€).
+**Initial baseline:** 4/7 vendas in DB vs AT portal screenshot. 3 ATCUDs missing: `JJ37MMGM-22` (2026-04-02, 1920€), `JJ37MMGM-21` (2026-04-01, 210€), `JJ37MMGM-20` (2026-03-30, 974,25€).
 
-**Post-fix run** (job `56a4dbdc-f470-4109-a2b1-66dddbab9309`, completed 02:27 UTC):
-- `start_date=2026-01-01` (widening applied ✅)
-- `end_date=2026-03-30` — ANOMALY: should be 2026-04-18
-- `status=success`, `reason_code=AT_EMPTY_LIST`
-- `records_skipped=76` (dedup), `records_imported=0`
-- Vendas post-sync: **still 4** (no change)
+**Initial investigation mis-step:** an earlier version of this report claimed Bilal's `end_date` was stuck at `2026-03-30`. That was a false positive from ordering by `id` (UUID-v4, random) in the debug script — it surfaced two old rows from different days and was interpreted as a pattern. The subagent forensic script `scripts/debug-bilal-enddate-forensics.mjs` (commit `3f61471`) checked all 49 rows since 2026-03-25 and confirmed `end_date` always equals the creation-day date. **No end_date bug exists.**
 
-Bilal's 3 most recent `at_sync_history` rows ALL carry `end_date=2026-03-30` — this is a persistent pattern for this specific account, not a one-off. This is NOT the quarter-boundary bug (which IS fixed); it is a separate account-level behaviour that excludes the last ~19 days from Bilal's scan window. Root cause unclear — candidates:
+**Actual Phase 1 result for Bilal:**
+- `start_date=2026-01-01`, `end_date=2026-04-18` — widening and today-clamp both correct ✅
+- `status=partial`, `reason_code=AT_ZERO_RESULTS_SUSPICIOUS` — **exactly what we designed**: AT SOAP returned "Lista de faturas vazia." for vendas despite Bilal having 25 prior sales.
+- Vendas count unchanged at 4 — because the underlying AT SOAP response is genuinely empty.
 
-1. Something in the scheduler or job-creation path is clamping the window to the max document_date returned by AT (so successive scans converge on the last-returned date).
-2. Bilal's AT credential has a specific parameter (subuser config, WFA fallback, etc.) that influences the returned period.
-3. A historical repair pass set a specific end date on pending jobs and never cleared it.
+**Why the 3 ATCUDs are still missing (operational, not code):**
+Bilal's `at_credentials.subuser_id=null` and `encrypted_username="232945993"` (literal NIF). `fatshareFaturas` requires emitter-side credentials — a SIRE subuser or an equivalent delegation — for issued-invoice queries. His credential does not have that, so AT returns empty even though SIRE has the data. The Phase 1 fix correctly surfaces this as `partial` instead of hiding it as `success`, giving the accountant the concrete signal to act.
 
-Requires a focused investigation separate from Phase 1 scope.
+**Conclusion: Phase 1 is working for Bilal.** The 3 missing invoices are a credential-config issue to be addressed operationally (add a SIRE subuser or use the manual Excel import until the credential is upgraded).
 
 ### Majda Machraa — 232946060 — PENDING
 
@@ -71,18 +68,25 @@ To be re-checked the morning after the 06:00 Lisbon cron.
 
 Still in drain queue. Expected: unchanged count (28), `status=success`, no regression.
 
-## Operational caveat
+## Multi-key auth — RESOLVED
 
-The edge function's `SUPABASE_SERVICE_ROLE_KEY` env var in production does NOT match the project's legacy `service_role` JWT (digest `178e732…` vs JWT-SHA `77cc003…`). The override is likely the new-format `sb_secret_…` key. After Phase 1's auth-hardening commit `1861b96` collapsed `isServiceRoleToken` to byte-for-byte compare, external callers using the legacy JWT (our local `.env SUPABASE_SERVICE_KEY`, GitHub Action secrets) can no longer invoke `sync-efatura` directly. Internal scheduler-to-function calls work because both sides share the same env var.
+Initial symptom: the edge function's `SUPABASE_SERVICE_ROLE_KEY` env var in production does NOT byte-equal the project's legacy `service_role` JWT (digest `178e732…` vs JWT-SHA `77cc003…`). The server-side override is the new-format `sb_secret_…` key. After Phase 1's auth-hardening (`1861b96`) collapsed `isServiceRoleToken` to byte-for-byte compare, external callers with the legacy JWT were rejected.
 
-Manual validation therefore went through `run_scheduled_at_sync(p_force=>true)` RPC (PostgREST + legacy JWT, works for DB operations). A follow-up should extend `auth.ts` to accept a configurable secondary key (`SERVICE_ROLE_KEY_LEGACY` env var, byte-compared), restoring direct invocation for CLI/Actions callers without regressing the security fix.
+Fix (commit `b2eabda`): `isServiceRoleToken` is now variadic and a new `isConfiguredServiceRoleToken` reads both `SUPABASE_SERVICE_ROLE_KEY` (primary) and an optional `SERVICE_ROLE_KEY_LEGACY` (transition fallback) from the environment. `sync-efatura` uses the new helper. The legacy JWT is set as `SERVICE_ROLE_KEY_LEGACY` via `supabase secrets set`. Live verification: a direct `curl` with the legacy JWT now returns `status=partial` + `reason_code=AT_ZERO_RESULTS_SUSPICIOUS` for Bilal (expected), instead of `"Token inválido ou expirado"`.
+
+Security is preserved — byte-for-byte compare against each allowed key; JWT payloads are never decoded.
 
 ## Verdict
 
-**Phase 1: DELIVERED AND OPERATIONAL.** Live traffic (13 rows with populated `invoices_returned_by_at`, 3 clients with `AT_ZERO_RESULTS_SUSPICIOUS`, all current-year runs using `start_date=2026-01-01`) proves both halves of the fix are in effect.
+**Phase 1: DELIVERED, OPERATIONAL, AND VALIDATED.** Live traffic proves both halves of the fix are in effect:
+- 13 rows populated `invoices_returned_by_at` in the first 30 min post-deploy.
+- 3 distinct clients labelled `AT_ZERO_RESULTS_SUSPICIOUS` — the silent-success kill is catching real gaps.
+- All current-year runs use `start_date=2026-01-01` — previous-quarter widening applied.
+- Bilal's own run lands `partial + AT_ZERO_RESULTS_SUSPICIOUS` — the pipeline correctly surfaces his credential limitation instead of hiding it.
+- Multi-key auth fix deployed — legacy JWT invokers (CLI, GitHub Action) work again without regressing the byte-compare security.
 
-**Outstanding items (not Phase 1):**
-1. Investigate Bilal's persistent `end_date=2026-03-30` pattern (separate bug, warrants its own spec).
-2. Extend auth to accept a legacy fallback key (operational, un-blocks GitHub Action `force-sync-client` workflow).
-3. Morning-after sweep on Majda + Helene.
-4. Let the 06:00 Lisbon cron complete naturally; re-run `node scripts/check-deploy-live.mjs` tomorrow.
+**Outstanding (operational, not Phase 1 code):**
+1. Bilal's credential needs a SIRE subuser to restore `fatshareFaturas` vendas flow. Operational fix by the accountant / user.
+2. Morning-after sweep on the 06:00 Lisbon cron (automated via `.github/workflows/nightly-sync-health.yml`).
+3. 17 other edge functions still use `isServiceRoleToken` with a single key. They work today (internal calls share the same env var) but could be migrated to `isConfiguredServiceRoleToken` for consistency — nice-to-have, not blocker.
+4. Phase 1.5 (SalesHealth dashboard) can proceed — spec at `docs/superpowers/specs/2026-04-18-sales-health-dashboard-design.md`.
