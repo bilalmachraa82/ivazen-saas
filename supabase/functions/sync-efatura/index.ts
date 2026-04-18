@@ -115,6 +115,15 @@ type RecibosFallbackResponse = {
   skipped?: number;
   errors?: number;
   totalRecords?: number;
+  connectorDebug?: {
+    method?: string | null;
+    authenticated?: boolean | null;
+    rawLength?: number | null;
+    httpStatus?: number | null;
+    jsonShape?: string | null;
+    endpointHit?: string | null;
+    notes?: string | null;
+  } | null;
 };
 
 const CONNECTOR_REQUEST_TIMEOUT_MS = Math.max(
@@ -1853,6 +1862,7 @@ Deno.serve(async (req: Request) => {
                 skipped: fallbackSkipped,
                 errors: fallbackErrors,
                 message: recibosFallback.message || recibosFallback.error || null,
+                connectorDebug: recibosFallback.connectorDebug ?? null,
               }
               : null,
           };

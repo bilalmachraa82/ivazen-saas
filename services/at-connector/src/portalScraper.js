@@ -21,6 +21,26 @@ import { Buffer } from 'node:buffer';
 
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
+/**
+ * Normalize one AT JSON line into the connector's canonical record shape.
+ * Field names vary across portal versions (numDocumento/numero, etc.) so
+ * we accept either.
+ */
+function mapJsonLine(line) {
+  return {
+    documentNumber: line.numDocumento || line.numero || '',
+    documentType: line.tipoDocumento || 'FR',
+    documentDate: line.dataEmissao || line.data || '',
+    customerNif: line.nifAdquirente || line.nif || '',
+    customerName: line.nomeAdquirente || line.nome || '',
+    grossTotal: parseFloat(line.valorTotal || line.valor || '0'),
+    taxPayable: parseFloat(line.valorIVA || line.iva || '0'),
+    netTotal: parseFloat(line.valorBase || line.base || '0'),
+    status: line.situacao || line.estado || 'N',
+    atcud: line.atcud || '',
+  };
+}
+
 class CookieJar {
   constructor() {
     this.cookies = {};
@@ -211,30 +231,41 @@ export class PortalScraper {
   }
 
   /**
-   * Fetch recibos verdes (issued documents) from the portal
+   * Fetch issued documents ("documentos emitidos") from the portal.
+   *
+   * AT's JSON endpoint `obterDocumentosEmitidos.action` has been observed to
+   * return an empty body (HTTP 200 but rawLength=0) for authenticated
+   * sessions when the request does not carry an `ano` param. We now:
+   *   1. Visit `/consultarDocumentosEmitidos.action?ano=<year>` FIRST so the
+   *      portal seeds its server-side session state for that year.
+   *   2. Call the JSON endpoint with BOTH `ano` AND the date filters.
+   *   3. If still empty, try the HTML view (the table is rendered server-side).
+   *   4. If still empty, fall back to the legacy recibos-verdes endpoints.
+   *
+   * The return payload always includes diagnostic fields so callers can see
+   * WHICH endpoint produced the records (or that the response was empty).
    */
   async fetchRecibosVerdes(startDate, endDate) {
     if (!this.authenticated) {
       await this.login();
     }
 
-    // Navigate to the e-Fatura portal for issued documents
-    const consultUrl = `https://faturas.portaldasfinancas.gov.pt/consultarDocumentosEmitidos.action`;
+    const year = startDate ? startDate.slice(0, 4) : new Date().getFullYear().toString();
+    const attempts = [];
+
+    // Step 1: seed the year context
+    const consultUrl = `https://faturas.portaldasfinancas.gov.pt/consultarDocumentosEmitidos.action?ano=${year}`;
     const consultPage = await this.fetch(consultUrl, { followRedirects: true });
+    attempts.push({ url: consultUrl, status: consultPage.statusCode, rawLength: consultPage.body.length, purpose: 'seed-year' });
+    this.log('Consult page status:', consultPage.statusCode, 'len:', consultPage.body.length);
 
-    this.log('Consult page status:', consultPage.statusCode);
-
-    // Try to get the data as JSON/HTML from the consultation page
-    // The portal might redirect to login if session expired
     if (consultPage.body.includes('loginForm') || consultPage.body.includes('acesso.gov.pt/v2/login')) {
       throw new Error('Session expired — re-login required');
     }
 
-    // Try the Excel download endpoint
-    const year = startDate ? startDate.slice(0, 4) : new Date().getFullYear().toString();
-    const excelUrl = `https://faturas.portaldasfinancas.gov.pt/json/obterDocumentosEmitidos.action?dataInicioFilter=${startDate || ''}&dataFimFilter=${endDate || ''}&ambitoPesquisa=emitidos&tipoDocumento=&nifAdquirente=`;
-
-    const dataResp = await this.fetch(excelUrl, {
+    // Step 2: JSON endpoint with full param set (year + date filters)
+    const jsonUrl = `https://faturas.portaldasfinancas.gov.pt/json/obterDocumentosEmitidos.action?ano=${year}&dataInicioFilter=${startDate || ''}&dataFimFilter=${endDate || ''}&ambitoPesquisa=emitidos&tipoDocumento=&nifAdquirente=`;
+    const jsonResp = await this.fetch(jsonUrl, {
       followRedirects: true,
       headers: {
         'Accept': 'application/json, text/javascript, */*; q=0.01',
@@ -242,49 +273,58 @@ export class PortalScraper {
         'Referer': consultUrl,
       },
     });
-
-    this.log('Data response status:', dataResp.statusCode);
-    this.log('Data response length:', dataResp.body.length);
+    attempts.push({ url: jsonUrl, status: jsonResp.statusCode, rawLength: jsonResp.body.length, purpose: 'json-with-year' });
+    this.log('JSON endpoint status:', jsonResp.statusCode, 'len:', jsonResp.body.length);
 
     let records = [];
+    let endpointHit = null;
+    let jsonShape = null;
 
-    // Try to parse as JSON first
     try {
-      const jsonData = JSON.parse(dataResp.body);
-      this.log('Got JSON data with', jsonData.linhas?.length || 0, 'records');
-
+      const jsonData = JSON.parse(jsonResp.body);
+      jsonShape = Object.keys(jsonData).join(',');
       if (jsonData.linhas && Array.isArray(jsonData.linhas)) {
-        records = jsonData.linhas.map(line => ({
-          documentNumber: line.numDocumento || line.numero || '',
-          documentType: line.tipoDocumento || 'FR',
-          documentDate: line.dataEmissao || line.data || '',
-          customerNif: line.nifAdquirente || line.nif || '',
-          customerName: line.nomeAdquirente || line.nome || '',
-          grossTotal: parseFloat(line.valorTotal || line.valor || '0'),
-          taxPayable: parseFloat(line.valorIVA || line.iva || '0'),
-          netTotal: parseFloat(line.valorBase || line.base || '0'),
-          status: line.situacao || line.estado || 'N',
-          atcud: line.atcud || '',
-        }));
+        records = jsonData.linhas.map(mapJsonLine);
+        if (records.length > 0) endpointHit = 'json-obterDocumentosEmitidos';
       }
     } catch {
-      // Not JSON — try parsing as HTML table
-      this.log('Response is not JSON, trying HTML parse...');
-      records = this.parseHtmlTable(dataResp.body);
+      // Not JSON; continue to fallbacks.
     }
 
-    // Also try the recibos verdes specific endpoint (older portal)
+    // Step 3: HTML table on the consult page (the page itself renders rows server-side)
+    if (records.length === 0 && consultPage.body.length > 0) {
+      const htmlRecords = this.parseHtmlTable(consultPage.body);
+      attempts.push({ url: consultUrl, status: consultPage.statusCode, rawLength: consultPage.body.length, purpose: 'html-consult-page', parsed: htmlRecords.length });
+      if (htmlRecords.length > 0) {
+        records = htmlRecords;
+        endpointHit = 'html-consultarDocumentosEmitidos';
+      }
+    }
+
+    // Step 4: legacy recibos-verdes endpoints
     if (records.length === 0) {
       this.log('Trying legacy recibos verdes endpoint...');
-      records = await this.fetchLegacyRecibos(startDate, endDate);
+      const legacyRecords = await this.fetchLegacyRecibos(startDate, endDate);
+      if (legacyRecords.length > 0) {
+        records = legacyRecords;
+        endpointHit = 'legacy-recibos-verdes';
+      }
     }
 
     return {
       success: true,
       totalRecords: records.length,
       records,
-      rawLength: dataResp.body.length,
       authenticated: this.authenticated,
+      method: 'http-scraper',
+      rawLength: jsonResp.body.length,
+      httpStatus: jsonResp.statusCode,
+      jsonShape,
+      endpointHit,
+      attempts,
+      notes: records.length === 0
+        ? 'All endpoints returned empty. Session authenticated; likely a portal-side filter mismatch or missing session context.'
+        : null,
     };
   }
 

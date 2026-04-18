@@ -721,7 +721,10 @@ Deno.serve(async (req: Request) => {
         password: portalPassword,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
-        debug: false,
+        // Ask the connector for its debug breadcrumbs so a zero-records
+        // response surfaces the raw URL hit, response length, and auth
+        // state in the edge function's return payload.
+        debug: true,
       });
       connFetchInit.signal = controller.signal;
 
@@ -772,6 +775,20 @@ Deno.serve(async (req: Request) => {
           })
           .eq("client_id", clientId);
 
+        // Surface the connector's diagnostic breadcrumbs so downstream
+        // consumers (sync-efatura writes this to at_sync_history.metadata)
+        // can see whether the portal returned an empty JSON list, failed
+        // to authenticate, or parsed HTML into zero rows.
+        const connectorDebug = {
+          method: connData.method ?? null,
+          authenticated: connData.authenticated ?? null,
+          rawLength: connData.rawLength ?? null,
+          httpStatus: connData.httpStatus ?? null,
+          jsonShape: connData.jsonShape ?? null,
+          endpointHit: connData.endpointHit ?? null,
+          notes: connData.notes ?? null,
+        };
+
         return new Response(
           JSON.stringify({
             success: true,
@@ -780,6 +797,7 @@ Deno.serve(async (req: Request) => {
             totalRecords: 0,
             inserted: 0,
             skipped: 0,
+            connectorDebug,
           }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
