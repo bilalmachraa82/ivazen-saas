@@ -1,0 +1,205 @@
+name: Nightly sync health sweep
+
+# Once a day (06:30 Lisbon, i.e. 05:30 UTC in summer / 06:30 UTC in winter —
+# we use 06:30 UTC as a conservative always-after-the-06:00-cron slot),
+# samples recent at_sync_history rows and at_credentials state, flagging:
+#   - any credential with last_sync_status='error' for > 48h
+#   - any credential with status='partial' + reason_code='AT_ZERO_RESULTS_SUSPICIOUS'
+#   - any client with prior sales but zero vendas in the current quarter
+#
+# On finding anything actionable, opens or updates a single "Sync health"
+# issue rather than spamming a new one each day. Never closes it
+# automatically — the accountant confirms resolution.
+#
+# Required secrets: VITE_SUPABASE_URL, SUPABASE_SERVICE_KEY.
+# (GITHUB_TOKEN is provided automatically for issue creation.)
+
+on:
+  schedule:
+    - cron: '30 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: nightly-sync-health
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        run: |
+          missing=()
+          [ -n "$VITE_SUPABASE_URL" ]    || missing+=(VITE_SUPABASE_URL)
+          [ -n "$SUPABASE_SERVICE_KEY" ] || missing+=(SUPABASE_SERVICE_KEY)
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install minimal deps
+        run: npm install --no-save --no-audit --no-fund @supabase/supabase-js@2.94.1
+
+      - name: Run sweep
+        id: sweep
+        run: |
+          cat > /tmp/sweep.mjs <<'EOF'
+          import { createClient } from '@supabase/supabase-js';
+
+          const supabase = createClient(
+            process.env.VITE_SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_KEY,
+            { auth: { persistSession: false } },
+          );
+
+          const findings = [];
+
+          // 1. Credentials in `error` for >48h.
+          const cutoff48h = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+          const { data: stuckErrors } = await supabase
+            .from('at_credentials')
+            .select('client_id, last_sync_status, last_sync_error, last_sync_at, consecutive_failures')
+            .eq('last_sync_status', 'error')
+            .lt('last_sync_at', cutoff48h);
+          if (stuckErrors?.length) {
+            findings.push({
+              kind: 'stuck_error',
+              count: stuckErrors.length,
+              sample: stuckErrors.slice(0, 5),
+            });
+          }
+
+          // 2. Credentials partial with suspicious-empty reason
+          const { data: suspiciousPartial } = await supabase
+            .from('at_sync_history')
+            .select('client_id, status, reason_code, invoices_returned_by_at, completed_at')
+            .eq('status', 'partial')
+            .eq('reason_code', 'AT_ZERO_RESULTS_SUSPICIOUS')
+            .gte('completed_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString())
+            .limit(50);
+          if (suspiciousPartial?.length) {
+            const distinct = [...new Set(suspiciousPartial.map((r) => r.client_id))];
+            findings.push({
+              kind: 'suspicious_partial',
+              count: distinct.length,
+              sample: suspiciousPartial.slice(0, 5),
+            });
+          }
+
+          // 3. Stale-activity probe: profiles with sales last 365 days but zero in current quarter.
+          const now = new Date();
+          const currentQuarter = Math.ceil((now.getUTCMonth() + 1) / 3);
+          const quarterStart = new Date(Date.UTC(now.getUTCFullYear(), (currentQuarter - 1) * 3, 1));
+          const priorStart = new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth(), 1));
+
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, full_name, nif')
+            .not('nif', 'is', null)
+            .limit(400);
+
+          const quarterGapClients = [];
+          for (const p of profiles ?? []) {
+            const [{ count: qCount }, { count: priorCount }] = await Promise.all([
+              supabase
+                .from('sales_invoices')
+                .select('*', { count: 'exact', head: true })
+                .eq('client_id', p.id)
+                .gte('document_date', quarterStart.toISOString().slice(0, 10)),
+              supabase
+                .from('sales_invoices')
+                .select('*', { count: 'exact', head: true })
+                .eq('client_id', p.id)
+                .gte('document_date', priorStart.toISOString().slice(0, 10)),
+            ]);
+            if ((qCount ?? 0) === 0 && (priorCount ?? 0) >= 3) {
+              quarterGapClients.push({ id: p.id, full_name: p.full_name, nif: p.nif, priorCount });
+            }
+          }
+          if (quarterGapClients.length) {
+            findings.push({
+              kind: 'quarter_gap',
+              count: quarterGapClients.length,
+              sample: quarterGapClients.slice(0, 10),
+            });
+          }
+
+          const actionable = findings.length > 0;
+          const body = [
+            `# Sync health sweep — ${new Date().toISOString().slice(0, 10)}`,
+            '',
+            actionable
+              ? '## Findings (action required)'
+              : '## Findings: none — all sync paths healthy.',
+            '',
+          ];
+
+          for (const f of findings) {
+            body.push(`### ${f.kind} — ${f.count} affected`);
+            body.push('```json');
+            body.push(JSON.stringify(f.sample, null, 2));
+            body.push('```');
+            body.push('');
+          }
+
+          body.push('');
+          body.push('---');
+          body.push('Generated by `.github/workflows/nightly-sync-health.yml`. Close this comment thread when resolved.');
+
+          const report = body.join('\n');
+          console.log(report);
+
+          // Export for next step
+          const fs = await import('fs');
+          fs.writeFileSync('/tmp/sweep-report.md', report);
+          fs.writeFileSync('/tmp/sweep-actionable', actionable ? 'yes' : 'no');
+          EOF
+          node /tmp/sweep.mjs
+          echo "actionable=$(cat /tmp/sweep-actionable)" >> "$GITHUB_OUTPUT"
+
+      - name: Upsert "Sync health" issue
+        if: steps.sweep.outputs.actionable == 'yes'
+        run: |
+          TITLE="Sync health sweep — action required"
+          BODY_FILE=/tmp/sweep-report.md
+
+          # Find an existing open issue with this title
+          EXISTING=$(gh issue list --repo "$GH_REPO" --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+
+          if [ -n "$EXISTING" ]; then
+            echo "Updating existing issue #$EXISTING"
+            gh issue comment "$EXISTING" --repo "$GH_REPO" --body-file "$BODY_FILE"
+          else
+            echo "Opening new issue"
+            gh issue create --repo "$GH_REPO" --title "$TITLE" --body-file "$BODY_FILE" --label "sync-health"
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Sync health sweep"
+            echo ""
+            echo "- Actionable: \`${{ steps.sweep.outputs.actionable || 'n/a' }}\`"
+            echo ""
+            if [ -f /tmp/sweep-report.md ]; then
+              cat /tmp/sweep-report.md
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -306,6 +306,15 @@ export default function BulkClientSync() {
       };
     }
 
+    if (reasonCode === 'AT_ZERO_RESULTS_SUSPICIOUS') {
+      return {
+        label: 'Suspeita de omissão',
+        description: 'AT devolveu zero faturas mas o cliente tem actividade recente. Forçar novo sync.',
+        ctaLabel: 'Repetir sync',
+        tone: 'warning',
+      };
+    }
+
     if (client.lastSyncStatus === 'success') {
       return {
         label: 'Sincronizado',

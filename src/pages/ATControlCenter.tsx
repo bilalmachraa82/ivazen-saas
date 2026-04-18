@@ -54,6 +54,12 @@ function getRecommendation(status: string, reasonCode: string | null): { text: s
     return { text: 'Operacional. Sync automático ativo.', severity: 'info' };
   }
   if (status === 'partial') {
+    if (rc === 'AT_ZERO_RESULTS_SUSPICIOUS') {
+      return {
+        text: 'AT devolveu zero faturas neste período, mas o cliente tem actividade recente. Provavelmente faltam documentos — forçar novo sync ou verificar importação manual.',
+        severity: 'action',
+      };
+    }
     return { text: 'Sync parcial. Verificar documentos em falta ou períodos incompletos.', severity: 'action' };
   }
   if (status === 'processing' || status === 'queued') {
@@ -130,6 +136,9 @@ function getSemanticStatusBadge(status: string, reasonCode: string | null) {
     case 'success':
       return <Badge className="bg-green-600">Sucesso</Badge>;
     case 'partial':
+      if (rc === 'AT_ZERO_RESULTS_SUSPICIOUS') {
+        return <Badge variant="outline" className="border-amber-500/40 bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">Suspeita de omissão</Badge>;
+      }
       return <Badge variant="outline" className="border-amber-500/30 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">Parcial</Badge>;
     case 'processing':
       return <Badge variant="outline" className="border-primary text-primary">Processando</Badge>;
