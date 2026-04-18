@@ -23,20 +23,42 @@ export function constantTimeEquals(a: string, b: string): boolean {
 }
 
 /**
- * Check if a Bearer token is the configured service-role key.
+ * Check if a Bearer token matches any of the configured service-role keys.
  *
  * Security: constant-time comparison only. Never decode the JWT payload to
  * infer role — an attacker can trivially forge a JWT whose payload contains
  * role="service_role" and whose length matches the real key (by padding an
- * arbitrary claim). Only a byte-for-byte match against the server-held key
+ * arbitrary claim). Only a byte-for-byte match against a server-held key
  * proves the caller has the secret.
+ *
+ * Accepts a variadic list of allowed keys so a project can carry both its
+ * primary key (Supabase's auto-injected `SUPABASE_SERVICE_ROLE_KEY`, which
+ * may be the new `sb_secret_...` format) and a legacy fallback
+ * (`SERVICE_ROLE_KEY_LEGACY`, typically the legacy JWT) during a transition.
+ * A caller is accepted if its token equals ANY configured key byte-for-byte.
  */
 export function isServiceRoleToken(
   token: string,
-  serviceRoleKey: string,
+  ...allowedKeys: (string | null | undefined)[]
 ): boolean {
-  if (!token || !serviceRoleKey) return false;
-  return constantTimeEquals(token, serviceRoleKey);
+  if (!token) return false;
+  return allowedKeys.some(
+    (key) => typeof key === "string" && key.length > 0 && constantTimeEquals(token, key),
+  );
+}
+
+/**
+ * Convenience: checks a Bearer token against the conventional pair of env
+ * vars this project uses — `SUPABASE_SERVICE_ROLE_KEY` (primary) and an
+ * optional `SERVICE_ROLE_KEY_LEGACY` (transition fallback). Reads the env
+ * directly so edge-function callers only need to pass the token.
+ */
+export function isConfiguredServiceRoleToken(token: string): boolean {
+  const primary = (globalThis as { Deno?: { env: { get(k: string): string | undefined } } })
+    .Deno?.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const legacy = (globalThis as { Deno?: { env: { get(k: string): string | undefined } } })
+    .Deno?.env.get("SERVICE_ROLE_KEY_LEGACY");
+  return isServiceRoleToken(token, primary, legacy);
 }
 
 /**

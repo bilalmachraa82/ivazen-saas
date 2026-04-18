@@ -11,7 +11,10 @@
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
-import { isServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
+import {
+  extractBearerToken,
+  isConfiguredServiceRoleToken,
+} from "../_shared/auth.ts";
 import { isWithinATWindow } from "../_shared/atWindow.ts";
 import {
   isAtEmptyListMessage,
@@ -995,9 +998,12 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Accept internal service-role calls (from process-at-sync-queue) OR valid user JWTs
+    // Accept internal service-role calls (from process-at-sync-queue) OR valid user JWTs.
+    // The configured check reads SUPABASE_SERVICE_ROLE_KEY (primary) + optional
+    // SERVICE_ROLE_KEY_LEGACY from the environment so a project mid-transition
+    // between the legacy JWT and the new `sb_secret_...` format can accept either.
     const token = extractBearerToken(authHeader);
-    const isServiceRole = isServiceRoleToken(token, supabaseServiceKey);
+    const isServiceRole = isConfiguredServiceRoleToken(token);
 
     let authUser: { id: string } | null = null;
     if (!isServiceRole) {

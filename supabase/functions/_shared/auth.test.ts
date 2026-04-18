@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import {
   constantTimeEquals,
   isServiceRoleToken,
+  isConfiguredServiceRoleToken,
   extractBearerToken,
 } from './auth.ts';
 
@@ -63,6 +64,70 @@ describe('isServiceRoleToken', () => {
 
   it('rejects a short random token', () => {
     expect(isServiceRoleToken('not-a-jwt', realKey)).toBe(false);
+  });
+
+  // Variadic: accept multiple configured keys (primary + legacy).
+  it('accepts a match against a secondary allowed key', () => {
+    const primary = 'primary-key-aaaaaaaaaaaaaaa';
+    const legacy = realKey;
+    expect(isServiceRoleToken(legacy, primary, legacy)).toBe(true);
+  });
+
+  it('accepts a match against the primary when legacy is unset', () => {
+    const primary = 'primary-key-bbbbbbbbbbbbbbb';
+    expect(isServiceRoleToken(primary, primary, undefined)).toBe(true);
+  });
+
+  it('rejects when neither key matches', () => {
+    const primary = 'primary-key-ccccccccccccccc';
+    const legacy = 'legacy-key-dddddddddddddddd';
+    expect(isServiceRoleToken('different-token', primary, legacy)).toBe(false);
+  });
+
+  it('ignores empty or null keys in the allowed list', () => {
+    expect(isServiceRoleToken(realKey, '', null, realKey)).toBe(true);
+    expect(isServiceRoleToken(realKey, '', null, undefined)).toBe(false);
+  });
+});
+
+describe('isConfiguredServiceRoleToken', () => {
+  const originalDeno = (globalThis as Record<string, unknown>).Deno;
+
+  beforeEach(() => {
+    (globalThis as Record<string, unknown>).Deno = {
+      env: {
+        get: (k: string) => {
+          if (k === 'SUPABASE_SERVICE_ROLE_KEY') return 'primary-xyz-1234567890';
+          if (k === 'SERVICE_ROLE_KEY_LEGACY') return 'legacy-jwt-abcdefghij';
+          return undefined;
+        },
+      },
+    };
+  });
+
+  afterEach(() => {
+    if (originalDeno === undefined) {
+      delete (globalThis as Record<string, unknown>).Deno;
+    } else {
+      (globalThis as Record<string, unknown>).Deno = originalDeno;
+    }
+    vi.restoreAllMocks();
+  });
+
+  it('accepts the primary SUPABASE_SERVICE_ROLE_KEY', () => {
+    expect(isConfiguredServiceRoleToken('primary-xyz-1234567890')).toBe(true);
+  });
+
+  it('accepts the legacy SERVICE_ROLE_KEY_LEGACY fallback', () => {
+    expect(isConfiguredServiceRoleToken('legacy-jwt-abcdefghij')).toBe(true);
+  });
+
+  it('rejects any other token', () => {
+    expect(isConfiguredServiceRoleToken('some-other-token')).toBe(false);
+  });
+
+  it('returns false for empty token even with env configured', () => {
+    expect(isConfiguredServiceRoleToken('')).toBe(false);
   });
 });
 
