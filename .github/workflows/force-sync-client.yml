@@ -1,0 +1,136 @@
+name: Force AT sync for client
+
+# Manually triggered workflow that invokes the deployed `sync-efatura` edge
+# function for a single client, then prints the latest `at_sync_history`
+# rows so you can confirm the run landed. Useful when you need a recovery
+# sync outside the scheduled 19:30 / 06:00 windows.
+#
+# Required repository secrets:
+#   VITE_SUPABASE_URL        — project URL (e.g. https://<ref>.supabase.co)
+#   SUPABASE_SERVICE_KEY     — service-role key (isServiceRoleToken compares byte-for-byte)
+#
+# Trigger from the Actions tab → "Force AT sync for client" → Run workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      client_id:
+        description: 'UUID of the client (profiles.id)'
+        required: true
+      direction:
+        description: 'Sync direction'
+        required: true
+        default: 'ambos'
+        type: choice
+        options:
+          - ambos
+          - compras
+          - vendas
+      timeout_ms:
+        description: 'Timeout for history poll (ms)'
+        required: false
+        default: '120000'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: force-sync-${{ github.event.inputs.client_id }}
+  cancel-in-progress: false
+
+jobs:
+  force-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        run: |
+          missing=()
+          [ -n "$VITE_SUPABASE_URL" ]    || missing+=(VITE_SUPABASE_URL)
+          [ -n "$SUPABASE_SERVICE_KEY" ] || missing+=(SUPABASE_SERVICE_KEY)
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install minimal deps
+        # Only @supabase/supabase-js is needed for the invocation script;
+        # avoid the full `npm ci` to keep the run under a minute.
+        run: npm install --no-save --no-audit --no-fund @supabase/supabase-js@2.94.1
+
+      - name: Force sync
+        run: |
+          cat > /tmp/force.mjs <<'EOF'
+          import { createClient } from '@supabase/supabase-js';
+
+          const clientId = process.env.CLIENT_ID;
+          const direction = process.env.DIRECTION || 'ambos';
+          const timeoutMs = Number(process.env.TIMEOUT_MS || '120000');
+
+          const supabase = createClient(
+            process.env.VITE_SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_KEY,
+            { auth: { persistSession: false } },
+          );
+
+          console.log(`▶ Invoking sync-efatura for ${clientId} (${direction})`);
+          const started = Date.now();
+          const { data, error } = await supabase.functions.invoke('sync-efatura', {
+            body: { clientId, direction },
+          });
+          if (error) {
+            console.error('Invocation failed:', error.message ?? error);
+            process.exit(2);
+          }
+          console.log(`◀ returned in ${Date.now() - started}ms`);
+          console.log(JSON.stringify(data, null, 2));
+
+          console.log('\n▶ Polling at_sync_history…');
+          const deadline = Date.now() + timeoutMs;
+          let last;
+          while (Date.now() < deadline) {
+            const { data: rows } = await supabase
+              .from('at_sync_history')
+              .select('sync_type, sync_year, status, invoices_synced, invoices_returned_by_at, reason_code, error_message')
+              .eq('client_id', clientId)
+              .order('id', { ascending: false })
+              .limit(4);
+            if (rows?.length) {
+              last = rows;
+              const stillRunning = rows.some((r) => r.status === 'running' || r.status === 'pending');
+              if (!stillRunning) break;
+            }
+            await new Promise((r) => setTimeout(r, 2000));
+          }
+          console.log('\nLatest rows:');
+          for (const r of last ?? []) {
+            console.log(`  ${r.sync_type} y=${r.sync_year} status=${r.status} synced=${r.invoices_synced ?? 0} at_returned=${r.invoices_returned_by_at ?? '?'} reason=${r.reason_code ?? '—'}`);
+          }
+          EOF
+          node /tmp/force.mjs
+        env:
+          CLIENT_ID: ${{ github.event.inputs.client_id }}
+          DIRECTION: ${{ github.event.inputs.direction }}
+          TIMEOUT_MS: ${{ github.event.inputs.timeout_ms }}
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Force sync"
+            echo ""
+            echo "- Client: \`${{ github.event.inputs.client_id }}\`"
+            echo "- Direction: \`${{ github.event.inputs.direction }}\`"
+            echo "- Triggered by: @${{ github.actor }}"
+          } >> "$GITHUB_STEP_SUMMARY"
