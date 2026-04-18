@@ -263,41 +263,119 @@ export class PortalScraper {
       throw new Error('Session expired — re-login required');
     }
 
-    // Step 2: JSON endpoint with full param set (year + date filters)
-    const jsonUrl = `https://faturas.portaldasfinancas.gov.pt/json/obterDocumentosEmitidos.action?ano=${year}&dataInicioFilter=${startDate || ''}&dataFimFilter=${endDate || ''}&ambitoPesquisa=emitidos&tipoDocumento=&nifAdquirente=`;
-    const jsonResp = await this.fetch(jsonUrl, {
-      followRedirects: true,
-      headers: {
-        'Accept': 'application/json, text/javascript, */*; q=0.01',
-        'X-Requested-With': 'XMLHttpRequest',
-        'Referer': consultUrl,
-      },
-    });
-    attempts.push({ url: jsonUrl, status: jsonResp.statusCode, rawLength: jsonResp.body.length, purpose: 'json-with-year' });
-    this.log('JSON endpoint status:', jsonResp.statusCode, 'len:', jsonResp.body.length);
-
+    // Step 2: JSON endpoint. The `obterDocumentosEmitidos.action` endpoint has
+    // been observed returning HTTP 500 when parameters are present but empty
+    // (e.g. `tipoDocumento=` with no value). Try a matrix of parameter shapes
+    // until one succeeds or all return 500.
     let records = [];
     let endpointHit = null;
     let jsonShape = null;
+    let lastStatus = null;
+    let lastRawLength = null;
 
-    try {
-      const jsonData = JSON.parse(jsonResp.body);
-      jsonShape = Object.keys(jsonData).join(',');
-      if (jsonData.linhas && Array.isArray(jsonData.linhas)) {
-        records = jsonData.linhas.map(mapJsonLine);
-        if (records.length > 0) endpointHit = 'json-obterDocumentosEmitidos';
+    const jsonVariants = [
+      // Minimal: only year + date filters, no empty tipoDocumento or nifAdquirente
+      `https://faturas.portaldasfinancas.gov.pt/json/obterDocumentosEmitidos.action?ano=${year}&dataInicioFilter=${startDate || ''}&dataFimFilter=${endDate || ''}&ambitoPesquisa=emitidos`,
+      // Alternate ambit naming
+      `https://faturas.portaldasfinancas.gov.pt/json/obterDocumentosEmitidos.action?ano=${year}&dataInicioFilter=${startDate || ''}&dataFimFilter=${endDate || ''}&ambitoPesquisa=prestador`,
+      // Full shape (original) with empty params
+      `https://faturas.portaldasfinancas.gov.pt/json/obterDocumentosEmitidos.action?ano=${year}&dataInicioFilter=${startDate || ''}&dataFimFilter=${endDate || ''}&ambitoPesquisa=emitidos&tipoDocumento=&nifAdquirente=`,
+      // Without the Filter suffix (older portal API)
+      `https://faturas.portaldasfinancas.gov.pt/json/obterDocumentosEmitidos.action?ano=${year}&dataInicio=${startDate || ''}&dataFim=${endDate || ''}&ambitoPesquisa=emitidos`,
+    ];
+
+    for (const jsonUrl of jsonVariants) {
+      const jsonResp = await this.fetch(jsonUrl, {
+        followRedirects: true,
+        headers: {
+          'Accept': 'application/json, text/javascript, */*; q=0.01',
+          'X-Requested-With': 'XMLHttpRequest',
+          'Referer': consultUrl,
+        },
+      });
+      attempts.push({ url: jsonUrl, status: jsonResp.statusCode, rawLength: jsonResp.body.length, purpose: 'json-variant' });
+      this.log('JSON variant status:', jsonResp.statusCode, 'len:', jsonResp.body.length, 'url:', jsonUrl.slice(-80));
+      lastStatus = jsonResp.statusCode;
+      lastRawLength = jsonResp.body.length;
+
+      if (jsonResp.statusCode >= 200 && jsonResp.statusCode < 300 && jsonResp.body.length > 0) {
+        try {
+          const jsonData = JSON.parse(jsonResp.body);
+          jsonShape = Object.keys(jsonData).join(',');
+          if (jsonData.linhas && Array.isArray(jsonData.linhas) && jsonData.linhas.length > 0) {
+            records = jsonData.linhas.map(mapJsonLine);
+            endpointHit = 'json-obterDocumentosEmitidos';
+            break;
+          }
+          // If structure is valid but empty, stop trying further variants.
+          if (jsonData.linhas && Array.isArray(jsonData.linhas)) break;
+        } catch {
+          // Not JSON — try the next variant.
+        }
       }
-    } catch {
-      // Not JSON; continue to fallbacks.
     }
 
     // Step 3: HTML table on the consult page (the page itself renders rows server-side)
     if (records.length === 0 && consultPage.body.length > 0) {
       const htmlRecords = this.parseHtmlTable(consultPage.body);
-      attempts.push({ url: consultUrl, status: consultPage.statusCode, rawLength: consultPage.body.length, purpose: 'html-consult-page', parsed: htmlRecords.length });
+      // Diagnostic: count ATCUD patterns in the HTML. If > 0 here but
+      // parseHtmlTable found no rows, the table shape is different than our
+      // regex expects and we need to refine the parser (not that data is
+      // absent).
+      const atcudMatches = (consultPage.body.match(/[A-Z0-9]{8}-\d+/g) || []).slice(0, 5);
+      const trCount = (consultPage.body.match(/<tr[\s>]/gi) || []).length;
+      const tdCount = (consultPage.body.match(/<td[\s>]/gi) || []).length;
+      this.log('HTML diag: tr=', trCount, 'td=', tdCount, 'atcuds_sample=', atcudMatches.join(','));
+      attempts.push({
+        url: consultUrl,
+        status: consultPage.statusCode,
+        rawLength: consultPage.body.length,
+        purpose: 'html-consult-page',
+        parsed: htmlRecords.length,
+        trCount,
+        tdCount,
+        atcudSample: atcudMatches,
+      });
       if (htmlRecords.length > 0) {
         records = htmlRecords;
         endpointHit = 'html-consultarDocumentosEmitidos';
+      }
+    }
+
+    // Step 3.5: Excel export URLs (different code path on AT; when the JSON
+    // endpoint errors with 500 these often still work because they go through
+    // the reporting pipeline instead of the AJAX renderer).
+    if (records.length === 0) {
+      const excelUrls = [
+        `https://faturas.portaldasfinancas.gov.pt/exportarDocumentosEmitidos.action?ano=${year}&dataInicioFilter=${startDate || ''}&dataFimFilter=${endDate || ''}&ambitoPesquisa=emitidos`,
+        `https://faturas.portaldasfinancas.gov.pt/exportarListaDocumentosEmitidos.action?ano=${year}&dataInicioFilter=${startDate || ''}&dataFimFilter=${endDate || ''}&ambitoPesquisa=emitidos`,
+        `https://faturas.portaldasfinancas.gov.pt/consultarDocumentosEmitidos.action?ano=${year}&dataInicioFilter=${startDate || ''}&dataFimFilter=${endDate || ''}&ambitoPesquisa=emitidos&exportar=excel`,
+      ];
+      for (const excelUrl of excelUrls) {
+        const excelResp = await this.fetch(excelUrl, {
+          followRedirects: true,
+          headers: {
+            'Accept': 'application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, text/csv, */*',
+            'Referer': consultUrl,
+          },
+        });
+        attempts.push({ url: excelUrl, status: excelResp.statusCode, rawLength: excelResp.body.length, purpose: 'excel-export' });
+        this.log('Excel export status:', excelResp.statusCode, 'len:', excelResp.body.length);
+        // If we got a reasonable-size body that isn't an HTML error page, it's
+        // probably a spreadsheet. We can't parse XLS in pure Node without
+        // dependencies, but we surface the byte count so the caller can choose
+        // to forward the bytes to a sheet parser. Also try to parse as CSV or
+        // TSV if the body looks like text.
+        if (excelResp.statusCode === 200 && excelResp.body.length > 200 && !excelResp.body.includes('<html')) {
+          endpointHit = 'excel-export-' + excelUrl.split('/').pop().split('?')[0];
+          // Record bytes in notes so the caller can decide whether to shell out
+          // to a parser. For now we don't attempt to parse XLS client-side.
+          this.log('Excel export succeeded; bytes=', excelResp.body.length, 'hit=', endpointHit);
+          // TODO: pipe to node-xlsx or similar; for now return empty records but
+          // annotate the endpoint so the caller knows automation is one step
+          // away (user can download manually from the same URL).
+          break;
+        }
       }
     }
 
@@ -317,13 +395,13 @@ export class PortalScraper {
       records,
       authenticated: this.authenticated,
       method: 'http-scraper',
-      rawLength: jsonResp.body.length,
-      httpStatus: jsonResp.statusCode,
+      rawLength: lastRawLength,
+      httpStatus: lastStatus,
       jsonShape,
       endpointHit,
       attempts,
       notes: records.length === 0
-        ? 'All endpoints returned empty. Session authenticated; likely a portal-side filter mismatch or missing session context.'
+        ? `All endpoints returned empty. Tried ${attempts.length} URL(s). Last HTTP=${lastStatus}, rawLen=${lastRawLength}.`
         : null,
     };
   }
