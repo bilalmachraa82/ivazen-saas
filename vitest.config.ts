@@ -16,6 +16,7 @@ export default defineConfig({
       "**/dist/**",
       "**/e2e/**",           // Exclude Playwright E2E tests
       "**/*.spec.ts",        // Only if in e2e folder (handled above)
+      "supabase/functions/sync-recibos-verdes/index.test.ts", // Deno-only (uses jsr:/npm: specifiers)
     ],
   },
   resolve: {

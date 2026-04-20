@@ -30,7 +30,8 @@ import { getPreviousQuarterStart } from "./dateRange.ts";
 import { decideSyncStatus } from "./syncStatus.ts";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://ivazen-saas.vercel.app",
+  "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") ||
+    "https://ivazen-saas.vercel.app",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
@@ -115,6 +116,10 @@ type RecibosFallbackResponse = {
   skipped?: number;
   errors?: number;
   totalRecords?: number;
+  rawRecords?: number;
+  eligibleRecords?: number;
+  filteredOut?: number;
+  rejectedDocumentTypes?: Record<string, number> | null;
   connectorDebug?: {
     method?: string | null;
     authenticated?: boolean | null;
@@ -264,8 +269,7 @@ function splitIntoMonths(
     const lastDayOfMonth = new Date(Date.UTC(year, month + 1, 0));
     const monthEnd = lastDayOfMonth < end ? lastDayOfMonth : end;
 
-    const fmt = (d: Date) =>
-      d.toISOString().slice(0, 10);
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
 
     result.push({ start: fmt(cursor), end: fmt(monthEnd) });
 
@@ -348,7 +352,13 @@ async function retryConnectorMonthByMonth(params: {
     }
   }
 
-  return { invoices: allInvoices, totalRecords, monthsSucceeded, monthsFailed, monthErrors };
+  return {
+    invoices: allInvoices,
+    totalRecords,
+    monthsSucceeded,
+    monthsFailed,
+    monthErrors,
+  };
 }
 
 function classifyReasonCode(
@@ -707,7 +717,9 @@ async function callRecibosVerdesFallback(params: {
     } catch {
       return {
         success: false,
-        error: `sync-recibos-verdes returned non-JSON: ${responseText.slice(0, 200)}`,
+        error: `sync-recibos-verdes returned non-JSON: ${
+          responseText.slice(0, 200)
+        }`,
       };
     }
   } catch (error: any) {
@@ -725,7 +737,14 @@ async function insertPurchaseInvoicesFromAT(
   clientId: string,
   clientNif: string,
   invoices: ATInvoice[],
-): Promise<{ inserted: number; skipped: number; errors: number; redirectedToSales: number }> {
+): Promise<
+  {
+    inserted: number;
+    skipped: number;
+    errors: number;
+    redirectedToSales: number;
+  }
+> {
   let inserted = 0;
   let skipped = 0;
   let errors = 0;
@@ -743,8 +762,8 @@ async function insertPurchaseInvoicesFromAT(
     let supplierName = inv.supplierName || null;
     let supplierCae = inv.supplierCae || inv.sector || null;
     const customerNif = inv.customerNif || clientNif;
-    const isSuspiciousPurchaseSupplier =
-      supplierNif === "999999990" || supplierNif === clientNif;
+    const isSuspiciousPurchaseSupplier = supplierNif === "999999990" ||
+      supplierNif === clientNif;
 
     if (isSuspiciousPurchaseSupplier) {
       // This is a sale that AT returned in the compras response.
@@ -766,8 +785,10 @@ async function insertPurchaseInvoicesFromAT(
         skipped++;
       } else {
         const docType = inv.documentType || "FS";
-        const revCat = (docType === "FR" || docType === "FS" || docType === "FS/FR")
-          ? "prestacao_servicos" : "vendas";
+        const revCat =
+          (docType === "FR" || docType === "FS" || docType === "FS/FR")
+            ? "prestacao_servicos"
+            : "vendas";
         const { error: saleErr } = await supabase
           .from("sales_invoices")
           .insert({
@@ -783,7 +804,9 @@ async function insertPurchaseInvoicesFromAT(
             ...vatTotals,
             total_amount: Number(inv.grossTotal) || 0,
             total_vat: Number(inv.taxPayable) || 0,
-            image_path: `at-webservice-sales/${clientId}/${docNum || Date.now()}`,
+            image_path: `at-webservice-sales/${clientId}/${
+              docNum || Date.now()
+            }`,
             import_source: "api_redirected_from_compras",
             status: "validated",
             validated_at: new Date().toISOString(),
@@ -802,7 +825,9 @@ async function insertPurchaseInvoicesFromAT(
       }
 
       console.log(
-        `[sync-efatura] Self-purchase redirected to sales for client ${clientId}: supplier_nif=${supplierNif}, document=${docNum || "unknown"}, alreadyExists=${alreadyInSales}`,
+        `[sync-efatura] Self-purchase redirected to sales for client ${clientId}: supplier_nif=${supplierNif}, document=${
+          docNum || "unknown"
+        }, alreadyExists=${alreadyInSales}`,
       );
       continue;
     }
@@ -847,7 +872,10 @@ async function insertPurchaseInvoicesFromAT(
           .limit(1)
           .maybeSingle();
 
-        if (previousInvoice?.supplier_name && previousInvoice.supplier_name !== supplierNif) {
+        if (
+          previousInvoice?.supplier_name &&
+          previousInvoice.supplier_name !== supplierNif
+        ) {
           supplierName = previousInvoice.supplier_name;
 
           await supabase
@@ -1063,7 +1091,9 @@ Deno.serve(async (req: Request) => {
     });
     if (preconditionFailure) {
       if (preconditionFailure.body.reasonCode === "AT_TIME_WINDOW") {
-        console.log(`[sync-efatura] Blocked: outside AT time window. ${windowCheck.message}`);
+        console.log(
+          `[sync-efatura] Blocked: outside AT time window. ${windowCheck.message}`,
+        );
       }
       return new Response(
         JSON.stringify(preconditionFailure.body),
@@ -1165,7 +1195,8 @@ Deno.serve(async (req: Request) => {
       return new Response(
         JSON.stringify({
           success: false,
-          error: "AT connector não configurado. Configure AT_CONNECTOR_URL e AT_CONNECTOR_TOKEN.",
+          error:
+            "AT connector não configurado. Configure AT_CONNECTOR_URL e AT_CONNECTOR_TOKEN.",
           reasonCode: "CONNECTOR_NOT_CONFIGURED",
         }),
         {
@@ -1432,7 +1463,9 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      const accountantFallbackFlag = Deno.env.get("AT_ALLOW_ACCOUNTANT_FALLBACK");
+      const accountantFallbackFlag = Deno.env.get(
+        "AT_ALLOW_ACCOUNTANT_FALLBACK",
+      );
       const allowAccountantFallback = accountantFallbackFlag == null
         ? true
         : ["1", "true", "yes"].includes(
@@ -1478,8 +1511,12 @@ Deno.serve(async (req: Request) => {
             `has_encrypted_password=${Boolean(cred?.encrypted_password)} ` +
             `has_subuser_id=${Boolean(cred?.subuser_id)} ` +
             `has_portal_nif=${Boolean(cred?.portal_nif)} ` +
-            `rowUsername=${Boolean(rowUsername)} rowPassword=${Boolean(rowPassword)} ` +
-            `AT_ENCRYPTION_KEY_present=${Boolean(Deno.env.get("AT_ENCRYPTION_KEY"))}`,
+            `rowUsername=${Boolean(rowUsername)} rowPassword=${
+              Boolean(rowPassword)
+            } ` +
+            `AT_ENCRYPTION_KEY_present=${
+              Boolean(Deno.env.get("AT_ENCRYPTION_KEY"))
+            }`,
         );
         const noCredsError =
           "Sem credenciais utilizáveis para connector (client_row/accountant_config)";
@@ -1746,7 +1783,10 @@ Deno.serve(async (req: Request) => {
               hasSuccesses = true;
               if (monthRetry.monthsFailed > 0) {
                 hasErrors = true;
-                const partialErr = `Schema error: ${monthRetry.monthsSucceeded}/${monthRetry.monthsSucceeded + monthRetry.monthsFailed} months OK`;
+                const partialErr =
+                  `Schema error: ${monthRetry.monthsSucceeded}/${
+                    monthRetry.monthsSucceeded + monthRetry.monthsFailed
+                  } months OK`;
                 reasonCodes.push("AT_SCHEMA_RESPONSE_ERROR");
                 errorMessages.push(partialErr);
               }
@@ -1802,8 +1842,7 @@ Deno.serve(async (req: Request) => {
         const vendasError = q?.errorMessage || connectorResp.error ||
           "Consulta vendas falhou";
         const vendasReasonCode = classifyReasonCode(vendasError);
-        const shouldTryRecibosFallback =
-          emptyList ||
+        const shouldTryRecibosFallback = emptyList ||
           (q?.success && (q.totalRecords || 0) === 0) ||
           vendasReasonCode === "AT_SCHEMA_RESPONSE_ERROR";
         const recibosFallback = shouldTryRecibosFallback
@@ -1826,7 +1865,15 @@ Deno.serve(async (req: Request) => {
         const fallbackErrors = recibosFallback?.success
           ? (recibosFallback.errors || 0)
           : 0;
-        const recoveredViaRecibos = fallbackInserted > 0 || fallbackSkipped > 0;
+        const fallbackEligibleRecords = recibosFallback?.success
+          ? Number(
+            recibosFallback.eligibleRecords ??
+              ((recibosFallback.inserted || 0) +
+                (recibosFallback.skipped || 0)),
+          )
+          : 0;
+        const recoveredViaRecibos =
+          (fallbackInserted + fallbackSkipped) > 0;
 
         if (q?.success || emptyList) {
           const r = q?.success
@@ -1843,7 +1890,7 @@ Deno.serve(async (req: Request) => {
           inserted += fallbackInserted;
           skipped += fallbackSkipped;
           errors += fallbackErrors;
-          vendasReturnedCount += fallbackInserted + fallbackSkipped;
+          vendasReturnedCount += fallbackEligibleRecords;
           hasSuccesses = true;
           if (emptyList) reasonCodes.push("AT_EMPTY_LIST");
           directionMetadata.vendas = {
@@ -1854,6 +1901,7 @@ Deno.serve(async (req: Request) => {
             skipped: r.skipped,
             errors: r.errors,
             errorMessage: emptyList ? q?.errorMessage || null : null,
+            recoveredViaRecibos,
             recibosFallback: recibosFallback
               ? {
                 success: Boolean(recibosFallback.success),
@@ -1861,7 +1909,13 @@ Deno.serve(async (req: Request) => {
                 inserted: fallbackInserted,
                 skipped: fallbackSkipped,
                 errors: fallbackErrors,
-                message: recibosFallback.message || recibosFallback.error || null,
+                message: recibosFallback.message || recibosFallback.error ||
+                  null,
+                rawRecords: recibosFallback.rawRecords ?? null,
+                eligibleRecords: recibosFallback.eligibleRecords ?? null,
+                filteredOut: recibosFallback.filteredOut ?? null,
+                rejectedDocumentTypes: recibosFallback.rejectedDocumentTypes ??
+                  null,
                 connectorDebug: recibosFallback.connectorDebug ?? null,
               }
               : null,
@@ -1905,13 +1959,17 @@ Deno.serve(async (req: Request) => {
               inserted += fallbackInserted;
               skipped += fallbackSkipped;
               errors += fallbackErrors;
-              vendasReturnedCount += monthRetry.invoices?.length ?? 0;
+              vendasReturnedCount += (monthRetry.invoices?.length ?? 0) +
+                fallbackEligibleRecords;
               hasSuccesses = true;
               recoveredViaMonthRetry = true;
 
               if (monthRetry.monthsFailed > 0) {
                 hasErrors = true;
-                const partialErr = `Schema error: ${monthRetry.monthsSucceeded}/${monthRetry.monthsSucceeded + monthRetry.monthsFailed} months OK`;
+                const partialErr =
+                  `Schema error: ${monthRetry.monthsSucceeded}/${
+                    monthRetry.monthsSucceeded + monthRetry.monthsFailed
+                  } months OK`;
                 reasonCodes.push("AT_SCHEMA_RESPONSE_ERROR");
                 errorMessages.push(partialErr);
               }
@@ -1922,6 +1980,7 @@ Deno.serve(async (req: Request) => {
                 imported: r.inserted,
                 skipped: r.skipped,
                 errors: r.errors,
+                recoveredViaRecibos,
                 monthByMonthRetry: monthRetryMeta,
                 recibosFallback: recibosFallback
                   ? {
@@ -1930,7 +1989,14 @@ Deno.serve(async (req: Request) => {
                     inserted: fallbackInserted,
                     skipped: fallbackSkipped,
                     errors: fallbackErrors,
-                    message: recibosFallback.message || recibosFallback.error || null,
+                    message: recibosFallback.message || recibosFallback.error ||
+                      null,
+                    rawRecords: recibosFallback.rawRecords ?? null,
+                    eligibleRecords: recibosFallback.eligibleRecords ?? null,
+                    filteredOut: recibosFallback.filteredOut ?? null,
+                    rejectedDocumentTypes:
+                      recibosFallback.rejectedDocumentTypes ?? null,
+                    connectorDebug: recibosFallback.connectorDebug ?? null,
                   }
                   : null,
               };
@@ -1942,7 +2008,7 @@ Deno.serve(async (req: Request) => {
               inserted += fallbackInserted;
               skipped += fallbackSkipped;
               errors += fallbackErrors;
-              vendasReturnedCount += fallbackInserted + fallbackSkipped;
+              vendasReturnedCount += fallbackEligibleRecords;
               hasSuccesses = true;
               directionMetadata.vendas = {
                 success: true,
@@ -1958,6 +2024,12 @@ Deno.serve(async (req: Request) => {
                   skipped: fallbackSkipped,
                   errors: fallbackErrors,
                   message: recibosFallback?.message || null,
+                  rawRecords: recibosFallback?.rawRecords ?? null,
+                  eligibleRecords: recibosFallback?.eligibleRecords ?? null,
+                  filteredOut: recibosFallback?.filteredOut ?? null,
+                  rejectedDocumentTypes:
+                    recibosFallback?.rejectedDocumentTypes ?? null,
+                  connectorDebug: recibosFallback?.connectorDebug ?? null,
                 },
               };
             } else {
@@ -1977,7 +2049,14 @@ Deno.serve(async (req: Request) => {
                     inserted: fallbackInserted,
                     skipped: fallbackSkipped,
                     errors: fallbackErrors,
-                    message: recibosFallback.message || recibosFallback.error || null,
+                    message: recibosFallback.message || recibosFallback.error ||
+                      null,
+                    rawRecords: recibosFallback.rawRecords ?? null,
+                    eligibleRecords: recibosFallback.eligibleRecords ?? null,
+                    filteredOut: recibosFallback.filteredOut ?? null,
+                    rejectedDocumentTypes:
+                      recibosFallback.rejectedDocumentTypes ?? null,
+                    connectorDebug: recibosFallback.connectorDebug ?? null,
                   }
                   : null,
               };
@@ -1991,17 +2070,27 @@ Deno.serve(async (req: Request) => {
       // returned zero records. Direction-specific so a compras-only or
       // vendas-only client is not falsely flagged on the unused direction.
       const [hasPriorCompras, hasPriorVendas] = await Promise.all([
-        wantCompras ? clientHasPriorPurchases(supabase, clientId) : Promise.resolve(false),
-        wantVendas ? clientHasPriorSales(supabase, clientId) : Promise.resolve(false),
+        wantCompras
+          ? clientHasPriorPurchases(supabase, clientId)
+          : Promise.resolve(false),
+        wantVendas
+          ? clientHasPriorSales(supabase, clientId)
+          : Promise.resolve(false),
       ]);
       const comprasDecision = wantCompras
-        ? decideSyncStatus({ atReturnedCount: comprasReturnedCount, hasPriorData: hasPriorCompras })
+        ? decideSyncStatus({
+          atReturnedCount: comprasReturnedCount,
+          hasPriorData: hasPriorCompras,
+        })
         : { status: "success" as const, reasonCode: null };
       const vendasDecision = wantVendas
-        ? decideSyncStatus({ atReturnedCount: vendasReturnedCount, hasPriorData: hasPriorVendas })
+        ? decideSyncStatus({
+          atReturnedCount: vendasReturnedCount,
+          hasPriorData: hasPriorVendas,
+        })
         : { status: "success" as const, reasonCode: null };
-      const hasSuspiciousEmpty =
-        comprasDecision.status === "partial" || vendasDecision.status === "partial";
+      const hasSuspiciousEmpty = comprasDecision.status === "partial" ||
+        vendasDecision.status === "partial";
 
       let overallStatus: "success" | "partial" | "error" = "success";
       let overallError: string | null = null;
@@ -2087,9 +2176,12 @@ Deno.serve(async (req: Request) => {
           last_sync_error: overallError,
         }).eq("client_id", clientId);
         // Atomic increment via RPC
-        const { error: incrementError } = await supabase.rpc("increment_consecutive_failures", {
-          p_client_id: clientId,
-        });
+        const { error: incrementError } = await supabase.rpc(
+          "increment_consecutive_failures",
+          {
+            p_client_id: clientId,
+          },
+        );
         if (incrementError) {
           console.warn(
             "[sync-efatura] increment_consecutive_failures RPC unavailable:",
