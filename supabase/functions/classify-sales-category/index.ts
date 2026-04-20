@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
-import { isServiceRoleToken } from "../_shared/auth.ts";
+import { isConfiguredServiceRoleToken } from "../_shared/auth.ts";
 import { parseJsonFromAI } from "../_shared/parseJsonFromAI.ts";
 
 const corsHeaders = {
@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
     });
 
     // Check if caller is service-role (for batch processing)
-    const isServiceRole = isServiceRoleToken(token, supabaseServiceKey);
+    const isServiceRole = isConfiguredServiceRoleToken(token);
 
     let user: { id: string } | null = null;
     if (!isServiceRole) {

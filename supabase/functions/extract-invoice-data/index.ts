@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
 import { evaluateEdpFallbackSanity } from './edpSanity.ts';
-import { isServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
+import { isConfiguredServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://ivazen-saas.vercel.app',
@@ -375,7 +375,7 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const token = extractBearerToken(authHeader);
-    let isServiceRole = isServiceRoleToken(token, supabaseServiceRoleKey);
+    let isServiceRole = isConfiguredServiceRoleToken(token);
 
     if (!isServiceRole) {
       const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {

@@ -10,7 +10,7 @@
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
-import { isServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
+import { isConfiguredServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
 import { normalizeSupplierTaxId, SAFE_GLOBAL_NIFS } from "../_shared/classificationHelpers.ts";
 
 const corsHeaders = {
@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
   try {
     // Service-role auth only
     const token = extractBearerToken(req.headers.get('Authorization'));
-    if (!isServiceRoleToken(token, supabaseServiceKey)) {
+    if (!isConfiguredServiceRoleToken(token)) {
       return new Response(
         JSON.stringify({ error: 'Service-role authentication required' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },

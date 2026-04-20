@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
-import { isServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
+import { isConfiguredServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
 import { parseJsonFromAI } from "../_shared/parseJsonFromAI.ts";
 import { normalizeSupplierTaxId, SAFE_GLOBAL_NIFS } from "../_shared/classificationHelpers.ts";
 
@@ -185,7 +185,7 @@ Deno.serve(async (req) => {
     const token = authHeader.replace(/^Bearer\s+/i, '').trim();
 
     // Check if caller is service-role (for batch processing)
-    const isServiceRole = isServiceRoleToken(token, supabaseServiceKey);
+    const isServiceRole = isConfiguredServiceRoleToken(token);
 
     // Use service role client for DB operations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {

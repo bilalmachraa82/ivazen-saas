@@ -9,7 +9,7 @@
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
-import { isServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
+import { isConfiguredServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
 import { encryptSecret } from "../_shared/encrypt.ts";
 
 const corsHeaders = {
@@ -52,7 +52,7 @@ Deno.serve(async (req: Request) => {
 
     // Verify service-role token (with JWT decode fallback)
     const token = extractBearerToken(req.headers.get("Authorization"));
-    if (!isServiceRoleToken(token, supabaseServiceKey)) {
+    if (!isConfiguredServiceRoleToken(token)) {
       return new Response(
         JSON.stringify({ error: "Acesso restrito a service-role" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },

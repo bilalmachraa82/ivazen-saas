@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
 import { parseJsonFromAI } from "../_shared/parseJsonFromAI.ts";
-import { isServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
+import { isConfiguredServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
 
 const VERSION = '5.9.1'; // SAVED guardrail + isExplicitZeroRate removal
 
@@ -953,7 +953,7 @@ Deno.serve(async (req) => {
 
     // Accept both user JWT and service-role token (consistent with other edge functions)
     const token = extractBearerToken(authHeader);
-    const isServiceRole = isServiceRoleToken(token, supabaseServiceKey);
+    const isServiceRole = isConfiguredServiceRoleToken(token);
 
     if (!isServiceRole) {
       const userSupabase = createClient(supabaseUrl, supabaseAnonKey, {

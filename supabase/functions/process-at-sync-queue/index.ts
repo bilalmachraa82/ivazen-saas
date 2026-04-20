@@ -10,7 +10,7 @@ const VERSION = "process-at-sync-queue@20260225-1315";
 
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
 import {
-  isServiceRoleToken,
+  isConfiguredServiceRoleToken,
   extractBearerToken,
   verifyWebhookToken,
 } from "../_shared/auth.ts";
@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
     const token = extractBearerToken(req.headers.get("Authorization"));
     const webhookToken = (req.headers.get("x-internal-webhook-token") || "").trim();
 
-    let isAuthorized = isServiceRoleToken(token, SUPABASE_SERVICE_ROLE_KEY);
+    let isAuthorized = isConfiguredServiceRoleToken(token);
 
     if (!isAuthorized && webhookToken) {
       isAuthorized = await verifyWebhookToken(supabase, webhookToken, "process_at_sync_queue");

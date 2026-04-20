@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
 import {
-  isServiceRoleToken,
+  isConfiguredServiceRoleToken,
   extractBearerToken,
   verifyWebhookToken,
 } from "../_shared/auth.ts";
@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    let isAuthorized = isServiceRoleToken(token, serviceRoleKey);
+    let isAuthorized = isConfiguredServiceRoleToken(token);
     let userId: string | null = null;
 
     // If not service-role, try user auth with explicit token

@@ -12,7 +12,7 @@
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
-import { extractBearerToken, isServiceRoleToken } from "../_shared/auth.ts";
+import { extractBearerToken, isConfiguredServiceRoleToken } from "../_shared/auth.ts";
 import { encryptSecret } from "../_shared/encrypt.ts";
 
 const corsHeaders = {
@@ -126,7 +126,7 @@ Deno.serve(async (req: Request) => {
     if (authUser) {
       user = authUser;
     } else {
-      if (isServiceRoleToken(token, supabaseServiceKey)) {
+      if (isConfiguredServiceRoleToken(token)) {
         const { data: accountants } = await supabaseAdmin
           .from('user_roles')
           .select('user_id')

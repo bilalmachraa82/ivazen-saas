@@ -10,7 +10,7 @@
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2.94.1";
-import { isServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
+import { isConfiguredServiceRoleToken, extractBearerToken } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin":
@@ -80,7 +80,7 @@ Deno.serve(async (req: Request) => {
   // Auth: service-role only
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   const token = extractBearerToken(req.headers.get("Authorization"));
-  if (!isServiceRoleToken(token, serviceRoleKey)) {
+  if (!isConfiguredServiceRoleToken(token)) {
     return new Response(
       JSON.stringify({ error: "Unauthorized: service-role required" }),
       { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
