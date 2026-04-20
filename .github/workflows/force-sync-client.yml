@@ -71,7 +71,8 @@ jobs:
 
       - name: Force sync
         run: |
-          cat > /tmp/force.mjs <<'EOF'
+          script="$GITHUB_WORKSPACE/.force.mjs"
+          cat > "$script" <<'EOF'
           import { createClient } from '@supabase/supabase-js';
 
           const clientId = process.env.CLIENT_ID;
@@ -118,7 +119,7 @@ jobs:
             console.log(`  ${r.sync_type} y=${r.sync_year} status=${r.status} synced=${r.invoices_synced ?? 0} at_returned=${r.invoices_returned_by_at ?? '?'} reason=${r.reason_code ?? '—'}`);
           }
           EOF
-          node /tmp/force.mjs
+          node "$script"
         env:
           CLIENT_ID: ${{ github.event.inputs.client_id }}
           DIRECTION: ${{ github.event.inputs.direction }}

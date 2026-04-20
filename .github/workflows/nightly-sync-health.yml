@@ -60,7 +60,8 @@ jobs:
       - name: Run sweep
         id: sweep
         run: |
-          cat > /tmp/sweep.mjs <<'EOF'
+          script="$GITHUB_WORKSPACE/.sweep.mjs"
+          cat > "$script" <<'EOF'
           import { createClient } from '@supabase/supabase-js';
 
           const supabase = createClient(
@@ -171,7 +172,7 @@ jobs:
           fs.writeFileSync('/tmp/sweep-report.md', report);
           fs.writeFileSync('/tmp/sweep-actionable', actionable ? 'yes' : 'no');
           EOF
-          node /tmp/sweep.mjs
+          node "$script"
           echo "actionable=$(cat /tmp/sweep-actionable)" >> "$GITHUB_OUTPUT"
 
       - name: Upsert "Sync health" issue
